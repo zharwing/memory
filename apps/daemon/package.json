@@ -1,0 +1,20 @@
+{
+  "name": "@aimem/daemon",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "@aimem/assistant-runtime": "workspace:*",
+    "@aimem/core": "workspace:*",
+    "@aimem/storage": "workspace:*",
+    "@aimem/context-engine": "workspace:*",
+    "@aimem/search": "workspace:*",
+    "@aimem/graph": "workspace:*"
+  }
+}

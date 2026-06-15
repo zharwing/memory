@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.turbo/
+.vite/
+target/
+*.tsbuildinfo
+AI Memory Root/
+*.log
+.env
+.env.*
