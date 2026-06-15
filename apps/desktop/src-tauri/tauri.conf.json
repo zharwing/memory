@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AI Memory",
+  "version": "0.1.0",
+  "identifier": "local.aimem.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AI Memory",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 980,
+        "minHeight": 720
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}

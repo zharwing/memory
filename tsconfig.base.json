@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@aimem/core": ["packages/core/src/index.ts"],
+      "@aimem/storage": ["packages/storage/src/index.ts"],
+      "@aimem/privacy": ["packages/privacy/src/index.ts"],
+      "@aimem/context-engine": ["packages/context-engine/src/index.ts"],
+      "@aimem/search": ["packages/search/src/index.ts"],
+      "@aimem/graph": ["packages/graph/src/index.ts"],
+      "@aimem/assistant-runtime": ["packages/assistant-runtime/src/index.ts"],
+      "@aimem/api-client": ["packages/api-client/src/index.ts"],
+      "@aimem/mcp-tools": ["packages/mcp-tools/src/index.ts"],
+      "@aimem/theme": ["packages/theme/src/index.ts"]
+    }
+  }
+}
