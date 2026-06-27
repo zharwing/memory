@@ -29,14 +29,73 @@ The original Markdown body is preserved. Existing source frontmatter is used as
 input metadata, then AI Memory writes its own normalized frontmatter around the
 body.
 
-## Built-In Profiles
+## What Profiles Are
 
-| Profile | Use |
-| --- | --- |
-| `generic-markdown` | Import Markdown and text files as general memory documents. |
-| `markdown-memory` | Import an existing memory folder as project documents. |
-| `markdown-sessions` | Import an existing session folder as closed session history. |
-| `workspace-markdown` | Import mixed Markdown workspaces, treating session-like paths as sessions. |
+An import profile is a set of rules that tells AI Memory how to interpret files
+in the selected source folder. The profile decides:
+
+- which files are included or ignored
+- whether matching files become long-lived project documents or historical
+  session records
+- the default document type, status, visibility, and format
+- whether topics are inferred from folder names
+- which special path patterns should override the defaults
+- where the imported files will be written inside the project memory workspace
+
+Profiles do not change the source folder. Previewing an import only scans files
+and shows what would happen. Committing the import writes normalized AI Memory
+Markdown files into the selected project.
+
+Use a profile based on what the source folder represents:
+
+| Source folder contains | Choose | Result |
+| --- | --- | --- |
+| General Markdown notes, loose docs, or text files | `generic-markdown` | Every included file becomes a project document. |
+| An old `MEMORY`-style folder with durable project knowledge | `markdown-memory` | Every included file becomes a project document, with memory-oriented type inference. |
+| Old session logs, work logs, or dated AI run notes | `markdown-sessions` | Every included file becomes a closed historical session. |
+| A mixed folder that contains both docs and session-like paths | `workspace-markdown` | Session-looking paths become sessions; the rest become documents. |
+
+## Built-In Profile Behavior
+
+| Profile | Default item kind | Included files | Default target | Special behavior |
+| --- | --- | --- | --- | --- |
+| `generic-markdown` | Document | `*.md`, `*.txt` | `docs/imported/generic-markdown/...` | Best neutral fallback. Infers topics from folders and document type from names like `README`, `architecture`, `decision`, `plan`, `spec`, `command`, `gotcha`, or `diagram`. |
+| `markdown-memory` | Document | `*.md`, `*.txt` | `docs/imported/markdown-memory/...` | Same core behavior as generic Markdown, but intended for existing durable memory folders. Use this for old project knowledge, decisions, commands, gotchas, architecture notes, and reference docs. |
+| `markdown-sessions` | Session | `*.md`, `*.txt` | `sessions/imported/markdown-sessions/...` | Imports files as closed session history. It preserves the body, infers dates from paths when possible, and marks the agent/client as import metadata when the source does not specify them. |
+| `workspace-markdown` | Document unless path looks session-like | `*.md`, `*.txt` | `docs/imported/workspace-markdown/...` or `sessions/imported/workspace-markdown/...` | Files under paths like `sessions/`, `session/`, or names containing `session` become sessions; other files become documents. |
+
+All built-in profiles skip common non-memory folders and binaries, including
+`.git`, `node_modules`, archives, image files, PDFs, and local `.codex` files.
+
+Examples:
+
+```text
+Source: <old-memory-folder>/backend/auth-decision.md
+Profile: markdown-memory
+Target: <project-memory-root>/docs/imported/markdown-memory/backend/auth-decision.md
+Result: project document
+```
+
+```text
+Source: <old-sessions-folder>/2026-06-15-fix-auth.md
+Profile: markdown-sessions
+Target: <project-memory-root>/sessions/imported/markdown-sessions/2026-06-15-fix-auth.md
+Result: closed historical session
+```
+
+```text
+Source: <old-workspace>/sessions/2026-06-15.md
+Profile: workspace-markdown
+Target: <project-memory-root>/sessions/imported/workspace-markdown/sessions/2026-06-15.md
+Result: closed historical session
+```
+
+```text
+Source: <old-workspace>/architecture/runtime.md
+Profile: workspace-markdown
+Target: <project-memory-root>/docs/imported/workspace-markdown/architecture/runtime.md
+Result: project document
+```
 
 The desktop/web UI exposes these as presets:
 
@@ -45,6 +104,9 @@ The desktop/web UI exposes these as presets:
 | `Memory Docs` | `markdown-memory` |
 | `Session History` | `markdown-sessions` |
 | `Mixed Workspace` | `workspace-markdown` |
+
+The `Profile` dropdown also exposes `generic-markdown` for loose folders that
+are not specifically memory folders or session-history folders.
 
 Profiles are data, not code. RPC and MCP callers can pass a custom profile
 object with include/exclude globs, default kind, visibility, status, and path

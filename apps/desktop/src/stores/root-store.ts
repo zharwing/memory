@@ -544,6 +544,18 @@ export class RootStore {
     });
   }
 
+  async loadAllSessions() {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      const sessions = await this.client.call("memory.list_project_sessions", {
+        projectId: this.selectedProjectId
+      });
+      runInAction(() => {
+        this.sessions = sessions as any[];
+      });
+    });
+  }
+
   async saveCheckpoint(sessionId: string, summary: string) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
