@@ -1094,11 +1094,22 @@ input[type="checkbox"] {
 
 .diagram-viewer-canvas {
   background: var(--surface-2);
+  cursor: grab;
   min-height: 0;
   min-width: 0;
   overscroll-behavior: contain;
   overflow: auto;
   padding: 18px;
+  touch-action: none;
+}
+
+.diagram-viewer-canvas.panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.diagram-viewer-canvas.panning * {
+  pointer-events: none;
 }
 
 .diagram-viewer-canvas .mermaid-svg {
@@ -1196,6 +1207,19 @@ tr.selected-row td {
   overflow: auto;
   word-break: break-word;
   line-height: 1.55;
+}
+
+.search-result-detail {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 14px;
+  max-height: 560px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.search-result-detail .rendered-markdown {
+  border: 0;
 }
 
 .graph-summary-bar {

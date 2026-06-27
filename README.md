@@ -149,8 +149,8 @@ Example:
 
 ```json
 {
-  "projectId": "10x",
-  "memoryRoot": "D:/ai/llm-memory/store"
+  "projectId": "my-project",
+  "memoryRoot": "<absolute-path-to-private-memory-store>"
 }
 ```
 
