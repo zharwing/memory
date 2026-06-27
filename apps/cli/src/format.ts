@@ -21,7 +21,13 @@ Commands:
   projects                         List registered projects
   detect [path]                    Detect project from a folder
   status --project <id>            Show project summary
-  init [path] [--name <name>]       Create project memory for a folder
+  repos --project <id>             List repos linked to a project
+  link-repo <path> --project <id>  Link another repo/worktree to a project
+  unlink-repo <path> --project <id>
+  workstreams --project <id>       List project workstreams
+  create-workstream "name" --project <id>
+  workstream <id-or-slug> --project <id>
+  init [path] [--name <name>]       Create project memory
   start "task" --project <id>       Start a project-scoped session
   resume --project <id>            Show latest/active session choice
   sessions --project <id>          List project sessions
@@ -34,12 +40,28 @@ Commands:
   backup --project <id>            Create local snapshot backup
   validate --project <id>          Validate project workspace
   rebuild-index --project <id>     Rebuild dependency-free JSON index
+  import-profiles                  List built-in folder import profiles
   assistant status --project <id>  Show Memory Assistant status
   assistant summarize-session --project <id> --session <id>
   assistant return-summary --project <id>
+  import <file> --project <id>     Import one file as a document
+  import-folder <path> --project <id> [--profile <name>]
+  import-folder <path> --project <id> --commit [--conflict skip|overwrite|duplicate]
+  import-commit <path> --project <id> [--profile <name>]
+  agent-instructions --project <id> [--agent generic|codex|claude|qwen]
 
 Flags:
   --json                           Print raw JSON where a command normally formats output
   --preview                        Preview context without persisting bundle
+  --name <name>                    Human-friendly repo or project name
+  --description <text>             Repo description
+  --role <role>                    Free-form repo category/role
+  --topic <a,b>                    Comma-separated workstream topics
+  --repo-role <a,b>                Comma-separated workstream repo categories
+  --project-only                   Create a project without linking the current folder
+  --no-pointer                     Do not write .ai-memory.json when linking a repo
+  --keep-pointer                   Do not remove .ai-memory.json when unlinking a repo
+  --agent <name>                   Agent instruction target: generic, codex, claude, or qwen
+  --output <path|default>          Write generated agent instructions to a file
 `);
 }

@@ -1,12 +1,15 @@
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   createId,
   filenameSafe,
   nowIso,
   type DocumentType,
+  type DocumentStatus,
   type MemoryDocument,
   type Project,
-  type Visibility
+  type Visibility,
+  type WorkstreamId
 } from "@aimem/core";
 import { listFiles, pathExists, readText, writeText } from "./fs.js";
 import { formatMarkdown, parseMarkdown } from "./markdown.js";
@@ -16,9 +19,11 @@ export async function createDocument(args: {
   title: string;
   type: DocumentType;
   body: string;
+  status?: DocumentStatus;
   visibility?: Visibility;
   folder?: string;
   topics?: string[];
+  workstreamIds?: WorkstreamId[];
   relatedFiles?: string[];
 }): Promise<MemoryDocument> {
   const now = nowIso();
@@ -29,9 +34,10 @@ export async function createDocument(args: {
     projectId: args.project.id,
     title: args.title,
     type: args.type,
-    status: "draft",
+    status: args.status || "active",
     visibility: args.visibility || args.project.privacyPolicy.defaultVisibility,
     topics: args.topics || [],
+    workstreamIds: args.workstreamIds || [],
     relatedTasks: [],
     relatedFiles: args.relatedFiles || [],
     relatedSessions: [],
@@ -58,6 +64,7 @@ export async function writeDocument(doc: MemoryDocument): Promise<void> {
         visibility: doc.visibility,
         project: doc.projectId,
         topics: doc.topics,
+        workstream_ids: doc.workstreamIds,
         related_tasks: doc.relatedTasks,
         related_files: doc.relatedFiles,
         related_sessions: doc.relatedSessions,
@@ -67,7 +74,11 @@ export async function writeDocument(doc: MemoryDocument): Promise<void> {
         last_verified: doc.lastVerified,
         confidence: doc.confidence,
         diagram_type: doc.diagramType,
-        format: doc.format
+        format: doc.format,
+        import_source_path: doc.importSourcePath,
+        import_source_hash: doc.importSourceHash,
+        imported_at: doc.importedAt,
+        import_profile: doc.importProfile
       },
       doc.body
     )
@@ -100,6 +111,8 @@ export async function readDocument(project: Project, filePath: string): Promise<
   const parsed = parseMarkdown(raw);
   const fm = parsed.frontmatter;
   const title = String(fm.title || inferTitle(parsed.body) || path.basename(filePath, ".md"));
+  const stat = await fs.stat(filePath);
+  const fileUpdated = stat.mtime.toISOString();
 
   return {
     id: String(fm.id || createId("doc")),
@@ -109,18 +122,23 @@ export async function readDocument(project: Project, filePath: string): Promise<
     status: (fm.status as MemoryDocument["status"]) || "draft",
     visibility: (fm.visibility as Visibility) || project.privacyPolicy.defaultVisibility,
     topics: arrayOfStrings(fm.topics),
+    workstreamIds: arrayOfStrings(fm.workstream_ids),
     relatedTasks: arrayOfStrings(fm.related_tasks),
     relatedFiles: arrayOfStrings(fm.related_files),
     relatedSessions: arrayOfStrings(fm.related_sessions),
     relatedDiagrams: arrayOfStrings(fm.related_diagrams),
-    created: String(fm.created || nowIso()),
-    updated: String(fm.updated || fm.created || nowIso()),
+    created: String(fm.created || fileUpdated),
+    updated: String(fm.updated || fm.created || fileUpdated),
     lastVerified: stringOrUndefined(fm.last_verified),
     confidence: fm.confidence as MemoryDocument["confidence"],
     filePath,
     body: parsed.body,
     diagramType: stringOrUndefined(fm.diagram_type),
-    format: (fm.format as MemoryDocument["format"]) || "markdown"
+    format: (fm.format as MemoryDocument["format"]) || "markdown",
+    importSourcePath: stringOrUndefined(fm.import_source_path),
+    importSourceHash: stringOrUndefined(fm.import_source_hash),
+    importedAt: stringOrUndefined(fm.imported_at),
+    importProfile: stringOrUndefined(fm.import_profile)
   };
 }
 
@@ -152,11 +170,17 @@ function inferTitle(body: string): string | undefined {
 }
 
 function inferType(filePath: string): DocumentType {
-  if (filePath.includes("/diagrams/")) return "diagram";
-  if (filePath.endsWith("overview.md")) return "overview";
-  if (filePath.endsWith("commands.md")) return "commands";
-  if (filePath.endsWith("gotchas.md")) return "gotcha";
-  if (filePath.endsWith("privacy.md")) return "privacy";
+  const normalized = filePath.replace(/\\/g, "/").toLowerCase();
+  const basename = path.posix.basename(normalized);
+  if (normalized.includes("/diagrams/")) return "diagram";
+  if (basename === "overview.md") return "overview";
+  if (basename === "architecture.md") return "architecture-note";
+  if (basename === "decisions.md") return "decision-record";
+  if (basename === "tasks.md") return "plan";
+  if (basename === "gotchas.md") return "gotcha";
+  if (basename === "commands.md") return "commands";
+  if (basename === "glossary.md") return "glossary";
+  if (basename === "privacy.md") return "privacy";
   return "scratch-note";
 }
 

@@ -5,6 +5,7 @@ export type SessionId = string;
 export type DocumentId = string;
 export type ContextBundleId = string;
 export type ProposedUpdateId = string;
+export type WorkstreamId = string;
 
 export type Visibility =
   | "ai-eligible"
@@ -22,6 +23,8 @@ export type DocumentStatus =
   | "archived";
 
 export type SessionStatus = "active" | "closed" | "archived";
+
+export type WorkstreamStatus = "active" | "paused" | "done" | "archived";
 
 export type StartupMode =
   | "auto-resume-project-session"
@@ -43,6 +46,8 @@ export type AssistantState =
   | "unavailable"
   | "external";
 
+export type MemoryReviewMode = "off" | "risky-only" | "all";
+
 export type SafetyStatus =
   | "clean"
   | "needs-review"
@@ -51,7 +56,9 @@ export type SafetyStatus =
 
 export interface RepoLink {
   path: string;
-  role: "primary" | "frontend" | "backend" | "docs" | "worktree" | "other";
+  name?: string;
+  description?: string;
+  role: string;
   defaultBranch?: string;
   created: ISODateString;
   updated: ISODateString;
@@ -88,6 +95,11 @@ export interface AssistantPolicy {
   autoAcceptLowRiskMetadata: boolean;
 }
 
+export interface MemoryWritePolicy {
+  allowAgentDirectWrites: boolean;
+  reviewMode: MemoryReviewMode;
+}
+
 export interface Project {
   id: ProjectId;
   name: string;
@@ -100,6 +112,8 @@ export interface Project {
   privacyPolicy: PrivacyPolicy;
   contextPolicy: ContextPolicy;
   assistantPolicy: AssistantPolicy;
+  memoryWritePolicy?: MemoryWritePolicy;
+  graphRules?: GraphExtractionRule[];
 }
 
 export interface SessionCheckpoint {
@@ -130,12 +144,17 @@ export interface Session {
   nextSteps: string[];
   blockers: string[];
   touchedFiles: string[];
+  workstreamIds: WorkstreamId[];
   relatedDocs: DocumentId[];
   relatedTasks: string[];
   contextBundleId?: ContextBundleId;
   checkpoints: SessionCheckpoint[];
   filePath?: string;
   body?: string;
+  importSourcePath?: string;
+  importSourceHash?: string;
+  importedAt?: ISODateString;
+  importProfile?: string;
 }
 
 export type DocumentType =
@@ -168,6 +187,7 @@ export interface MemoryDocument {
   status: DocumentStatus;
   visibility: Visibility;
   topics: string[];
+  workstreamIds: WorkstreamId[];
   relatedTasks: string[];
   relatedFiles: string[];
   relatedSessions: SessionId[];
@@ -180,6 +200,113 @@ export interface MemoryDocument {
   body: string;
   diagramType?: string;
   format?: "markdown" | "mermaid" | "plantuml" | "image" | "text";
+  importSourcePath?: string;
+  importSourceHash?: string;
+  importedAt?: ISODateString;
+  importProfile?: string;
+}
+
+export interface Workstream {
+  id: WorkstreamId;
+  projectId: ProjectId;
+  name: string;
+  slug: string;
+  status: WorkstreamStatus;
+  summary?: string;
+  goal?: string;
+  topics: string[];
+  repoRoles: RepoLink["role"][];
+  relatedTasks: string[];
+  relatedFiles: string[];
+  pinnedDocIds: DocumentId[];
+  created: ISODateString;
+  updated: ISODateString;
+  closed?: ISODateString;
+  filePath?: string;
+  body: string;
+}
+
+export interface WorkstreamDetail {
+  workstream: Workstream;
+  sessions: Session[];
+  documents: MemoryDocument[];
+}
+
+export type ImportItemKind = "document" | "session" | "skip";
+
+export type ImportConflictStrategy = "skip" | "overwrite" | "duplicate";
+
+export interface ImportPathRule {
+  match: string;
+  kind?: ImportItemKind;
+  type?: DocumentType;
+  status?: DocumentStatus;
+  sessionStatus?: SessionStatus;
+  visibility?: Visibility;
+  format?: MemoryDocument["format"];
+  topics?: string[];
+  topicsFromPath?: boolean;
+}
+
+export interface ImportProfile {
+  name: string;
+  description?: string;
+  include: string[];
+  exclude: string[];
+  defaultKind: ImportItemKind;
+  defaultDocumentType: DocumentType;
+  defaultDocumentStatus: DocumentStatus;
+  defaultSessionStatus: SessionStatus;
+  defaultVisibility: Visibility;
+  preserveRawBody: boolean;
+  topicsFromPath: boolean;
+  pathRules: ImportPathRule[];
+}
+
+export interface ImportCandidate {
+  id: string;
+  projectId: ProjectId;
+  sourcePath: string;
+  relativePath: string;
+  sourceHash: string;
+  size: number;
+  kind: ImportItemKind;
+  title: string;
+  documentType?: DocumentType;
+  documentStatus?: DocumentStatus;
+  sessionStatus?: SessionStatus;
+  visibility: Visibility;
+  format?: MemoryDocument["format"];
+  topics: string[];
+  targetPath?: string;
+  skippedReason?: string;
+  warnings: string[];
+}
+
+export interface ImportPlan {
+  id: string;
+  projectId: ProjectId;
+  sourceRoot: string;
+  profileName: string;
+  created: ISODateString;
+  candidates: ImportCandidate[];
+  counts: {
+    total: number;
+    documents: number;
+    sessions: number;
+    skipped: number;
+    warnings: number;
+  };
+}
+
+export interface ImportCommitResult {
+  planId: string;
+  projectId: ProjectId;
+  committed: number;
+  documents: number;
+  sessions: number;
+  skipped: number;
+  writtenPaths: string[];
 }
 
 export type ProposedUpdateType =
@@ -191,6 +318,7 @@ export type ProposedUpdateType =
   | "doc-update"
   | "stale-warning"
   | "diagram"
+  | "graph-update"
   | "session-summary";
 
 export type ProposedUpdateStatus =
@@ -289,13 +417,13 @@ export interface ProjectCreationPreview {
   requestId: string;
   proposedProjectName: string;
   proposedProjectId: ProjectId;
-  repoRoot: string;
+  repoRoot?: string;
   memoryLocation: string;
   willCreatePointerFile: boolean;
   pointerFilePath?: string;
   willCreateBootstrapFiles: string[];
   privacyDefaults: string[];
-  discoveryLevel: "repo-metadata-only";
+  discoveryLevel: "project-only" | "repo-metadata-only";
   requiresUserConfirmation: boolean;
   created: ISODateString;
 }
@@ -323,7 +451,7 @@ export interface StartupState {
 export interface SearchResult {
   id: string;
   projectId: ProjectId;
-  type: "session" | "document" | "proposed-update" | "context-bundle";
+  type: "workstream" | "session" | "document" | "proposed-update" | "context-bundle";
   title: string;
   path?: string;
   status?: string;
@@ -333,9 +461,40 @@ export interface SearchResult {
   score: number;
 }
 
+export type TrashItemType =
+  | "project"
+  | "repo"
+  | "workstream"
+  | "session"
+  | "document"
+  | "inbox-proposal"
+  | "backup";
+
+export interface TrashItem {
+  id: string;
+  type: TrashItemType;
+  projectId?: ProjectId;
+  projectName?: string;
+  itemId: string;
+  title: string;
+  deletedAt: ISODateString;
+  deletedBy?: string;
+  originalPath?: string;
+  payloadPath?: string;
+  metadataPath: string;
+  critical: boolean;
+  canRestore: boolean;
+  details?: Record<string, unknown>;
+}
+
 export type GraphNodeType =
   | "project"
   | "repo"
+  | "workstream"
+  | "topic"
+  | "service"
+  | "package"
+  | "diagram-group"
   | "task"
   | "session"
   | "decision"
@@ -372,11 +531,42 @@ export interface GraphEdge {
     | "supersedes"
     | "supports"
     | "explains"
+    | "mentions"
     | "uses"
+    | "contains"
+    | "depends-on"
     | "blocked-by"
     | "belongs-to"
     | "related";
   reason: string;
+}
+
+export type GraphRuleNodeType =
+  | "topic"
+  | "service"
+  | "package"
+  | "diagram-group"
+  | "code-area"
+  | "external-reference";
+
+export type GraphRuleEdgeType =
+  | "supports"
+  | "explains"
+  | "mentions"
+  | "uses"
+  | "contains"
+  | "depends-on"
+  | "related";
+
+export interface GraphExtractionRule {
+  match: string;
+  nodeType: GraphRuleNodeType;
+  label?: string;
+  segment?: number;
+  slugFromSegment?: number;
+  labelFromSegment?: number;
+  edgeType?: GraphRuleEdgeType;
+  topic?: string;
 }
 
 export interface ProjectGraph {

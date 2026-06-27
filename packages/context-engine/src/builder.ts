@@ -7,6 +7,7 @@ import {
   type MemoryDocument,
   type Project,
   type Redaction,
+  type SafetyStatus,
   type Session
 } from "@aimem/core";
 import { applyPrivacyGate, combineSafetyStatus } from "@aimem/privacy";
@@ -30,7 +31,7 @@ export function buildContextBundle(input: BuildContextInput): ContextBundle {
   const included: ContextIncludedItem[] = [];
   const excluded: ContextExcludedItem[] = [];
   const redactions: Redaction[] = [];
-  const safetyStatuses = [];
+  const safetyStatuses: SafetyStatus[] = [];
   let remainingTokens = input.project.contextPolicy.maxTokens;
 
   const candidates = [

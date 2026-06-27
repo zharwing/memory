@@ -48,10 +48,34 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.prepareProjectCreation(params as never);
     case "memory.create_project":
       return service.createProject(params as never);
+    case "memory.delete_project":
+      return service.deleteProject(params as never);
     case "memory.get_project_summary":
       return service.getProjectSummary(params as never);
+    case "memory.update_memory_write_policy":
+      return service.updateMemoryWritePolicy(params as never);
+    case "memory.update_graph_rules":
+      return service.updateGraphRules(params as never);
     case "memory.ensure_project":
       return service.ensureProject(params as never);
+    case "memory.list_project_repos":
+      return service.listProjectRepos(params as never);
+    case "memory.link_repo":
+      return service.linkRepo(params as never);
+    case "memory.unlink_repo":
+      return service.unlinkRepo(params as never);
+    case "memory.delete_repo":
+      return service.deleteRepo(params as never);
+    case "memory.list_workstreams":
+      return service.listWorkstreams(params as never);
+    case "memory.create_workstream":
+      return service.createWorkstream(params as never);
+    case "memory.get_workstream_detail":
+      return service.getWorkstreamDetail(params as never);
+    case "memory.update_workstream_status":
+      return service.updateWorkstreamStatus(params as never);
+    case "memory.delete_workstream":
+      return service.deleteWorkstream(params as never);
     case "memory.start_session":
       return service.startSession(params as never);
     case "memory.start_or_resume_session":
@@ -71,6 +95,8 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.saveCheckpoint(params as never);
     case "memory.close_session":
       return service.closeSession(params as never);
+    case "memory.delete_session":
+      return service.deleteSession(params as never);
     case "memory.search":
       return service.search(params as never);
     case "memory.list_docs":
@@ -78,16 +104,42 @@ async function callMethod(service: MemoryService, method: string, params: Record
     case "memory.import_doc":
     case "memory.create_doc":
       return service.createDocument(params as never);
+    case "memory.update_doc":
+      return service.updateDocument(params as never);
+    case "memory.delete_doc":
+      return service.deleteDocument(params as never);
+    case "memory.list_import_profiles":
+      return service.listImportProfiles();
+    case "memory.prepare_import":
+      return service.prepareImport(params as never);
+    case "memory.commit_import":
+      return service.commitImport(params as never);
     case "memory.propose_memory_update":
       return service.proposeMemoryUpdate(params as never);
+    case "memory.propose_graph_update":
+      return service.proposeGraphUpdate(params as never);
     case "memory.list_inbox":
       return service.listInbox(params as never);
     case "memory.update_inbox_status":
       return service.updateInboxStatus(params as never);
+    case "memory.delete_inbox_item":
+      return service.deleteInboxItem(params as never);
     case "memory.get_graph":
       return service.getGraph(params as never);
     case "memory.backup_project":
       return service.backupProject(params as never);
+    case "memory.list_backups":
+      return service.listBackups(params as never);
+    case "memory.delete_backup":
+      return service.deleteBackup(params as never);
+    case "memory.list_trash":
+      return service.listTrash();
+    case "memory.restore_trash_item":
+      return service.restoreTrashItem(params as never);
+    case "memory.purge_trash_item":
+      return service.purgeTrashItem(params as never);
+    case "memory.empty_trash":
+      return service.emptyTrash(params as never);
     case "memory.validate_project":
       return service.validateProject(params as never);
     case "memory.rebuild_index":

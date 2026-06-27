@@ -23,21 +23,28 @@ export function shortDateSlug(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function shortLocalSessionDate(date = new Date()): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}-${day}-${year}`;
+}
+
 export function filenameSafe(input: string): string {
   return slugify(input).slice(0, 80) || "untitled";
 }
 
 export function createSessionFilename(args: {
   date?: Date;
-  agent?: string;
-  branch?: string;
-  taskTitle: string;
+  taskTitle?: string;
   suffix?: string;
 }): string {
-  const date = shortDateSlug(args.date);
-  const agent = filenameSafe(args.agent || "manual");
-  const branch = filenameSafe(args.branch || "no-branch");
-  const task = filenameSafe(args.taskTitle);
-  const suffix = args.suffix ? `__${filenameSafe(args.suffix)}` : "";
-  return `${date}__${agent}__${branch}__${task}${suffix}.md`;
+  const date = shortLocalSessionDate(args.date);
+  const task = args.taskTitle?.trim() ? `__${filenameSafe(args.taskTitle)}` : "";
+  const suffix = args.suffix ? `-${filenameSafe(args.suffix)}` : "";
+  return `session-${date}${task}${suffix}.md`;
+}
+
+export function defaultSessionTitle(date = new Date()): string {
+  return `Session ${shortLocalSessionDate(date)}`;
 }

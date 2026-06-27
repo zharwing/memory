@@ -2,11 +2,13 @@ import path from "node:path";
 import {
   createId,
   createSessionFilename,
+  defaultSessionTitle,
   nowIso,
   type Project,
   type Session,
   type SessionCheckpoint,
-  type SessionId
+  type SessionId,
+  type WorkstreamId
 } from "@aimem/core";
 import { listFiles, pathExists, readText, writeText } from "./fs.js";
 import { formatMarkdown, parseMarkdown } from "./markdown.js";
@@ -19,20 +21,23 @@ export async function startSession(args: {
   branch?: string;
   agent?: string;
   client?: string;
-  taskTitle: string;
+  taskTitle?: string;
   goal?: string;
+  workstreamIds?: WorkstreamId[];
 }): Promise<Session> {
   const now = nowIso();
+  const started = new Date(now);
+  const taskTitle = args.taskTitle?.trim() || defaultSessionTitle(started);
   const id = createId("session");
   const fileName = createSessionFilename({
-    agent: args.agent,
-    branch: args.branch,
+    date: started,
     taskTitle: args.taskTitle
   });
-  const dateParts = now.slice(0, 10).split("-");
-  const filePath = path.join(args.project.memoryRoot, "sessions", dateParts[0], dateParts[1], fileName);
+  const year = String(started.getFullYear());
+  const month = String(started.getMonth() + 1).padStart(2, "0");
+  const filePath = await uniqueSessionFilePath(path.join(args.project.memoryRoot, "sessions", year, month, fileName));
 
-  const body = sessionBodyTemplate({ taskTitle: args.taskTitle, goal: args.goal });
+  const body = sessionBodyTemplate({ taskTitle, goal: args.goal, created: now });
   const session: Session = {
     id,
     projectId: args.project.id,
@@ -44,11 +49,12 @@ export async function startSession(args: {
     status: "active",
     started: now,
     updated: now,
-    taskTitle: args.taskTitle,
+    taskTitle,
     goal: args.goal,
     nextSteps: [],
     blockers: [],
     touchedFiles: [],
+    workstreamIds: args.workstreamIds || [],
     relatedDocs: [],
     relatedTasks: [],
     checkpoints: [],
@@ -58,6 +64,18 @@ export async function startSession(args: {
 
   await writeSession(session);
   return session;
+}
+
+async function uniqueSessionFilePath(filePath: string): Promise<string> {
+  if (!(await pathExists(filePath))) return filePath;
+
+  const extension = path.extname(filePath);
+  const base = filePath.slice(0, -extension.length);
+  let index = 2;
+  while (await pathExists(`${base}-${index}${extension}`)) {
+    index += 1;
+  }
+  return `${base}-${index}${extension}`;
 }
 
 export async function writeSession(session: Session, body?: string): Promise<void> {
@@ -83,9 +101,14 @@ export async function writeSession(session: Session, body?: string): Promise<voi
       next_steps: session.nextSteps,
       blockers: session.blockers,
       touched_files: session.touchedFiles,
+      workstream_ids: session.workstreamIds,
       related_docs: session.relatedDocs,
       related_tasks: session.relatedTasks,
-      context_bundle_id: session.contextBundleId
+      context_bundle_id: session.contextBundleId,
+      import_source_path: session.importSourcePath,
+      import_source_hash: session.importSourceHash,
+      imported_at: session.importedAt,
+      import_profile: session.importProfile
     },
     body ?? session.body ?? sessionToBody(session)
   );
@@ -200,12 +223,17 @@ export async function readSession(filePath: string): Promise<Session> {
     nextSteps: arrayOfStrings(fm.next_steps),
     blockers: arrayOfStrings(fm.blockers),
     touchedFiles: arrayOfStrings(fm.touched_files),
+    workstreamIds: arrayOfStrings(fm.workstream_ids),
     relatedDocs: arrayOfStrings(fm.related_docs),
     relatedTasks: arrayOfStrings(fm.related_tasks),
     contextBundleId: stringOrUndefined(fm.context_bundle_id),
     checkpoints: extractCheckpoints(parsed.body),
     filePath,
-    body: parsed.body
+    body: parsed.body,
+    importSourcePath: stringOrUndefined(fm.import_source_path),
+    importSourceHash: stringOrUndefined(fm.import_source_hash),
+    importedAt: stringOrUndefined(fm.imported_at),
+    importProfile: stringOrUndefined(fm.import_profile)
   };
 
   return session;

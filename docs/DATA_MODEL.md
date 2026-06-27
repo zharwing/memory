@@ -8,6 +8,7 @@ AI Memory stores durable project memory in Markdown and JSON files. The domain m
 | --- | --- | --- |
 | Project | Registered memory workspace and linked repos | `project.json`, registry |
 | RepoLink | Repo/worktree attached to a project | `project.json` |
+| Workstream | Multi-day topic/epic grouping | `workstreams/*.md` |
 | Session | Project-scoped AI coding session | `sessions/YYYY/MM/*.md` |
 | SessionCheckpoint | Progress point inside a session | session Markdown |
 | MemoryDocument | Project knowledge document | `docs/**/*.md` and default root docs |
@@ -17,6 +18,9 @@ AI Memory stores durable project memory in Markdown and JSON files. The domain m
 | AuditRecord | Bundle metadata without raw secrets | `audit/context-bundles/*.json` |
 | ProjectGraph | Derived metadata graph | generated from project/session/docs |
 | SearchIndex | Rebuildable metadata/search projection | `generated/index.json` |
+| ImportPlan | Preview of a source-folder import before commit | daemon/RPC result |
+| ImportCandidate | One proposed imported file | import plan |
+| TrashItem | Recoverable deleted item metadata and payload | `global/trash/items/<trash-id>/` |
 
 ## Project
 
@@ -24,10 +28,12 @@ AI Memory stores durable project memory in Markdown and JSON files. The domain m
 id: project-slug
 name: My App
 slug: my-app
-memoryRoot: D:/ai/llm-memory/projects/my-app
+memoryRoot: <memory-root>/projects/my-app
 repos:
-  - path: D:/work/my-app
-    role: primary
+  - path: <repo-root>
+    name: Product Runtime
+    description: Active product app and shared UI runtime
+    role: product-runtime
     defaultBranch: main
 created: 2026-06-08T00:00:00.000Z
 updated: 2026-06-08T00:00:00.000Z
@@ -35,15 +41,68 @@ lastOpened: 2026-06-08T00:00:00.000Z
 privacyPolicy: {}
 contextPolicy: {}
 assistantPolicy: {}
+memoryWritePolicy:
+  allowAgentDirectWrites: true
+  reviewMode: off
+graphRules:
+  - match: apps/*
+    nodeType: package
+    topic: frontend
+  - match: services/*
+    nodeType: service
+    topic: backend
 ```
+
+Repo `role` is free-form category metadata. Examples include `service`,
+`worker`, `docs`, `product-runtime`, `codex-wrapper`, and `worktree`, but the
+app does not restrict the value.
+
+`memoryWritePolicy.reviewMode` controls whether durable memory updates are
+written directly or routed to Memory Inbox. The default is `off`, which allows
+direct agent writes. `risky-only` keeps routine updates direct and reserves the
+inbox for risky or uncertain updates. `all` disables direct document writes and
+routes durable memory changes through proposals.
+
+`graphRules` is optional project configuration for deriving useful context graph
+nodes from imported folder layouts. It belongs in `project.json`, not in
+application code. See [Graph Rules](GRAPH_RULES.md).
+
+## Workstream
+
+```yaml
+id: workstream-uuid
+project_id: my-app
+name: Huddle
+slug: huddle
+status: active
+summary: Multi-day Huddle runtime and service work
+goal: Ship the Huddle feature across repos
+topics:
+  - huddle
+  - realtime
+repo_roles:
+  - product-runtime
+  - service
+related_tasks: []
+related_files: []
+pinned_doc_ids: []
+created: 2026-06-08T00:00:00.000Z
+updated: 2026-06-08T00:00:00.000Z
+closed:
+body: Full Markdown body after frontmatter.
+```
+
+Workstreams live under `workstreams/<slug>.md`. Sessions and documents can link
+explicitly through `workstream_ids`; the workstream detail view also finds
+related items from matching topics, tasks, names, summaries, and body text.
 
 ## Session
 
 ```yaml
 id: session-uuid
 project_id: my-app
-repo_path: D:/work/my-app
-working_directory: D:/work/my-app
+repo_path: <repo-root>
+working_directory: <repo-root>
 branch: main
 agent: codex
 client: aimem-cli
@@ -57,10 +116,15 @@ summary:
 next_steps: []
 blockers: []
 touched_files: []
+workstream_ids: []
 related_docs: []
 related_tasks: []
 context_bundle_id:
 body: Full Markdown body after frontmatter; preserved and used for raw session context.
+import_source_path:
+import_source_hash:
+imported_at:
+import_profile:
 ```
 
 Filename format:
@@ -88,6 +152,8 @@ project: my-app
 topics:
   - auth
   - sessions
+workstream_ids:
+  - workstream-uuid
 related_tasks:
   - task-2026-0003
 related_files:
@@ -99,6 +165,10 @@ created: 2026-06-08T00:00:00.000Z
 updated: 2026-06-08T00:00:00.000Z
 last_verified: 2026-06-08T00:00:00.000Z
 confidence: medium
+import_source_path:
+import_source_hash:
+imported_at:
+import_profile:
 ---
 ```
 
@@ -141,6 +211,100 @@ Visibility:
 - `human-only`
 - `private`
 - `never-send`
+
+## Import
+
+An import plan previews how a source folder will be transformed into native AI
+Memory files.
+
+```json
+{
+  "id": "import-uuid",
+  "projectId": "my-app",
+  "sourceRoot": "<source-memory-folder>",
+  "profileName": "markdown-memory",
+  "created": "2026-06-15T00:00:00.000Z",
+  "counts": {
+    "total": 123,
+    "documents": 123,
+    "sessions": 0,
+    "skipped": 0,
+    "warnings": 0
+  },
+  "candidates": []
+}
+```
+
+Candidate kinds:
+
+- `document`
+- `session`
+- `skip`
+
+Conflict strategies:
+
+- `skip`
+- `overwrite`
+- `duplicate`
+
+Imported documents are written below `docs/imported/<profile>/...`. Imported
+sessions are written below `sessions/imported/<profile>/...`. Both preserve the
+source Markdown body and add import provenance metadata.
+
+## Trash
+
+Delete operations move recoverable items to global Trash before permanent
+purge. Trash is global to the memory root so deleted projects can still be
+listed and restored after they are removed from the active project registry.
+
+Trash item types:
+
+- `project`
+- `repo`
+- `workstream`
+- `session`
+- `document`
+- `inbox-proposal`
+- `backup`
+
+Trash metadata:
+
+```json
+{
+  "id": "trash-uuid",
+  "type": "session",
+  "projectId": "my-app",
+  "projectName": "My App",
+  "itemId": "session-uuid",
+  "title": "Fix settings page save bug",
+  "deletedAt": "2026-06-18T00:00:00.000Z",
+  "originalPath": "<project-memory-root>/sessions/2026/06/file.md",
+  "metadataPath": "<memory-root>/global/trash/items/trash-uuid/trash-item.json",
+  "critical": false,
+  "canRestore": true
+}
+```
+
+Storage shape:
+
+```text
+<memory-root>/
+  global/
+    trash/
+      items/
+        <trash-id>/
+          trash-item.json
+          payload.json
+          payload/
+```
+
+Path-backed items, such as projects, workstreams, sessions, documents, inbox
+proposals, and backups, move their original file or directory into the trash
+item directory. JSON-backed items, such as linked repo entries, store their
+payload in `payload.json`.
+
+Restore moves recoverable items back to their original active location and
+removes the trash metadata. Purge permanently deletes the trash item directory.
 
 ## Proposed Memory Update
 
@@ -199,6 +363,11 @@ Graph nodes:
 
 - project
 - repo
+- workstream
+- topic
+- service
+- package
+- diagram group
 - task
 - session
 - decision
@@ -220,12 +389,29 @@ Graph edges:
 - `supersedes`
 - `supports`
 - `explains`
+- `mentions`
 - `uses`
+- `contains`
+- `depends-on`
 - `blocked-by`
 - `belongs-to`
 - `related`
 
 The graph is derived from project/session/document metadata. It is not the source of truth.
+Graph rules contribute extra context nodes and relationships during projection.
+
+Graph rule shape:
+
+```yaml
+match: apps/*
+nodeType: package
+label:
+segment:
+slugFromSegment:
+labelFromSegment:
+edgeType: supports
+topic: frontend
+```
 
 ## Index Model
 

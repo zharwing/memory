@@ -1,4 +1,4 @@
-import type { AssistantPolicy, ContextPolicy, PrivacyPolicy } from "./types.js";
+import type { AssistantPolicy, ContextPolicy, MemoryWritePolicy, PrivacyPolicy } from "./types.js";
 
 export const DEFAULT_MEMORY_ROOT_NAME = "AI Memory Root";
 
@@ -28,6 +28,7 @@ export const DEFAULT_PROJECT_FOLDERS = [
   "docs/notes",
   "docs/references",
   "docs/archive",
+  "workstreams",
   "assets/images",
   "assets/screenshots",
   "assets/attachments",
@@ -106,4 +107,9 @@ export const DEFAULT_ASSISTANT_POLICY: AssistantPolicy = {
   enabled: false,
   runtimeType: "disabled",
   autoAcceptLowRiskMetadata: false
+};
+
+export const DEFAULT_MEMORY_WRITE_POLICY: MemoryWritePolicy = {
+  allowAgentDirectWrites: true,
+  reviewMode: "off"
 };

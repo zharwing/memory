@@ -6,12 +6,14 @@ export function defaultProjectDocument(project: Project, kind: string): string {
 
 This document is part of the local AI Memory workspace for **${project.name}**.
 
-Canonical project knowledge should be edited by the user or accepted from Memory Inbox proposals.
+Agents may update routine project memory directly when review mode is off. Use Memory Inbox proposals for review-mode, risky, or uncertain updates.
 `;
 }
 
-export function sessionBodyTemplate(args: { taskTitle: string; goal?: string }): string {
+export function sessionBodyTemplate(args: { taskTitle: string; goal?: string; created: string }): string {
   return `# ${args.taskTitle}
+
+Created: ${args.created}
 
 ## Goal
 

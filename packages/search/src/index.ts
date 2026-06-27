@@ -4,7 +4,8 @@ import type {
   ProjectId,
   ProposedMemoryUpdate,
   SearchResult,
-  Session
+  Session,
+  Workstream
 } from "@aimem/core";
 
 export interface SearchCorpus {
@@ -12,6 +13,7 @@ export interface SearchCorpus {
   sessions: Session[];
   documents: MemoryDocument[];
   proposals: ProposedMemoryUpdate[];
+  workstreams?: Workstream[];
   bundles?: ContextBundle[];
 }
 
@@ -20,6 +22,7 @@ export function searchProjectMemory(corpus: SearchCorpus, query: string): Search
   if (terms.length === 0) return [];
 
   const results: SearchResult[] = [
+    ...(corpus.workstreams || []).map((workstream) => scoreWorkstream(corpus.projectId, workstream, terms)),
     ...corpus.sessions.map((session) => scoreSession(corpus.projectId, session, terms)),
     ...corpus.documents.map((doc) => scoreDocument(corpus.projectId, doc, terms)),
     ...corpus.proposals.map((proposal) => scoreProposal(corpus.projectId, proposal, terms)),
@@ -27,6 +30,32 @@ export function searchProjectMemory(corpus: SearchCorpus, query: string): Search
   ].filter((result): result is SearchResult => Boolean(result && result.score > 0));
 
   return results.sort((a, b) => b.score - a.score || (b.updated || "").localeCompare(a.updated || ""));
+}
+
+function scoreWorkstream(projectId: ProjectId, workstream: Workstream, terms: string[]): SearchResult | undefined {
+  const body = [
+    workstream.name,
+    workstream.slug,
+    workstream.summary,
+    workstream.goal,
+    workstream.topics.join(" "),
+    workstream.relatedTasks.join(" "),
+    workstream.relatedFiles.join(" "),
+    workstream.body
+  ].join("\n");
+  const score = scoreText(body, terms);
+  if (score <= 0) return undefined;
+  return {
+    id: workstream.id,
+    projectId,
+    type: "workstream",
+    title: workstream.name,
+    path: workstream.filePath,
+    status: workstream.status,
+    updated: workstream.updated,
+    snippet: snippet(body, terms),
+    score
+  };
 }
 
 function scoreSession(projectId: ProjectId, session: Session, terms: string[]): SearchResult | undefined {

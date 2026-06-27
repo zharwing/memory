@@ -66,6 +66,17 @@ export class ProjectRegistry {
     return project;
   }
 
+  async unregister(projectId: ProjectId): Promise<Project> {
+    const registry = await this.load();
+    const project = registry.projects.find((candidate) => candidate.id === projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+    await this.save({
+      version: 1,
+      projects: registry.projects.filter((candidate) => candidate.id !== projectId)
+    });
+    return project;
+  }
+
   async createModel(args: { name: string; repoPath?: string; slug?: string }): Promise<Project> {
     const slug = args.slug;
     const memoryRoot = path.join(this.memoryRoot, "projects", slug || args.name);
