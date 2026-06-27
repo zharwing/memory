@@ -511,34 +511,55 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  Projects["Projects"]
+  Switcher["Project switcher"]
   Dashboard["Dashboard"]
+  Repos["Repos"]
+  Work["Work"]
+  Library["Library"]
+  Import["Import"]
+  Search["Search"]
+  Trash["Trash"]
+  Settings["Settings"]
+
+  Projects["Projects"]
   CurrentWork["Current Work"]
   Sessions["Sessions"]
-  Docs["Docs Library"]
+  Workstreams["Workstreams"]
+  Docs["Docs"]
   Diagrams["Diagrams"]
-  Graph["Graph"]
-  Search["Search"]
   Inbox["Memory Inbox"]
+  Graph["Graph"]
   Context["Context Preview"]
   Assistant["Memory Assistant"]
   Backups["Backups"]
-  Settings["Settings"]
+  Setup["Setup"]
+  ProjectSettings["Project Settings"]
 
+  Switcher --> Projects
   Projects --> Dashboard
-  Dashboard --> CurrentWork
-  Dashboard --> Context
-  Dashboard --> Inbox
-  Dashboard --> Graph
-  CurrentWork --> Sessions
-  Docs --> Diagrams
-  Diagrams --> Graph
+  Dashboard --> Repos
+  Dashboard --> Work
+  Dashboard --> Library
+  Dashboard --> Import
+  Dashboard --> Search
+  Dashboard --> Trash
+  Dashboard --> Settings
+  Work --> CurrentWork
+  Work --> Sessions
+  Work --> Workstreams
+  Library --> Docs
+  Library --> Diagrams
+  Library --> Inbox
+  Library --> Graph
+  Library --> Context
+  Settings --> ProjectSettings
+  Settings --> Setup
+  Settings --> Assistant
+  Settings --> Backups
   Search --> Docs
   Search --> Sessions
-  Inbox --> Docs
   Assistant --> Inbox
-  Settings --> Projects
-  Backups --> Projects
+  Trash --> Projects
 ```
 
 ## Storage Layout
@@ -547,9 +568,11 @@ flowchart LR
 flowchart TB
   Root["AI Memory Root"]
   Global["global/projects.json"]
+  Trash["global/trash/items"]
   Project["projects/project-slug"]
   Defaults["Default docs\noverview architecture decisions tasks gotchas commands glossary privacy"]
   Sessions["sessions/YYYY/MM/*.md"]
+  Workstreams["workstreams/*.md"]
   Docs["docs/**/*.md"]
   Diagrams["docs/diagrams/*.md"]
   Assets["assets/images screenshots attachments"]
@@ -559,9 +582,11 @@ flowchart TB
   Backups["backups/snapshots"]
 
   Root --> Global
+  Root --> Trash
   Root --> Project
   Project --> Defaults
   Project --> Sessions
+  Project --> Workstreams
   Project --> Docs
   Project --> Diagrams
   Project --> Assets

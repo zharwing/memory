@@ -9,7 +9,8 @@ import {
   slugify,
   type Project,
   type ProjectCreationPreview,
-  type ProjectDetectionResult
+  type ProjectDetectionResult,
+  type RepoLink
 } from "@aimem/core";
 import { ensureDir, normalizePath, pathExists, readJson, writeJson, writeText } from "./fs.js";
 import { ProjectRegistry } from "./registry.js";
@@ -93,16 +94,22 @@ export async function detectProject(args: {
 }
 
 export async function prepareProjectCreation(args: {
-  workingDirectory: string;
+  workingDirectory?: string;
   registry: ProjectRegistry;
   projectName?: string;
   createPointerFile?: boolean;
   bootstrapFiles?: string[];
 }): Promise<ProjectCreationPreview> {
-  const repoRoot = (await findRepoRoot(args.workingDirectory)) || normalizePath(args.workingDirectory);
-  const projectName = args.projectName || path.basename(repoRoot);
+  const repoRoot = args.workingDirectory
+    ? (await findRepoRoot(args.workingDirectory)) || normalizePath(args.workingDirectory)
+    : undefined;
+  const projectName = args.projectName || (repoRoot ? path.basename(repoRoot) : undefined);
+  if (!projectName) {
+    throw new Error("Project name is required when creating a project without an initial repo.");
+  }
   const slug = slugify(projectName);
   const memoryLocation = normalizePath(path.join(args.registry.memoryRoot, "projects", slug));
+  const willCreatePointerFile = Boolean(repoRoot && (args.createPointerFile ?? true));
 
   return {
     requestId: createId("create-project"),
@@ -110,8 +117,8 @@ export async function prepareProjectCreation(args: {
     proposedProjectId: slug,
     repoRoot,
     memoryLocation,
-    willCreatePointerFile: args.createPointerFile ?? true,
-    pointerFilePath: path.join(repoRoot, ".ai-memory.json"),
+    willCreatePointerFile,
+    pointerFilePath: repoRoot && willCreatePointerFile ? path.join(repoRoot, ".ai-memory.json") : undefined,
     willCreateBootstrapFiles: args.bootstrapFiles || [],
     privacyDefaults: [
       "exclude .env and .env.*",
@@ -119,7 +126,7 @@ export async function prepareProjectCreation(args: {
       "exclude .git, node_modules, build outputs, coverage, and caches",
       "block never-send and private documents from context"
     ],
-    discoveryLevel: "repo-metadata-only",
+    discoveryLevel: repoRoot ? "repo-metadata-only" : "project-only",
     requiresUserConfirmation: true,
     created: nowIso()
   };
@@ -165,6 +172,143 @@ export async function ensureProjectWorkspace(project: Project): Promise<void> {
   }
 }
 
+export async function writeProjectFile(project: Project): Promise<void> {
+  await writeJson(path.join(project.memoryRoot, "project.json"), project);
+}
+
+export async function linkProjectRepo(args: {
+  project: Project;
+  repoPath: string;
+  role?: RepoLink["role"];
+  name?: string;
+  description?: string;
+  defaultBranch?: string;
+  writePointerFile?: boolean;
+}): Promise<{
+  project: Project;
+  repo: RepoLink;
+  action: "created" | "updated";
+  pointerFilePath?: string;
+}> {
+  const repoRoot = await resolveRepoLinkPath(args.repoPath);
+  const now = nowIso();
+  const role = normalizeRepoRole(args.role);
+  const existingIndex = args.project.repos.findIndex((repo) => normalizePath(repo.path) === repoRoot);
+  const existing = existingIndex === -1 ? undefined : args.project.repos[existingIndex];
+  const repo: RepoLink = {
+    path: repoRoot,
+    name: args.name || existing?.name || path.basename(repoRoot),
+    description: args.description ?? existing?.description,
+    role,
+    defaultBranch: args.defaultBranch ?? existing?.defaultBranch,
+    created: existing?.created || now,
+    updated: now
+  };
+
+  const repos = existing
+    ? args.project.repos.map((candidate, index) => (index === existingIndex ? repo : candidate))
+    : [...args.project.repos, repo];
+  const nextProject = {
+    ...args.project,
+    repos,
+    updated: now
+  };
+
+  await writeProjectFile(nextProject);
+
+  const pointerFilePath = path.join(repoRoot, ".ai-memory.json");
+  if (args.writePointerFile ?? true) {
+    await writePointerFile(pointerFilePath, nextProject);
+  }
+
+  return {
+    project: nextProject,
+    repo,
+    action: existing ? "updated" : "created",
+    pointerFilePath: args.writePointerFile ?? true ? pointerFilePath : undefined
+  };
+}
+
+export async function unlinkProjectRepo(args: {
+  project: Project;
+  repoPath: string;
+  removePointerFile?: boolean;
+}): Promise<{
+  project: Project;
+  removedRepo: RepoLink;
+  pointerFilePath?: string;
+  pointerRemoved: boolean;
+}> {
+  const repoRoot = await resolveRepoPathForUnlink(args.repoPath);
+  const existing = args.project.repos.find((repo) => normalizePath(repo.path) === repoRoot);
+  if (!existing) {
+    throw new Error(`Repo is not linked to project ${args.project.id}: ${repoRoot}`);
+  }
+
+  const now = nowIso();
+  const nextProject = {
+    ...args.project,
+    repos: args.project.repos.filter((repo) => normalizePath(repo.path) !== repoRoot),
+    updated: now
+  };
+  await writeProjectFile(nextProject);
+
+  const pointerFilePath = path.join(repoRoot, ".ai-memory.json");
+  let pointerRemoved = false;
+  if (args.removePointerFile ?? true) {
+    await fs.rm(pointerFilePath, { force: true });
+    pointerRemoved = true;
+  }
+
+  return {
+    project: nextProject,
+    removedRepo: existing,
+    pointerFilePath,
+    pointerRemoved
+  };
+}
+
+export async function resolveRepoLinkPath(input: string): Promise<string> {
+  const normalized = normalizePath(input);
+  if (!(await pathExists(normalized))) {
+    throw new Error(`Repo path does not exist: ${input}`);
+  }
+  return (await findRepoRoot(normalized)) || normalized;
+}
+
+async function resolveRepoPathForUnlink(input: string): Promise<string> {
+  const normalized = normalizePath(input);
+  if (!(await pathExists(normalized))) return normalized;
+  return (await findRepoRoot(normalized)) || normalized;
+}
+
+function normalizePrimaryRepo(project: Project, preferredPrimaryPath?: string): Project {
+  if (preferredPrimaryPath) {
+    return {
+      ...project,
+      repos: project.repos.map((repo) =>
+        normalizePath(repo.path) === preferredPrimaryPath
+          ? { ...repo, role: "primary" }
+          : repo.role === "primary"
+            ? { ...repo, role: "other" }
+            : repo
+      )
+    };
+  }
+
+  const primaryIndex = project.repos.findIndex((repo) => repo.role === "primary");
+  if (primaryIndex !== -1) {
+    return {
+      ...project,
+      repos: project.repos.map((repo, index) =>
+        index === primaryIndex ? repo : repo.role === "primary" ? { ...repo, role: "other" } : repo
+      )
+    };
+  }
+
+  return project;
+}
+
 export async function writePointerFile(pointerFilePath: string, project: Project): Promise<void> {
   const pointer: PointerFile = {
     projectId: project.id,
@@ -180,6 +324,7 @@ export async function writePointerFile(pointerFilePath: string, project: Project
 }
 
 async function writeBootstrapFiles(preview: ProjectCreationPreview): Promise<void> {
+  if (!preview.repoRoot) return;
   for (const file of preview.willCreateBootstrapFiles) {
     if (file !== "AGENTS.md" && file !== "CLAUDE.md") continue;
     const target = path.join(preview.repoRoot, file);
@@ -188,15 +333,24 @@ async function writeBootstrapFiles(preview: ProjectCreationPreview): Promise<voi
   }
 }
 
-function bootstrapInstructions(): string {
-  return `Use the AI Memory MCP server for this repo.
+function normalizeRepoRole(input?: string): string {
+  const role = String(input || "other").trim().toLowerCase();
+  return role || "other";
+}
 
-Start or resume a project-scoped session before work.
-Load the default context bundle for this project.
+function bootstrapInstructions(): string {
+  return `Use AI Memory as the durable project memory, session history, search, and context layer for this repo.
+
+Resolve the active project from this directory or the linked .ai-memory.json pointer before work.
+Search project memory before making assumptions.
+Start or resume a project-scoped session for meaningful work.
+Preview or load a context bundle when prior context matters.
 Save checkpoints after meaningful progress.
-Close the session with next steps and proposed memory updates.
-Do not request sessions from unrelated projects unless the user explicitly asks.
-Canonical memory changes must go through the Memory Inbox.
+Close the session with summary, next steps, blockers, and touched files when known.
+Keep session progress in the session file. Write durable docs directly for reusable project memory when review mode is off.
+Use Memory Inbox proposals only when review mode is enabled or the update is risky, uncertain, or needs human judgment.
+Do not request unrelated project context unless the user explicitly asks and policy allows it.
+Do not ingest secrets, credentials, local credential caches, .env files, private keys, or tokens.
 `;
 }
 

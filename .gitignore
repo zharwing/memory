@@ -3,8 +3,14 @@ dist/
 .turbo/
 .vite/
 target/
+apps/desktop/src-tauri/gen/
 *.tsbuildinfo
 AI Memory Root/
+AI Memory Store/
+store/
+memory-store/
+.aimem-store/
 *.log
 .env
 .env.*
+!.env.example

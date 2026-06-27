@@ -9,3 +9,6 @@ export * from "./inbox.js";
 export * from "./bundles.js";
 export * from "./backup.js";
 export * from "./indexer.js";
+export * from "./importer.js";
+export * from "./workstreams.js";
+export * from "./trash.js";

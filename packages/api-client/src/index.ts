@@ -14,18 +14,23 @@ export class AimemClient {
   }
 
   async call<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-    const response = await fetch(`${this.baseUrl}/rpc`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${this.authToken}`
-      },
-      body: JSON.stringify({
-        id: Date.now(),
-        method,
-        params
-      })
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/rpc`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${this.authToken}`
+        },
+        body: JSON.stringify({
+          id: Date.now(),
+          method,
+          params
+        })
+      });
+    } catch (error) {
+      throw new Error(`Cannot reach AI Memory daemon at ${this.baseUrl}. Make sure the daemon is running and browser access is allowed. ${error instanceof Error ? error.message : String(error)}`);
+    }
     const payload = (await response.json()) as {
       ok: boolean;
       result?: T;
@@ -55,6 +60,13 @@ export class AimemClient {
 }
 
 function runtimeEnv(): Record<string, string | undefined> {
-  if (typeof process !== "undefined" && process.env) return process.env;
-  return {};
+  const processEnv = typeof process !== "undefined" && process.env ? process.env : {};
+  const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+
+  return {
+    ...viteEnv,
+    ...processEnv,
+    AIMEM_DAEMON_URL: processEnv.AIMEM_DAEMON_URL || viteEnv.AIMEM_DAEMON_URL || viteEnv.VITE_AIMEM_DAEMON_URL,
+    AIMEM_AUTH_TOKEN: processEnv.AIMEM_AUTH_TOKEN || viteEnv.AIMEM_AUTH_TOKEN || viteEnv.VITE_AIMEM_AUTH_TOKEN
+  };
 }

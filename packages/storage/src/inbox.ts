@@ -44,7 +44,7 @@ export async function listProposedUpdates(project: Project): Promise<ProposedMem
   const root = path.join(project.memoryRoot, "inbox", "proposed-updates");
   const files = await listFiles(root, (file) => file.endsWith(".json"));
   const updates = await Promise.all(files.map((file) => readJson<ProposedMemoryUpdate | undefined>(file, undefined)));
-  return updates.filter(Boolean).sort((a, b) => b.created.localeCompare(a.created));
+  return updates.filter(isDefined).sort((a, b) => b.created.localeCompare(a.created));
 }
 
 export async function updateProposalStatus(args: {
@@ -68,4 +68,8 @@ export async function updateProposalStatus(args: {
 async function writeProposal(project: Project, update: ProposedMemoryUpdate): Promise<void> {
   const filePath = path.join(project.memoryRoot, "inbox", "proposed-updates", `${update.id}.json`);
   await writeJson(filePath, update);
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }

@@ -45,13 +45,16 @@ Location: `apps/desktop`
 Role:
 
 - human control plane
-- project picker
+- project switcher and project management
 - dashboard
+- repo linking
 - session management
+- workstream management
 - context preview
 - inbox review
 - docs, diagrams, graph, search
-- backups and settings
+- import preview/commit
+- backups, Trash, and settings
 
 Implementation:
 
@@ -103,7 +106,7 @@ The adapter is intentionally thin.
 | Package | Responsibility |
 | --- | --- |
 | `@aimem/core` | Domain types, default policies, IDs, project model helpers |
-| `@aimem/storage` | Markdown/frontmatter IO, registry, project workspace, sessions, docs, inbox, bundles, backups, index |
+| `@aimem/storage` | Markdown/frontmatter IO, registry, project workspace, sessions, docs, inbox, bundles, backups, Trash, index |
 | `@aimem/privacy` | Visibility gates, ignore patterns, never-send patterns, secret scanning, redaction |
 | `@aimem/context-engine` | Context selection, token estimates, inclusion/exclusion reasons, bundle Markdown |
 | `@aimem/search` | Dependency-free keyword search boundary |
@@ -121,6 +124,7 @@ Markdown remains the durable source of truth. Indexes are rebuildable.
 AI Memory Root/
   global/
     projects.json
+    trash/
   projects/
     <project-slug>/
       project.json
@@ -146,7 +150,7 @@ Repo pointer:
 ```json
 {
   "projectId": "project-slug",
-  "memoryRoot": "D:/ai/llm-memory/projects/project-slug",
+  "memoryRoot": "<memory-root>/projects/project-slug",
   "contextPolicy": {
     "directSessionInclusionDays": 7,
     "summaryOnlyDays": 30,

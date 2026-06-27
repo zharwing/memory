@@ -12,11 +12,16 @@ import {
   DiagramsScreen,
   DocsScreen,
   GraphScreen,
+  ImportScreen,
   InboxScreen,
   ProjectsScreen,
+  RepositoriesScreen,
   SearchScreen,
   SessionsScreen,
-  SettingsScreen
+  SetupScreen,
+  SettingsScreen,
+  TrashScreen,
+  WorkstreamsScreen
 } from "./routes/screens.js";
 
 export const App = observer(function App() {
@@ -30,11 +35,17 @@ export const App = observer(function App() {
     <Shell>
       <Routes>
         <Route path="/" element={<Navigate to="/projects" replace />} />
+        <Route path="/setup" element={<SetupScreen />} />
         <Route path="/projects" element={<ProjectsScreen />} />
+        <Route path="/repositories" element={<RepositoriesScreen />} />
+        <Route path="/work" element={<Navigate to="/current-work" replace />} />
+        <Route path="/workstreams" element={<WorkstreamsScreen />} />
         <Route path="/dashboard" element={<DashboardScreen />} />
         <Route path="/current-work" element={<CurrentWorkScreen />} />
         <Route path="/sessions" element={<SessionsScreen />} />
+        <Route path="/library" element={<Navigate to="/docs" replace />} />
         <Route path="/docs" element={<DocsScreen />} />
+        <Route path="/import" element={<ImportScreen />} />
         <Route path="/diagrams" element={<DiagramsScreen />} />
         <Route path="/graph" element={<GraphScreen />} />
         <Route path="/search" element={<SearchScreen />} />
@@ -42,6 +53,7 @@ export const App = observer(function App() {
         <Route path="/context" element={<ContextScreen />} />
         <Route path="/assistant" element={<AssistantScreen />} />
         <Route path="/backups" element={<BackupsScreen />} />
+        <Route path="/trash" element={<TrashScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
       </Routes>
     </Shell>

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { nowIso, type Project } from "@aimem/core";
 import { promises as fs } from "node:fs";
-import { ensureDir, writeJson } from "./fs.js";
+import { ensureDir, listFiles, readJson, writeJson } from "./fs.js";
 
 export interface BackupSnapshot {
   projectId: string;
@@ -23,6 +23,17 @@ export async function createProjectSnapshot(project: Project): Promise<BackupSna
   };
   await writeJson(path.join(snapshotPath, "backup-manifest.json"), snapshot);
   return snapshot;
+}
+
+export async function listProjectSnapshots(project: Project): Promise<BackupSnapshot[]> {
+  const root = path.join(project.memoryRoot, "backups", "snapshots");
+  const files = await listFiles(root, (file) => path.basename(file) === "backup-manifest.json");
+  const snapshots = await Promise.all(files.map((file) => readJson<BackupSnapshot | undefined>(file, undefined)));
+  return snapshots.filter(isDefined).sort((a, b) => b.created.localeCompare(a.created));
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }
 
 async function copyProjectContents(sourceRoot: string, destinationRoot: string): Promise<void> {

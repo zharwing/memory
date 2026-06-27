@@ -2,7 +2,7 @@
 
 AI Memory is a local-first project context manager for AI-assisted coding workflows. It is not the coding agent. External agents such as Codex, Claude Code, Gemini CLI, Ollama-based tools, LM Studio workflows, and future MCP-capable clients do the engineering work. AI Memory provides the durable local memory layer those agents can use safely.
 
-The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and proposed memory updates organized per project. A human can open the desktop app to understand current work, review what context would be sent to an AI, inspect the graph, search previous work, and approve or reject proposed durable memory updates.
+The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the desktop app to understand current work, review what context would be sent to an AI, inspect the graph, search previous work, and enable approval gates only when they want them.
 
 ## Current Implementation Status
 
@@ -17,22 +17,33 @@ Implemented:
 - Tauri + React desktop shell.
 - Markdown-first storage model.
 - Project registry and `.ai-memory.json` pointer support.
-- Project-scoped sessions.
+- Project-scoped sessions and workstreams.
 - Context bundle generation with inclusion/exclusion reasons.
 - Privacy gates, visibility rules, secret redaction, and high-risk blocking.
-- Memory Inbox proposals.
+- Optional Memory Inbox proposals for review-mode or risky updates.
 - Docs, diagrams, graph, search, backup snapshot, and rebuildable index boundaries.
-- Optional local Memory Assistant boundary with deterministic reviewable jobs.
+- Optional local Memory Assistant boundary with deterministic jobs and reviewable proposal support.
+- Generic Markdown folder importer with preview/commit flow for existing memory and session corpora.
+- Flexible named repository links with custom role/category metadata.
+- Desktop/web first-run flow for project-only and single-repo setup.
+- Recoverable delete flow with global Trash, restore, and permanent purge actions.
+- Lightweight desktop navigation with project switcher, primary sections, and section tabs.
+- Configurable project graph rules for mapping imported folder layouts to
+  topics, services, packages, diagram groups, and code areas without hardcoded
+  project names.
 
-Not performed:
+Validated in the current workspace:
 
-- No dependency installation.
-- No test run.
-- No typecheck.
-- No build.
-- No dev server launch.
+- Dependencies installed with pnpm.
+- Desktop TypeScript typecheck passed.
+- Desktop Vite production build passed.
+- Daemon and browser UI Vite dev server launched successfully.
+- Native Tauri `cargo check` passed from the Windows toolchain.
 
-Those constraints were intentional. Runtime validation remains pending until dependencies are installed and the project is executed.
+Not yet performed:
+
+- Full workspace test suite.
+- Windows packaged `.exe` build.
 
 ## Product Principles
 
@@ -48,8 +59,8 @@ Those constraints were intentional. Runtime validation remains pending until dep
 4. Privacy beats convenience.
    Context generation applies visibility rules, never-send rules, ignore patterns, secret scanning, redaction, blocking, and audit metadata.
 
-5. Canonical memory is reviewed.
-   External AI agents and the local Memory Assistant can propose updates, but canonical memory changes go through the Memory Inbox.
+5. Memory writes are direct by default.
+   External AI agents can write routine session progress and durable project memory directly. Memory Inbox review is an optional project setting for teams that want approval gates or for risky/uncertain updates.
 
 ## Repository Layout
 
@@ -82,6 +93,101 @@ docs/
   OPERATIONS.md     Setup, runtime, backup, validation notes
 ```
 
+## First Run
+
+AI Memory separates application source code from private memory data.
+
+```text
+llm-memory/
+  project/   app source code, safe to clone and version
+  store/     private local memory data, do not commit
+```
+
+Other users should clone only the app source, then choose their own private
+store path.
+
+```bash
+pnpm install
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```text
+AIMEM_MEMORY_ROOT=<absolute-private-store-path>
+AIMEM_AUTH_TOKEN=<local-random-token>
+VITE_AIMEM_AUTH_TOKEN=<same-local-random-token>
+```
+
+Start the daemon and browser UI:
+
+```bash
+pnpm dev:daemon
+pnpm dev:web
+```
+
+For the native desktop app, run:
+
+```bash
+pnpm dev:desktop
+```
+
+The desktop shell starts or reuses the local daemon automatically. Browser mode
+keeps the normal separate daemon + web server flow.
+
+Open `http://localhost:5174/`, create a project, then link repos from
+Repositories. For multi-repo products, create the project first and add each Git
+repo root afterward.
+
+### Pointer Files
+
+A pointer file is a small `.ai-memory.json` file that AI Memory can write into a
+linked Git repo. It lets tools opened from that repo detect the matching memory
+project automatically.
+
+Example:
+
+```json
+{
+  "projectId": "10x",
+  "memoryRoot": "D:/ai/llm-memory/store"
+}
+```
+
+When creating a project with **Project only**, the preview shows
+`Pointer file: disabled` because no repo is linked yet. Create the project first,
+then open Repositories, link each repo root, and leave pointer files enabled if
+you want agents and CLI tools to auto-detect the project from those repos.
+
+To migrate existing Markdown memory, open Import after selecting the project.
+Use **Memory Docs** for old MEMORY folders, **Session History** for old SESSIONS
+folders, and **Mixed Workspace** when one folder contains both. Preview first;
+commit only after the counts and sample rows look right.
+
+After importing, use Graph Rules when the imported folder layout should create
+context hubs in the Graph page. Open **Settings -> Project -> Graph Rules** and
+save a JSON array such as:
+
+```json
+[
+  { "match": "apps/*", "nodeType": "package", "topic": "frontend" },
+  { "match": "services/*", "nodeType": "service", "topic": "backend" }
+]
+```
+
+This is project configuration, not application hardcoding. AI Memory matches
+rules against imported relative paths and derives context graph nodes from them.
+Use Graph for memory relationships; use Diagrams for runtime architecture and
+service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
+and AI/MCP workflow.
+
+Never commit the memory store. It contains project sessions, docs, imports,
+context bundles, Memory Inbox proposals, and backups.
+
+Deletion is recoverable by default. Projects, linked repo entries, workstreams,
+sessions, docs, inbox proposals, and backups move to Trash first. Trash supports
+restore, single-item permanent delete, selected permanent delete, and full empty.
+
 ## Architecture Summary
 
 ```text
@@ -102,16 +208,21 @@ The daemon owns:
 - search
 - graph projection
 - backup and validation
+- trash, restore, and permanent purge
 - optional assistant jobs
 
 The desktop app, CLI, and MCP server are adapters.
 
 ## Memory Root Shape
 
+The memory root is private per-user state. It can live anywhere on the local
+machine and is configured with `AIMEM_MEMORY_ROOT`.
+
 ```text
 AI Memory Root/
   global/
     projects.json
+    trash/
   projects/
     <project-slug>/
       project.json
@@ -124,6 +235,7 @@ AI Memory Root/
       glossary.md
       privacy.md
       sessions/
+      workstreams/
       docs/
       assets/
       generated/
@@ -148,17 +260,21 @@ That pointer file contains only project identity and memory location.
 4. External AI performs coding work.
 5. AI saves checkpoints after meaningful progress.
 6. AI closes the session with next steps.
-7. Durable memory proposals go to the Memory Inbox.
-8. User accepts, edits, rejects, or defers proposals.
+7. AI writes durable memory directly when review mode is off.
+8. Review-mode or risky updates go to the Memory Inbox for accept/edit/reject/deferral.
 
 ## CLI Examples
 
 The CLI assumes the daemon is running.
 
 ```text
-aimem init /path/to/repo --name "My App" --bootstrap AGENTS.md,CLAUDE.md
+aimem init <repo-root> --name "My App" --bootstrap AGENTS.md,CLAUDE.md
 aimem projects
 aimem status --project my-app
+aimem repos --project my-app
+aimem link-repo <repo-root> --project my-app --name "Service API" --role service
+aimem create-workstream "Huddle" --project my-app --topic huddle,realtime
+aimem workstreams --project my-app
 aimem start "Fix settings page save bug" --project my-app --agent codex
 aimem sessions --project my-app
 aimem context --project my-app --preview
@@ -170,6 +286,9 @@ aimem graph --project my-app
 aimem backup --project my-app
 aimem validate --project my-app
 aimem rebuild-index --project my-app
+aimem import-profiles
+aimem import-folder <source-memory-folder> --project my-app --profile markdown-memory
+aimem import-folder <source-sessions-folder> --project my-app --profile markdown-sessions --commit
 ```
 
 Assistant proposal examples:
@@ -187,37 +306,57 @@ The MCP adapter exposes project-scoped tools for:
 
 - startup state
 - project detection and creation
+- multi-repo project links
+- workstreams
 - sessions
 - context bundles
 - checkpoints
 - close-session
 - search
 - docs
+- import profiles and folder import
 - Memory Inbox
-- graph
+- graph and graph rules
 - backups
+- trash and restore
 - validation
 - assistant proposals
 
 See [API Reference](docs/API_REFERENCE.md) for the full list.
 
+For AI clients, graph changes should normally be proposed through
+`memory.propose_graph_update` so a human can review them in the Memory Inbox.
+Use `memory.update_graph_rules` only after explicit user approval or from a
+manual settings action.
+
 ## Desktop UI
 
-The desktop app is the human control plane. It includes:
+The desktop app is the human control plane. The sidebar stays intentionally
+small:
 
-- Projects
+- project switcher for selecting, creating, and deleting projects
 - Dashboard
-- Current Work
-- Sessions
-- Docs Library
-- Diagrams
-- Graph
+- Repos
+- Work
+- Library
+- Import
 - Search
-- Memory Inbox
-- Context Preview
-- Memory Assistant
-- Backups
+- Trash
 - Settings
+
+Secondary pages live inside section tabs:
+
+- Work: Current Work, Sessions, Workstreams
+- Library: Docs, Diagrams, Inbox, Graph, Context
+- Settings: Project, Setup, Assistant, Backups
+
+In the native Tauri desktop window, Setup, Repositories, and Import provide
+Browse buttons for selecting folders with the OS file picker. Browser dev mode
+keeps typed paths as a fallback because browsers do not expose arbitrary local
+folder paths to web apps.
+
+See [Desktop UI](docs/DESKTOP_UI.md) for the current navigation and first-run
+flow.
 
 The visual direction follows the Graphite + Copper theme from the product plan.
 
@@ -230,13 +369,15 @@ Start here:
 - [Data Model](docs/DATA_MODEL.md)
 - [API Reference](docs/API_REFERENCE.md)
 - [User Flows](docs/USER_FLOWS.md)
+- [Desktop UI](docs/DESKTOP_UI.md)
+- [Graph Rules](docs/GRAPH_RULES.md)
 - [Diagrams](docs/DIAGRAMS.md)
 - [Operations](docs/OPERATIONS.md)
 - [MVP Walkthrough](docs/MVP_WALKTHROUGH.md)
 
 ## Implementation Notes
 
-- This project declares planned dependencies but they have not been installed.
+- Dependencies have been installed in this checkout.
 - Mermaid diagrams are stored as Markdown and are intended to render in Mermaid-capable viewers.
 - The assistant runtime currently provides deterministic jobs and model/runtime install previews. It does not download or run a model.
 - The JSON index is a rebuildable placeholder for SQLite/FTS5 once native dependencies are allowed.

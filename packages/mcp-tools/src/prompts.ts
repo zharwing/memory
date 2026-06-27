@@ -12,7 +12,7 @@ export const MEMORY_PROMPTS = [
   {
     uri: "memory://prompts/close-session",
     name: "Close Session",
-    text: "When work is complete or paused, call memory.close_session and create proposed durable memory updates in the Memory Inbox."
+    text: "When work is complete or paused, call memory.close_session with a concrete summary. Write reusable memory directly with memory.create_doc when review mode is off; use proposals only for review mode or risky updates."
   },
   {
     uri: "memory://prompts/use-project-scoped-sessions",
