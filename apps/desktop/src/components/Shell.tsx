@@ -70,10 +70,10 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
       </aside>
       <main className="workspace">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Project</p>
-            <h1>{project?.name || "No project selected"}</h1>
-          </div>
+          <Link className="topbar-project" to="/projects">
+            <span>Project</span>
+            <strong>{project?.name || "No project selected"}</strong>
+          </Link>
           <div className="topbar-meta">
             <span><GitFork size={15} /> {project?.repos?.length || 0} repos linked</span>
             <span>{store.loading ? "Updating" : "Ready"}</span>

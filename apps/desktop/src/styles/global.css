@@ -38,10 +38,17 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--background);
   color: var(--text);
+  overflow: hidden;
 }
 
 button,
@@ -127,7 +134,8 @@ input[type="checkbox"] {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
 }
@@ -135,7 +143,12 @@ input[type="checkbox"] {
 .sidebar {
   border-right: 1px solid var(--border);
   background: var(--surface);
-  padding: 22px 16px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px 14px 16px;
 }
 
 .brand {
@@ -144,9 +157,9 @@ input[type="checkbox"] {
   display: flex;
   gap: 10px;
   align-items: center;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 750;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .project-switcher {
@@ -155,9 +168,9 @@ input[type="checkbox"] {
   border-radius: 8px;
   color: var(--text);
   display: grid;
-  gap: 4px;
-  margin-bottom: 18px;
-  padding: 12px;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
   text-decoration: none;
 }
 
@@ -168,37 +181,45 @@ input[type="checkbox"] {
 }
 
 .project-switcher strong {
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  min-height: calc(100vh - 145px);
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .nav-section {
   display: grid;
   gap: 2px;
+  min-height: 0;
+}
+
+.nav-section:first-child {
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .nav-section.utility {
   border-top: 1px solid var(--border);
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 10px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 38px;
+  min-height: 36px;
   color: var(--muted);
   text-decoration: none;
   border-radius: 7px;
   padding: 0 10px;
-  margin: 2px 0;
+  margin: 1px 0;
 }
 
 .nav-item.active {
@@ -219,16 +240,20 @@ input[type="checkbox"] {
 }
 
 .workspace {
+  height: 100vh;
   min-width: 0;
-  padding: 28px 34px;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 28px 24px;
 }
 
 .topbar {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
-  align-items: flex-start;
-  margin-bottom: 28px;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  min-height: 34px;
 }
 
 .topbar h1,
@@ -236,6 +261,31 @@ input[type="checkbox"] {
 .panel h3 {
   margin: 0;
   letter-spacing: 0;
+}
+
+.screen h2 {
+  font-size: 24px;
+}
+
+.topbar-project {
+  align-items: baseline;
+  color: var(--text);
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.topbar-project span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.topbar-project strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {
@@ -255,7 +305,7 @@ input[type="checkbox"] {
 
 .topbar-meta span,
 .status {
-  min-height: 30px;
+  min-height: 28px;
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0 10px;
@@ -283,7 +333,8 @@ input[type="checkbox"] {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
+  min-height: 38px;
 }
 
 .section-tabs {
@@ -291,14 +342,14 @@ input[type="checkbox"] {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin: -4px 0 18px;
+  margin: -2px 0 14px;
 }
 
 .section-tab {
   border-bottom: 2px solid transparent;
   color: var(--muted);
-  min-height: 38px;
-  padding: 9px 12px 8px;
+  min-height: 34px;
+  padding: 7px 12px 6px;
   text-decoration: none;
 }
 
@@ -1243,6 +1294,11 @@ tr.selected-row td {
   margin-bottom: 12px;
 }
 
+.graph-explainer.compact {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
 .graph-explainer strong {
   color: var(--text);
 }
@@ -1256,9 +1312,9 @@ tr.selected-row td {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .graph-mode-control {
@@ -1269,7 +1325,7 @@ tr.selected-row td {
   align-items: center;
   color: var(--muted);
   display: flex;
-  flex: 1 1 280px;
+  flex: 1 1 360px;
   gap: 8px;
   min-width: 220px;
 }
@@ -1290,6 +1346,38 @@ tr.selected-row td {
   align-items: center;
   display: inline-flex;
   gap: 6px;
+}
+
+.graph-help-trigger {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.graph-help-trigger.selected,
+.graph-help-trigger:hover {
+  color: var(--text);
+}
+
+.graph-status-row {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+  min-height: 28px;
+}
+
+.graph-status-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.graph-status-row span {
+  border-left: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1;
+  padding-left: 12px;
 }
 
 .graph-mode-note {
@@ -1359,10 +1447,50 @@ tr.selected-row td {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  height: min(72vh, 780px);
-  min-height: 560px;
+  height: clamp(520px, calc(100vh - 260px), 860px);
+  min-height: 500px;
   overflow: hidden;
   position: relative;
+}
+
+.graph-board-details {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 6;
+}
+
+.graph-details-toggle {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 8px 22px rgba(17, 16, 15, 0.12);
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.graph-details-toggle.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fffdf9;
+}
+
+.graph-details-popover {
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(17, 16, 15, 0.16);
+  display: grid;
+  gap: 10px;
+  max-width: min(720px, calc(100vw - 340px));
+  padding: 12px;
+}
+
+.graph-details-popover .graph-mode-note,
+.graph-details-popover .graph-edge-summary,
+.graph-details-popover .graph-legend {
+  margin: 0;
 }
 
 .graph-board .empty {
@@ -1833,17 +1961,30 @@ tr.selected-row td {
 }
 
 @media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
   .app-shell {
+    height: auto;
     grid-template-columns: 1fr;
+    min-height: 100vh;
   }
 
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    height: auto;
+    overflow: visible;
   }
 
   .sidebar-nav {
     min-height: auto;
+    overflow: visible;
+  }
+
+  .nav-section:first-child {
+    overflow: visible;
   }
 
   .nav-section.utility {
@@ -1861,6 +2002,11 @@ tr.selected-row td {
 
   .topbar {
     flex-direction: column;
+  }
+
+  .workspace {
+    height: auto;
+    overflow: visible;
   }
 
   .repo-row {
@@ -1918,6 +2064,10 @@ tr.selected-row td {
 
   .diagram-viewer-canvas .mermaid-svg {
     min-width: 760px;
+  }
+
+  .graph-details-popover {
+    max-width: calc(100vw - 40px);
   }
 
   .path-input-row {
