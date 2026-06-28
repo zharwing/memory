@@ -1,0 +1,10 @@
+import type { AssistantPolicy, ContextPolicy, MemoryWritePolicy, PrivacyPolicy } from "./types.js";
+export declare const DEFAULT_MEMORY_ROOT_NAME = "AI Memory Root";
+export declare const DEFAULT_PROJECT_FILES: readonly ["project.json", "overview.md", "architecture.md", "decisions.md", "tasks.md", "gotchas.md", "commands.md", "glossary.md", "privacy.md"];
+export declare const DEFAULT_PROJECT_FOLDERS: readonly ["sessions", "docs/plans", "docs/investigations", "docs/research", "docs/architecture", "docs/decisions", "docs/requirements", "docs/specs", "docs/user-flows", "docs/diagrams", "docs/notes", "docs/references", "docs/archive", "workstreams", "assets/images", "assets/screenshots", "assets/attachments", "generated/context-bundles", "generated/exports", "generated/assistant-drafts", "inbox/proposed-updates", "inbox/imported-docs", "inbox/review-needed", "audit/context-bundles", "audit/assistant-runs", "backups/snapshots"];
+export declare const DEFAULT_IGNORE_PATTERNS: readonly [".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx", "id_rsa", "id_ed25519", "credentials.json", "secrets.*", "node_modules/", ".git/", "dist/", "build/", "coverage/", ".cache/", "*.zip", "*.tar", "*.gz", "*.7z", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.pdf"];
+export declare const DEFAULT_NEVER_SEND_PATTERNS: readonly ["private/**", "**/*.secret.*", "**/secrets/**", "**/credentials/**", "**/.env", "**/.env.*"];
+export declare const DEFAULT_PRIVACY_POLICY: PrivacyPolicy;
+export declare const DEFAULT_CONTEXT_POLICY: ContextPolicy;
+export declare const DEFAULT_ASSISTANT_POLICY: AssistantPolicy;
+export declare const DEFAULT_MEMORY_WRITE_POLICY: MemoryWritePolicy;

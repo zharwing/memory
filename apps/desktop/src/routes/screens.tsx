@@ -742,12 +742,19 @@ export const GraphScreen = observer(function GraphScreen() {
   const [focusedNodeId, setFocusedNodeId] = useState("");
   const [focusHistory, setFocusHistory] = useState<string[]>([]);
   const [editingDocId, setEditingDocId] = useState("");
+  const [showGraphHelp, setShowGraphHelp] = useState(false);
+  const [showGraphDetails, setShowGraphDetails] = useState(false);
   const graphStats = useMemo(() => getGraphStats(graph), [graph]);
   const focusOptions = useMemo(() => getGraphFocusOptions(graph), [graph]);
   const graphElements = useMemo(() => buildGraphFlowElements(graph, graphViewMode, focusedNodeId), [graph, graphViewMode, focusedNodeId]);
   const isRawGraph = graphViewMode === "all";
   const editingDoc = store.docs.find((doc) => doc.id === editingDocId);
   const graphFlowKey = `${graphViewMode}:${focusedNodeId || "overview"}:${graphElements.nodes.length}:${graphElements.edges.length}`;
+  const graphScopeLabel = isRawGraph ? "Import audit" : focusedNodeId ? `Focused: ${graphElements.focusLabel || "selected node"}` : "Context map";
+  const graphNodeCount = isRawGraph ? graphStats.nodes : graphElements.nodes.length;
+  const graphLinkCount = isRawGraph ? graphStats.relationships : graphElements.edges.length;
+  const graphHiddenCount = isRawGraph ? graphStats.memberships : graphElements.hiddenMemberships + graphElements.hiddenLeafNodes;
+  const graphGeneratedLabel = graph?.generated ? `${graph.displayProjected ? "Projected" : "Generated"} ${formatShortDateTime(graph.generated)}` : "";
 
   useEffect(() => {
     if (focusedNodeId && !focusOptions.some((option) => option.id === focusedNodeId)) {
@@ -801,13 +808,6 @@ export const GraphScreen = observer(function GraphScreen() {
   return (
     <Screen title="Graph">
       <LibraryTabs />
-      <div className="notice graph-explainer">
-        <strong>Context graph, not storage inventory</strong>
-        <p>
-          The default view shows repos, workstreams, topics, services, packages, and diagram groups that organize usable memory.
-          Click a node or choose a focus to inspect nearby docs, diagrams, sessions, and files.
-        </p>
-      </div>
       <div className="graph-view-toolbar">
         <div className="segmented-control compact graph-mode-control" role="group" aria-label="Graph view">
           <button
@@ -853,65 +853,90 @@ export const GraphScreen = observer(function GraphScreen() {
             Reset focus
           </button>
         ) : null}
-        <div className="graph-summary-bar">
-          <span>{isRawGraph ? graphStats.nodes : graphElements.nodes.length} {isRawGraph ? "stored nodes" : "visible nodes"}</span>
-          <span>{isRawGraph ? graphStats.relationships : graphElements.edges.length} {isRawGraph ? "context links indexed" : "visible links"}</span>
-          {!isRawGraph && graphElements.hiddenLeafNodes ? <span>{graphElements.hiddenLeafNodes} leaf nodes hidden</span> : null}
-          {isRawGraph ? <span>{graphStats.memberships} storage ownership links</span> : <span>{graphElements.hiddenMemberships} storage links hidden</span>}
-          {graph?.generated ? <span>{graph.displayProjected ? "Projected" : "Generated"} {formatShortDateTime(graph.generated)}</span> : null}
-        </div>
+        <button
+          type="button"
+          className={`icon-button icon-only graph-help-trigger ${showGraphHelp ? "selected" : ""}`}
+          onClick={() => setShowGraphHelp((open) => !open)}
+          title="About graph views"
+          aria-label="About graph views"
+          aria-expanded={showGraphHelp}
+        >
+          <CircleHelp size={16} aria-hidden="true" />
+        </button>
       </div>
-      <div className={`graph-mode-note ${isRawGraph ? "warning" : ""}`}>
-        {isRawGraph ? (
-          <>
-            <strong>Import audit:</strong> a record inventory for the current project graph: stored nodes, project ownership links, and derived context relationships from imports and metadata.
-          </>
-        ) : focusedNodeId ? (
-          <>
-            <strong>Focused neighborhood:</strong> showing nearby relationships around {graphElements.focusLabel || "the selected node"}. Use this when continuing work on a service, package, topic, or diagram set.
-          </>
-        ) : (
-          <>
-            <strong>Context map:</strong> showing high-signal hubs first. Plain project ownership links and leaf docs stay hidden until you focus a node.
-          </>
-        )}
+      <div className="graph-status-row" aria-label="Graph status">
+        <strong>{graphScopeLabel}</strong>
+        <span>{graphNodeCount} {isRawGraph ? "stored nodes" : "visible nodes"}</span>
+        <span>{graphLinkCount} {isRawGraph ? "context links" : "visible links"}</span>
+        <span>{graphHiddenCount} {isRawGraph ? "ownership links" : "hidden"}</span>
+        {graphGeneratedLabel ? <span>{graphGeneratedLabel}</span> : null}
       </div>
-      {!isRawGraph && graphElements.edgeTypes.length ? (
-        <div className="graph-edge-summary" aria-label="Relationship summary">
-          {graphElements.edgeTypes.map((item) => (
-            <span key={item.type}>{graphEdgeLabel(item.type)} {item.count}</span>
-          ))}
-        </div>
-      ) : null}
-      {!isRawGraph ? (
-        <div className="graph-legend" aria-label="Graph legend">
-          {[
-            ["project", "Project"],
-            ["repo", "Repo / workstream"],
-            ["session", "Session / task"],
-            ["doc", "Doc"],
-            ["diagram", "Diagram"],
-            ["file", "File / reference"]
-          ].map(([kind, label]) => (
-            <span key={kind}>
-              <i className={`graph-legend-dot graph-flow-node-${kind}`} aria-hidden="true" />
-              {label}
-            </span>
-          ))}
-          {[
-            ["topic", "Topic"],
-            ["service", "Service"],
-            ["package", "Package"],
-            ["diagram-group", "Diagram group"]
-          ].map(([kind, label]) => (
-            <span key={kind}>
-              <i className={`graph-legend-dot graph-flow-node-${kind}`} aria-hidden="true" />
-              {label}
-            </span>
-          ))}
+      {showGraphHelp ? (
+        <div className="notice graph-explainer compact">
+          <strong>Context graph, not storage inventory</strong>
+          <p>
+            Context map keeps high-signal hubs visible first. Import audit shows the noisier storage inventory for checking imports and derived links.
+          </p>
         </div>
       ) : null}
       <div className="graph-board">
+        <div className="graph-board-details">
+          <button
+            type="button"
+            className={`graph-details-toggle ${showGraphDetails ? "selected" : ""}`}
+            onClick={() => setShowGraphDetails((open) => !open)}
+            aria-expanded={showGraphDetails}
+          >
+            {showGraphDetails ? "Hide details" : "Details"}
+          </button>
+          {showGraphDetails ? (
+            <div className="graph-details-popover">
+              <div className={`graph-mode-note ${isRawGraph ? "warning" : ""}`}>
+                {isRawGraph ? (
+                  <>
+                    <strong>Import audit:</strong> stored records, project ownership links, and derived context relationships.
+                  </>
+                ) : focusedNodeId ? (
+                  <>
+                    <strong>Focused neighborhood:</strong> nearby relationships around {graphElements.focusLabel || "the selected node"}.
+                  </>
+                ) : (
+                  <>
+                    <strong>Context map:</strong> high-signal hubs first, with leaf docs hidden until a node is focused.
+                  </>
+                )}
+              </div>
+              {!isRawGraph && graphElements.edgeTypes.length ? (
+                <div className="graph-edge-summary" aria-label="Relationship summary">
+                  {graphElements.edgeTypes.map((item) => (
+                    <span key={item.type}>{graphEdgeLabel(item.type)} {item.count}</span>
+                  ))}
+                </div>
+              ) : null}
+              {!isRawGraph ? (
+                <div className="graph-legend" aria-label="Graph legend">
+                  {[
+                    ["project", "Project"],
+                    ["repo", "Repo / workstream"],
+                    ["session", "Session / task"],
+                    ["doc", "Doc"],
+                    ["diagram", "Diagram"],
+                    ["file", "File / reference"],
+                    ["topic", "Topic"],
+                    ["service", "Service"],
+                    ["package", "Package"],
+                    ["diagram-group", "Diagram group"]
+                  ].map(([kind, label]) => (
+                    <span key={kind}>
+                      <i className={`graph-legend-dot graph-flow-node-${kind}`} aria-hidden="true" />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         {isRawGraph ? (
           <RawStorageAudit graph={graph} />
         ) : graphElements.nodes.length ? (
