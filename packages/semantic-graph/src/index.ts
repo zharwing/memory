@@ -386,6 +386,10 @@ export function applySemanticEdgePolicy(input: ApplySemanticEdgePolicyInput): Se
       discardedDecisions.push({ ...decision, confidence });
       continue;
     }
+    if (!decision.reason.trim() || !hasUsableEvidence(decision.evidence)) {
+      discardedDecisions.push({ ...decision, confidence });
+      continue;
+    }
 
     const candidate = decision.candidateId ? candidates.get(decision.candidateId) : undefined;
     const from = decision.from || candidate?.sourceNodeId;
@@ -1005,6 +1009,10 @@ function normalizeEvidence(
       sourcePath: item.sourcePath
     };
   });
+}
+
+function hasUsableEvidence(evidence: Array<string | SemanticGraphEvidence> | undefined): boolean {
+  return (evidence || []).some((item) => typeof item === "string" ? Boolean(item.trim()) : Boolean(item.quote.trim()));
 }
 
 function isSemanticEvidence(input: unknown): input is SemanticGraphEvidence {
