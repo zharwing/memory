@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useSearchParams } from "react-router-dom";
-import { CircleHelp, RotateCcw, X } from "lucide-react";
+import { CircleHelp, FlaskConical, Play, RotateCcw, X } from "lucide-react";
 import { useStore } from "../../stores/store-context.js";
-import { Screen } from "../../components/layout.js";
+import { KeyValue, Screen } from "../../components/layout.js";
 import { LibraryTabs } from "../../components/SectionTabs.js";
 import { DocumentEditorModal } from "../../components/DocumentEditorModal.js";
 import { formatShortDateTime } from "../../utils/format.js";
@@ -48,6 +48,16 @@ export const GraphScreen = observer(function GraphScreen() {
   const [editingDocId, setEditingDocId] = useState(searchParams.get("doc") || "");
   const [showGraphHelp, setShowGraphHelp] = useState(false);
   const [showGraphDetails, setShowGraphDetails] = useState(false);
+  const [semanticRunDraft, setSemanticRunDraft] = useState({
+    mode: "dry-run",
+    scopeKind: "focused",
+    endpoint: "",
+    model: "",
+    apiKey: "",
+    maxDocuments: "8",
+    maxCandidates: "24",
+    maxCandidatesPerDocument: "8"
+  });
   const [layoutVersion, setLayoutVersion] = useState(0);
   const graphStats = useMemo(() => getGraphStats(graph), [graph]);
   const focusOptions = useMemo(() => getGraphFocusOptions(graph), [graph]);
@@ -62,6 +72,9 @@ export const GraphScreen = observer(function GraphScreen() {
   const graphLinkCount = isRawGraph ? graphStats.relationships : graphElements.edges.length;
   const graphHiddenCount = isRawGraph ? graphStats.memberships : graphElements.hiddenMemberships + graphElements.hiddenLeafNodes;
   const graphGeneratedLabel = graph?.generated ? `${graph.displayProjected ? "Projected" : "Generated"} ${formatShortDateTime(graph.generated)}` : "";
+  const semanticEdgeCounts = store.semanticGraphEdgeCounts;
+  const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
+  const semanticResult = store.semanticAnalysisResult;
 
   useEffect(() => {
     const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
@@ -87,6 +100,19 @@ export const GraphScreen = observer(function GraphScreen() {
       updateGraphSearchParams({ doc: null }, true);
     }
   }, [editingDocId, store.docs]);
+
+  useEffect(() => {
+    setSemanticRunDraft((current) => ({
+      ...current,
+      model: current.model || store.semanticGraphSettings?.model || ""
+    }));
+  }, [store.selectedProjectId, store.semanticGraphSettings?.model]);
+
+  useEffect(() => {
+    if (!focusedNodeId && semanticRunDraft.scopeKind === "focused") {
+      updateSemanticRunDraft({ scopeKind: "all-docs" });
+    }
+  }, [focusedNodeId, semanticRunDraft.scopeKind]);
 
   function updateGraphSearchParams(nextState: {
     viewMode?: GraphViewMode;
@@ -207,6 +233,37 @@ export const GraphScreen = observer(function GraphScreen() {
     removeStoredGraphNodePositions(graphPositionKey);
     setLayoutVersion((currentVersion) => currentVersion + 1);
   }, [graphPositionKey]);
+
+  function updateSemanticRunDraft(patch: Partial<typeof semanticRunDraft>) {
+    setSemanticRunDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function semanticAnalysisScope() {
+    if (semanticRunDraft.scopeKind === "changed-docs") return { kind: "changed-docs" };
+    if (semanticRunDraft.scopeKind === "focused" && focusedNodeId && !isRawGraph) {
+      return { kind: "focused-graph-node", nodeId: focusedNodeId };
+    }
+    return { kind: "all-docs" };
+  }
+
+  function previewSemanticAnalysis() {
+    void store.previewSemanticGraphAnalysis(semanticAnalysisScope());
+  }
+
+  function runSemanticAnalysis() {
+    const mode = semanticRunDraft.mode || "dry-run";
+    void store.analyzeSemanticGraph({
+      mode,
+      dryRun: mode === "dry-run",
+      scope: semanticAnalysisScope(),
+      endpoint: semanticRunDraft.endpoint.trim() || undefined,
+      model: semanticRunDraft.model.trim() || undefined,
+      apiKey: semanticRunDraft.apiKey.trim() || undefined,
+      maxDocuments: numberOrUndefined(semanticRunDraft.maxDocuments),
+      maxCandidates: numberOrUndefined(semanticRunDraft.maxCandidates),
+      maxCandidatesPerDocument: numberOrUndefined(semanticRunDraft.maxCandidatesPerDocument)
+    });
+  }
 
   return (
     <Screen title="Graph">
@@ -351,6 +408,142 @@ export const GraphScreen = observer(function GraphScreen() {
                   })}
                 </div>
               ) : null}
+              {!isRawGraph ? (
+                <div className="semantic-analysis-panel">
+                  <div className="semantic-analysis-header">
+                    <strong>Semantic analysis</strong>
+                    <span>{semanticLatestRun?.status || "No runs"}</span>
+                  </div>
+                  <div className="semantic-graph-mini-stats">
+                    <KeyValue label="Accepted" value={(semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0)} />
+                    <KeyValue label="Proposed" value={semanticEdgeCounts.proposed || 0} />
+                    <KeyValue label="Latest" value={semanticLatestRun?.started ? formatShortDateTime(semanticLatestRun.started) : "None"} />
+                  </div>
+                  <div className="semantic-run-form">
+                    <label>
+                      <span>Mode</span>
+                      <select
+                        value={semanticRunDraft.mode}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ mode: event.target.value })}
+                      >
+                        <option value="dry-run">Dry run</option>
+                        <option value="review">Review</option>
+                        <option value="auto">Auto</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Scope</span>
+                      <select
+                        value={semanticRunDraft.scopeKind}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ scopeKind: event.target.value })}
+                      >
+                        <option value="focused" disabled={!focusedNodeId || isRawGraph}>Focused node</option>
+                        <option value="changed-docs">Changed docs</option>
+                        <option value="all-docs">Project</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Endpoint</span>
+                      <input
+                        value={semanticRunDraft.endpoint}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ endpoint: event.target.value })}
+                        placeholder="http://127.0.0.1:8080/v1"
+                      />
+                    </label>
+                    <label>
+                      <span>Model</span>
+                      <input
+                        value={semanticRunDraft.model}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ model: event.target.value })}
+                        placeholder="local model"
+                      />
+                    </label>
+                    <label>
+                      <span>API key</span>
+                      <input
+                        type="password"
+                        value={semanticRunDraft.apiKey}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ apiKey: event.target.value })}
+                        placeholder="optional"
+                      />
+                    </label>
+                    <label>
+                      <span>Max docs</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={semanticRunDraft.maxDocuments}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ maxDocuments: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span>Max candidates</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={semanticRunDraft.maxCandidates}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ maxCandidates: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      <span>Per doc</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={semanticRunDraft.maxCandidatesPerDocument}
+                        disabled={store.loading}
+                        onChange={(event) => updateSemanticRunDraft({ maxCandidatesPerDocument: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <div className="semantic-run-actions">
+                    <button
+                      type="button"
+                      className="icon-text-button"
+                      disabled={!store.selectedProjectId || store.loading}
+                      onClick={previewSemanticAnalysis}
+                    >
+                      <FlaskConical size={14} />
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-text-button"
+                      disabled={!store.selectedProjectId || store.loading}
+                      onClick={runSemanticAnalysis}
+                    >
+                      <Play size={14} />
+                      Run
+                    </button>
+                  </div>
+                  {semanticResult?.run ? (
+                    <div className="semantic-run-result">
+                      <div className="semantic-analysis-header">
+                        <strong>{semanticResult.run.status}</strong>
+                        <span>{semanticResult.run.mode}</span>
+                      </div>
+                      <div className="semantic-graph-mini-stats">
+                        <KeyValue label="Docs" value={`${semanticResult.run.counts?.documentsAnalyzed || 0} new / ${semanticResult.run.counts?.extractionsReused || 0} cached`} />
+                        <KeyValue label="Judged" value={semanticResult.run.counts?.judged || 0} />
+                        <KeyValue label="Accepted" value={semanticResult.run.counts?.accepted || 0} />
+                        <KeyValue label="Proposed" value={semanticResult.run.counts?.proposed || 0} />
+                        <KeyValue label="Discarded" value={semanticResult.run.counts?.discarded || 0} />
+                        <KeyValue label="Proposal" value={semanticResult.proposal?.id || "None"} />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -395,4 +588,9 @@ export const GraphScreen = observer(function GraphScreen() {
 
 function graphScreenDebugLog(eventName: string, details: Record<string, unknown>): void {
   console.log(`[graph-screen] ${eventName}`, details);
+}
+
+function numberOrUndefined(input: string): number | undefined {
+  const value = Number(input);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
 }

@@ -21,6 +21,7 @@ export class RootStore {
   semanticEdges: any[] = [];
   semanticGraphRuns: any[] = [];
   semanticAnalysisPreview: any = undefined;
+  semanticAnalysisResult: any = undefined;
   contextBundle: any = undefined;
   searchResults: any[] = [];
   importProfiles: any[] = [];
@@ -77,6 +78,7 @@ export class RootStore {
 
   async selectProject(projectId: string) {
     this.selectedProjectId = projectId;
+    this.semanticAnalysisResult = undefined;
     await this.refreshProject();
   }
 
@@ -165,6 +167,7 @@ export class RootStore {
           this.semanticEdges = [];
           this.semanticGraphRuns = [];
           this.semanticAnalysisPreview = undefined;
+          this.semanticAnalysisResult = undefined;
         }
       });
       if (this.selectedProjectId) await this.refreshProject();
@@ -248,6 +251,31 @@ export class RootStore {
       runInAction(() => {
         this.semanticAnalysisPreview = preview;
         this.semanticGraphStatus = status;
+      });
+    });
+  }
+
+  async analyzeSemanticGraph(args: Record<string, unknown>) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      const result = await this.client.call("memory.analyze_semantic_graph", {
+        projectId: this.selectedProjectId,
+        ...args
+      });
+      const [status, edges, runs, inbox, graph] = await Promise.all([
+        this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
+        this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
+        this.client.call("memory.list_semantic_graph_runs", { projectId: this.selectedProjectId }),
+        this.client.call("memory.list_inbox", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_graph", { projectId: this.selectedProjectId })
+      ]);
+      runInAction(() => {
+        this.semanticAnalysisResult = result;
+        this.semanticGraphStatus = status;
+        this.semanticEdges = edges as any[];
+        this.semanticGraphRuns = runs as any[];
+        this.inbox = inbox as any[];
+        this.graph = graph;
       });
     });
   }
