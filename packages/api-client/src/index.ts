@@ -89,6 +89,10 @@ export class AimemClient {
   proposeSemanticEdges(params: Record<string, unknown>) {
     return this.call("memory.propose_semantic_edges", params);
   }
+
+  acceptSemanticEdgesProposal(params: Record<string, unknown>) {
+    return this.call("memory.accept_semantic_edges_proposal", params);
+  }
 }
 
 function runtimeEnv(): Record<string, string | undefined> {

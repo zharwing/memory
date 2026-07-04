@@ -451,6 +451,32 @@ export function semanticEdgesProposalPatch(runId: string, edges: SemanticGraphEd
   return `${JSON.stringify(patch, null, 2)}\n`;
 }
 
+export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined): SemanticGraphProposalPatch | undefined {
+  if (!proposedPatch?.trim()) return undefined;
+  try {
+    const parsed = JSON.parse(proposedPatch) as Partial<SemanticGraphProposalPatch>;
+    if (parsed.kind !== "semantic-graph-edges" || !Array.isArray(parsed.edges)) return undefined;
+    const edges = parsed.edges
+      .map((edge) => ({
+        from: String(edge?.from || ""),
+        to: String(edge?.to || ""),
+        type: edge?.type as SemanticGraphEdgeType,
+        confidence: clampConfidence(Number(edge?.confidence)),
+        reason: String(edge?.reason || ""),
+        evidence: Array.isArray(edge?.evidence) ? edge.evidence.filter(isSemanticEvidence) : []
+      }))
+      .filter((edge) => edge.from && edge.to && edge.type && edge.reason);
+    if (edges.length === 0) return undefined;
+    return {
+      kind: "semantic-graph-edges",
+      runId: String(parsed.runId || "external-semantic-run"),
+      edges
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function semanticDocumentPromptContent(doc: MemoryDocument): string {
   return [
     `Title: ${doc.title}`,
@@ -729,6 +755,10 @@ function normalizeEvidence(
       sourcePath: item.sourcePath
     };
   });
+}
+
+function isSemanticEvidence(input: unknown): input is SemanticGraphEvidence {
+  return Boolean(input && typeof input === "object" && typeof (input as SemanticGraphEvidence).quote === "string");
 }
 
 function documentNodeId(documentId: string): string {

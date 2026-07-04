@@ -1,14 +1,16 @@
 import {
   type ProjectRegistry,
+  listProposedUpdates,
   listSemanticRuns,
   proposeMemoryUpdate,
   readSemanticEdges,
   readSemanticGraphSettings,
   readSemanticRun,
+  updateProposalStatus,
   writeSemanticEdges,
   writeSemanticGraphSettings
 } from "@aimem/storage";
-import { semanticEdgesProposalPatch } from "@aimem/semantic-graph";
+import { semanticEdgesFromProposalPatch, semanticEdgesProposalPatch } from "@aimem/semantic-graph";
 import {
   createId,
   nowIso,
@@ -179,6 +181,79 @@ export class SemanticGraphService {
       reason: params.reason || `Semantic graph relationship proposal (${edges.length} edge${edges.length === 1 ? "" : "s"})`
     });
   }
+
+  async acceptProposal(params: {
+    projectId: string;
+    proposalId: string;
+    status?: Extract<SemanticGraphEdgeStatus, "accepted" | "auto-accepted">;
+  }) {
+    const project = await resolveProject(this.registry, params.projectId);
+    const proposals = await listProposedUpdates(project);
+    const proposal = proposals.find((candidate) => candidate.id === params.proposalId);
+    if (!proposal) throw new Error(`Inbox proposal not found: ${params.proposalId}`);
+
+    const patch = semanticEdgesFromProposalPatch(proposal.proposedPatch);
+    if (!patch) throw new Error(`Inbox proposal is not a semantic graph edge proposal: ${params.proposalId}`);
+
+    const edgeFile = await readSemanticEdges(project);
+    const now = nowIso();
+    const status = params.status || "accepted";
+    const acceptedEdges = patch.edges.map((edge): SemanticGraphEdge => ({
+      id: createId("sem-edge"),
+      projectId: project.id,
+      from: edge.from,
+      to: edge.to,
+      type: edge.type,
+      status,
+      confidence: clampConfidence(edge.confidence),
+      reason: edge.reason,
+      evidence: edge.evidence,
+      source: {
+        kind: semanticSourceKindForProposal(proposal),
+        runId: patch.runId,
+        sourceAgent: proposal.sourceAgent
+      },
+      created: now,
+      updated: now
+    }));
+
+    const byKey = new Map(edgeFile.edges.map((edge) => [semanticEdgeKey(edge), edge]));
+    let created = 0;
+    let updated = 0;
+    for (const edge of acceptedEdges) {
+      const key = semanticEdgeKey(edge);
+      const existing = byKey.get(key);
+      if (existing) {
+        byKey.set(key, {
+          ...existing,
+          status,
+          confidence: Math.max(existing.confidence, edge.confidence),
+          evidence: mergeEvidence(existing.evidence, edge.evidence),
+          reason: existing.reason || edge.reason,
+          updated: now
+        });
+        updated += 1;
+      } else {
+        byKey.set(key, edge);
+        created += 1;
+      }
+    }
+
+    const next = await writeSemanticEdges(project, [...byKey.values()]);
+    const updatedProposal = await updateProposalStatus({
+      project,
+      proposalId: params.proposalId,
+      status: "accepted"
+    });
+
+    return {
+      created,
+      updated,
+      accepted: acceptedEdges.length,
+      edges: next.edges.filter((edge) => acceptedEdges.some((accepted) => semanticEdgeKey(accepted) === semanticEdgeKey(edge))),
+      proposal: updatedProposal
+    };
+  }
 }
 
 function normalizeSettingsPatch(settings: SemanticGraphSettings): SemanticGraphSettings {
@@ -224,6 +299,24 @@ function normalizeEvidence(input: Array<string | SemanticGraphEvidence> | undefi
       sourcePath: item.sourcePath
     };
   });
+}
+
+function semanticSourceKindForProposal(proposal: ProposedMemoryUpdate): SemanticGraphEdge["source"]["kind"] {
+  if (proposal.sourceKind === "manual") return "manual";
+  if (proposal.sourceKind === "memory-assistant") return "llm";
+  return "external-ai";
+}
+
+function semanticEdgeKey(edge: Pick<SemanticGraphEdge, "from" | "to" | "type">): string {
+  return `${edge.from}\u0000${edge.to}\u0000${edge.type}`;
+}
+
+function mergeEvidence(left: SemanticGraphEvidence[], right: SemanticGraphEvidence[]): SemanticGraphEvidence[] {
+  const byKey = new Map<string, SemanticGraphEvidence>();
+  for (const item of [...left, ...right]) {
+    byKey.set(`${item.documentId || ""}\u0000${item.quote}\u0000${item.location || ""}\u0000${item.sourcePath || ""}`, item);
+  }
+  return [...byKey.values()];
 }
 
 function confidenceForEdges(edges: SemanticGraphEdge[]): ProposedMemoryUpdate["confidence"] {

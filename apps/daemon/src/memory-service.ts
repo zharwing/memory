@@ -295,6 +295,10 @@ export class MemoryService {
     return this.semanticGraph.proposeEdges(params);
   }
 
+  async acceptSemanticEdgesProposal(params: Parameters<SemanticGraphService["acceptProposal"]>[0]) {
+    return this.semanticGraph.acceptProposal(params);
+  }
+
   // Backups
 
   async backupProject(params: Parameters<BackupService["backupProject"]>[0]) {
