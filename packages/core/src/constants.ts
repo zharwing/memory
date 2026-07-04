@@ -1,4 +1,10 @@
-import type { AssistantPolicy, ContextPolicy, MemoryWritePolicy, PrivacyPolicy } from "./types.js";
+import type {
+  AssistantPolicy,
+  ContextPolicy,
+  MemoryWritePolicy,
+  PrivacyPolicy,
+  SemanticGraphSettings
+} from "./types.js";
 
 export const DEFAULT_MEMORY_ROOT_NAME = "AI Memory Root";
 
@@ -32,7 +38,10 @@ export const DEFAULT_PROJECT_FOLDERS = [
   "assets/images",
   "assets/screenshots",
   "assets/attachments",
+  "semantic-graph",
   "generated/context-bundles",
+  "generated/semantic/doc-extractions",
+  "generated/semantic/runs",
   "generated/exports",
   "generated/assistant-drafts",
   "inbox/proposed-updates",
@@ -40,6 +49,7 @@ export const DEFAULT_PROJECT_FOLDERS = [
   "inbox/review-needed",
   "audit/context-bundles",
   "audit/assistant-runs",
+  "audit/semantic-runs",
   "backups/snapshots"
 ] as const;
 
@@ -112,4 +122,18 @@ export const DEFAULT_ASSISTANT_POLICY: AssistantPolicy = {
 export const DEFAULT_MEMORY_WRITE_POLICY: MemoryWritePolicy = {
   allowAgentDirectWrites: true,
   reviewMode: "off"
+};
+
+export const DEFAULT_SEMANTIC_GRAPH_SETTINGS: SemanticGraphSettings = {
+  version: 1,
+  enabled: false,
+  mode: "review",
+  autoAcceptThreshold: 0.9,
+  reviewThreshold: 0.62,
+  discardBelowThreshold: 0.35,
+  maxCandidatesPerDocument: 12,
+  maxClusterSize: 16,
+  includeDeterministicSignals: true,
+  includeVectorCandidates: false,
+  remoteProvidersEnabled: false
 };
