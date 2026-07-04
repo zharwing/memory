@@ -426,6 +426,35 @@ input[type="checkbox"] {
   gap: 6px;
 }
 
+.settings-columns {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.settings-columns.checkbox-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.semantic-status-grid {
+  margin-bottom: 14px;
+}
+
+.semantic-settings-form input[type="number"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.semantic-proposal-review {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.semantic-edge-table table {
+  min-width: 920px;
+}
+
 .stacked-form label > span,
 .checkbox-row span,
 .field-label {

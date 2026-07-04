@@ -7,6 +7,7 @@ import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { graphRulesFromProposalPatch } from "../utils/graph-proposals.js";
+import { semanticEdgesFromProposalPatch } from "../utils/semantic-proposals.js";
 
 export const InboxScreen = observer(function InboxScreen() {
   const store = useStore();
@@ -15,6 +16,9 @@ export const InboxScreen = observer(function InboxScreen() {
   const selectedProposal = store.inbox.find((item) => item.id === selectedProposalId) || store.inbox[0];
   const graphProposalRules = selectedProposal?.type === "graph-update"
     ? graphRulesFromProposalPatch(selectedProposal.proposedPatch)
+    : undefined;
+  const semanticProposalPatch = selectedProposal?.type === "graph-update"
+    ? semanticEdgesFromProposalPatch(selectedProposal.proposedPatch)
     : undefined;
 
   useEffect(() => {
@@ -76,7 +80,13 @@ export const InboxScreen = observer(function InboxScreen() {
                 if (selectedProposalId === deletedProposalId) closeInboxProposal(true);
               }}
             />
-            <button type="button" onClick={() => store.updateInboxStatus(selectedProposal.id, "accepted")}>Mark Accepted</button>
+            {semanticProposalPatch ? (
+              <button type="button" onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id)}>
+                Accept Semantic Edges
+              </button>
+            ) : (
+              <button type="button" onClick={() => store.updateInboxStatus(selectedProposal.id, "accepted")}>Mark Accepted</button>
+            )}
             <button type="button" onClick={() => store.updateInboxStatus(selectedProposal.id, "rejected")}>Reject</button>
             {graphProposalRules ? (
               <button type="button" onClick={() => store.applyGraphRulesProposal(selectedProposal.id, graphProposalRules)}>
@@ -88,6 +98,36 @@ export const InboxScreen = observer(function InboxScreen() {
           <KeyValue label="Source" value={selectedProposal.sourceAgent || selectedProposal.sourceKind || "unknown"} />
           <KeyValue label="Confidence" value={selectedProposal.confidence || "unknown"} />
           <KeyValue label="Reason" value={selectedProposal.reason} />
+          {semanticProposalPatch ? (
+            <div className="semantic-proposal-review">
+              <KeyValue label="Run" value={semanticProposalPatch.runId} />
+              <KeyValue label="Edges" value={semanticProposalPatch.edges.length} />
+              <div className="table-wrap semantic-edge-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>from</th>
+                      <th>type</th>
+                      <th>to</th>
+                      <th>confidence</th>
+                      <th>reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {semanticProposalPatch.edges.map((edge, index) => (
+                      <tr key={`${edge.from}-${edge.to}-${edge.type}-${index}`}>
+                        <td>{edge.from}</td>
+                        <td>{edge.type}</td>
+                        <td>{edge.to}</td>
+                        <td>{edge.confidence.toFixed(2)}</td>
+                        <td>{edge.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
           <pre className="markdown-preview">{selectedProposal.proposedPatch || "No proposed patch provided."}</pre>
         </Panel>
       ) : null}

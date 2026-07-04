@@ -16,6 +16,10 @@ export class RootStore {
   repoLinks: any[] = [];
   inbox: any[] = [];
   graph: any = undefined;
+  semanticGraphSettings: any = undefined;
+  semanticGraphStatus: any = undefined;
+  semanticEdges: any[] = [];
+  semanticGraphRuns: any[] = [];
   contextBundle: any = undefined;
   searchResults: any[] = [];
   importProfiles: any[] = [];
@@ -39,6 +43,15 @@ export class RootStore {
     return {
       allowAgentDirectWrites: policy.allowAgentDirectWrites ?? true,
       reviewMode: policy.reviewMode || "off"
+    };
+  }
+
+  get semanticGraphEdgeCounts() {
+    return this.semanticGraphStatus?.edgeCounts || {
+      proposed: 0,
+      accepted: 0,
+      rejected: 0,
+      "auto-accepted": 0
     };
   }
 
@@ -69,13 +82,15 @@ export class RootStore {
   async refreshProject() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const [summary, sessions, docs, workstreams, inbox, graph, contextBundle] = await Promise.all([
+      const [summary, sessions, docs, workstreams, inbox, graph, semanticGraphSettings, semanticGraphStatus, contextBundle] = await Promise.all([
         this.client.call("memory.get_project_summary", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_project_sessions", { projectId: this.selectedProjectId, limit: 20 }),
         this.client.call("memory.list_docs", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_workstreams", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_inbox", { projectId: this.selectedProjectId }),
         this.client.call("memory.get_graph", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
         this.client.call("memory.preview_context_bundle", { projectId: this.selectedProjectId, requestedBy: "desktop" })
       ]);
       runInAction(() => {
@@ -87,6 +102,8 @@ export class RootStore {
         this.repoLinks = (summary as any)?.project?.repos || [];
         this.inbox = inbox as any[];
         this.graph = graph;
+        this.semanticGraphSettings = semanticGraphSettings;
+        this.semanticGraphStatus = semanticGraphStatus;
         this.contextBundle = contextBundle;
       });
     });
@@ -142,6 +159,10 @@ export class RootStore {
           this.docs = [];
           this.workstreams = [];
           this.repoLinks = [];
+          this.semanticGraphSettings = undefined;
+          this.semanticGraphStatus = undefined;
+          this.semanticEdges = [];
+          this.semanticGraphRuns = [];
         }
       });
       if (this.selectedProjectId) await this.refreshProject();
@@ -173,6 +194,53 @@ export class RootStore {
       });
       await this.loadProjects();
       await this.refreshProject();
+    });
+  }
+
+  async loadSemanticGraph() {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      const [settings, status, edges, runs] = await Promise.all([
+        this.client.call("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
+        this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
+        this.client.call("memory.list_semantic_graph_runs", { projectId: this.selectedProjectId })
+      ]);
+      runInAction(() => {
+        this.semanticGraphSettings = settings;
+        this.semanticGraphStatus = status;
+        this.semanticEdges = edges as any[];
+        this.semanticGraphRuns = runs as any[];
+      });
+    });
+  }
+
+  async updateSemanticGraphSettings(settings: Record<string, unknown>) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      const next = await this.client.call("memory.update_semantic_graph_settings", {
+        projectId: this.selectedProjectId,
+        settings
+      });
+      const status = await this.client.call("memory.get_semantic_graph_status", {
+        projectId: this.selectedProjectId
+      });
+      runInAction(() => {
+        this.semanticGraphSettings = next;
+        this.semanticGraphStatus = status;
+      });
+    });
+  }
+
+  async acceptSemanticEdgesProposal(proposalId: string) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      await this.client.call("memory.accept_semantic_edges_proposal", {
+        projectId: this.selectedProjectId,
+        proposalId
+      });
+      await this.refreshProject();
+      await this.loadSemanticGraph();
     });
   }
 
