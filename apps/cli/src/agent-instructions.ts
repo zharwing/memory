@@ -65,9 +65,12 @@ If AI Memory is unavailable, continue with the user's task and report that memor
 
 1. Resolve the active AI Memory project from the current directory or explicit project id.
 2. Read startup state before deciding whether to start or resume a session.
-3. Search project memory for the task, feature, error, or file names involved.
-4. Start or resume a project-scoped session for meaningful work.
-5. Preview or generate a context bundle when prior context matters.
+3. Read the latest relevant previous session first, including the last weekday session after weekends or gaps.
+4. Carry forward unfinished tasks, next steps, blockers, touched files, and important decisions.
+5. Create a new project-scoped session for today's work round by default.
+6. Resume an existing session only when the user explicitly asks to continue it or the project policy says to reuse active sessions.
+7. Search project memory for the task, feature, error, or file names involved.
+8. Preview or generate a context bundle when prior context matters.
 
 ## During Work
 
@@ -80,8 +83,10 @@ If AI Memory is unavailable, continue with the user's task and report that memor
 
 ## Closeout
 
+- Treat "end of day", "job is over", and explicit close-session requests as memory closeout triggers.
+- Follow separate project-specific source-control, release, deployment, or task-tracker closeout policy only when this project provides one.
 - Close the session with a concrete summary.
-- Include next steps, blockers, and touched files when known.
+- Include next steps, blockers, touched files, and external closeout artifacts when known.
 - Update the session directly with progress, next steps, blockers, and touched files.
 - Write durable memory directly by default. Route updates to the inbox only when review mode is enabled or the update should not be trusted without a human pass.
 

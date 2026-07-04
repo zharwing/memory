@@ -29,7 +29,7 @@ the Browse button to choose folders with the OS picker.
 
 Each repo link can have:
 
-- `name`: human-friendly label, such as `10x product runtime`
+- `name`: human-friendly label, such as `Product runtime`
 - `description`: what this source root owns
 - `role`: free-form category, such as `service`, `worker`, `docs`,
   `product-runtime`, `codex-wrapper`, or `worktree`
@@ -49,7 +49,7 @@ aimem repos --project <project-id>
 Link a repo:
 
 ```text
-aimem link-repo <repo-root> --project <project-id> --name "10x services" --role service
+aimem link-repo <repo-root> --project <project-id> --name "Service API" --role service
 ```
 
 Link a repo with custom metadata:

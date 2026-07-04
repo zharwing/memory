@@ -22,7 +22,7 @@ import {
   SettingsScreen,
   TrashScreen,
   WorkstreamsScreen
-} from "./routes/screens.js";
+} from "./screens/index.js";
 
 export const App = observer(function App() {
   const store = useStore();

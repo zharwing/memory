@@ -3,10 +3,21 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": [
-    "apps/**/*.ts",
-    "apps/**/*.tsx",
-    "packages/**/*.ts",
-    "packages/**/*.tsx"
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/api-client" },
+    { "path": "./packages/theme" },
+    { "path": "./packages/privacy" },
+    { "path": "./packages/storage" },
+    { "path": "./packages/assistant-runtime" },
+    { "path": "./packages/context-engine" },
+    { "path": "./packages/search" },
+    { "path": "./packages/graph" },
+    { "path": "./packages/mcp-tools" },
+    { "path": "./apps/cli" },
+    { "path": "./apps/daemon" },
+    { "path": "./apps/mcp-server" },
+    { "path": "./apps/desktop" }
   ]
 }

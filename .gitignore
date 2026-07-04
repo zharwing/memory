@@ -14,3 +14,4 @@ memory-store/
 .env
 .env.*
 !.env.example
+.ai-memory.json

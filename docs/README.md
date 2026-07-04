@@ -16,6 +16,9 @@ This folder contains product and engineering documentation for the AI Memory imp
 - [Agent Protocol](AGENT_PROTOCOL.md)
   Project-neutral workflow for any AI agent using AI Memory, plus adapter boundaries.
 
+- [Agent Automation](AGENT_AUTOMATION.md)
+  MCP setup, repo bootstrap files, skill template, and automatic session workflow.
+
 - [Repositories](REPOSITORIES.md)
   Flexible multi-repo project links, names, descriptions, pointer files, CLI commands, and MCP tools.
 
@@ -33,6 +36,9 @@ This folder contains product and engineering documentation for the AI Memory imp
 
 - [Operations](OPERATIONS.md)
   Runtime assumptions, configuration, startup, backup, validation, indexing, security, and known constraints.
+
+- [Testing Plan](TESTING_PLAN.md)
+  Phased plan for unit and integration tests using node:test over compiled dist output, with privacy and storage first.
 
 - [Importing](IMPORTING.md)
   Generic Markdown import profiles, preview/commit workflow, CLI examples, and MCP usage.
@@ -52,11 +58,12 @@ This folder contains product and engineering documentation for the AI Memory imp
 5. Use [Desktop UI](DESKTOP_UI.md) when operating the browser or Tauri app.
 6. Use [API Reference](API_REFERENCE.md) when wiring clients.
 7. Use [Agent Protocol](AGENT_PROTOCOL.md) when wiring agents or generating agent-specific instructions.
-8. Use [Repositories](REPOSITORIES.md) when linking multiple repos to one memory project.
-9. Use [Workstreams](WORKSTREAMS.md) when grouping multi-day topics.
-10. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
-11. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
-12. Use [Operations](OPERATIONS.md) when running or packaging the app.
+8. Use [Agent Automation](AGENT_AUTOMATION.md) when configuring MCP clients, bootstrap files, or the generic skill.
+9. Use [Repositories](REPOSITORIES.md) when linking multiple repos to one memory project.
+10. Use [Workstreams](WORKSTREAMS.md) when grouping multi-day topics.
+11. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
+12. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
+13. Use [Operations](OPERATIONS.md) when running or packaging the app.
 
 ## Documentation Policy
 

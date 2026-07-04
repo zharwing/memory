@@ -14,7 +14,7 @@
     "@aimem/theme": "workspace:*",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.2.0",
-    "@xyflow/react": "^12.8.5",
+    "cytoscape": "^3.34.0",
     "lucide-react": "^0.468.0",
     "mermaid": "^11.4.1",
     "mobx": "^6.13.5",

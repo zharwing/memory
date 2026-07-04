@@ -143,7 +143,8 @@ Then:
 ```text
 memory.prepare_project_creation
 memory.create_project
-memory.start_or_resume_session
+memory.get_latest_session
+memory.start_session
 memory.preview_context_bundle
 memory.get_context_bundle
 memory.save_checkpoint

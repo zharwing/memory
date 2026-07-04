@@ -6,7 +6,9 @@ The product keeps project knowledge, AI session history, context bundles, diagra
 
 ## Current Implementation Status
 
-This repository is an implementation scaffold plus core business logic for the project plan in `../AI_MEMORY_SYSTEM_PLAN.md`.
+This repository is the generic, project-neutral AI Memory application source.
+Private user memory, project data, and personal workflows belong outside this
+repo in each user's chosen memory store.
 
 Implemented:
 
@@ -34,15 +36,18 @@ Implemented:
 
 Validated in the current workspace:
 
-- Dependencies installed with pnpm.
-- Desktop TypeScript typecheck passed.
+- Dependencies installed with pnpm via Corepack.
+- Workspace TypeScript build-mode validation passed.
 - Desktop Vite production build passed.
+- CLI dev entrypoint launched successfully.
+- MCP stdio adapter initialized and listed tools successfully.
 - Daemon and browser UI Vite dev server launched successfully.
 - Native Tauri `cargo check` passed from the Windows toolchain.
 
 Not yet performed:
 
-- Full workspace test suite.
+- Meaningful unit/integration test coverage. The current root test command runs,
+  but no compiled test files exist yet.
 - Windows packaged `.exe` build.
 
 ## Product Principles
@@ -88,9 +93,15 @@ docs/
   ARCHITECTURE.md   System architecture
   DATA_MODEL.md     Entities, storage, and metadata
   API_REFERENCE.md  Daemon, CLI, and MCP surfaces
+  AGENT_AUTOMATION.md MCP, bootstrap, and skill setup for agents
   USER_FLOWS.md     Human and agent workflows
   DIAGRAMS.md       Mermaid UML, ERD, sequence, state, flow diagrams
   OPERATIONS.md     Setup, runtime, backup, validation notes
+
+templates/
+  bootstrap/        Generic AGENTS.md and CLAUDE.md templates for linked repos
+  mcp/              Generic Codex and Claude MCP config examples
+  skills/           Generic AI Memory session skill template
 ```
 
 ## First Run
@@ -107,7 +118,7 @@ Other users should clone only the app source, then choose their own private
 store path.
 
 ```bash
-pnpm install
+corepack pnpm install
 cp .env.example .env
 ```
 
@@ -122,14 +133,14 @@ VITE_AIMEM_AUTH_TOKEN=<same-local-random-token>
 Start the daemon and browser UI:
 
 ```bash
-pnpm dev:daemon
-pnpm dev:web
+corepack pnpm dev:daemon
+corepack pnpm dev:web
 ```
 
 For the native desktop app, run:
 
 ```bash
-pnpm dev:desktop
+corepack pnpm dev:desktop
 ```
 
 The desktop shell starts or reuses the local daemon automatically. Browser mode
@@ -251,17 +262,37 @@ Repos may contain:
 ```
 
 That pointer file contains only project identity and memory location.
+Because the memory location is machine-local, `.ai-memory.json` is ignored by
+this app repo by default. Teams can decide separately whether pointer files in
+their own linked repos should be committed or kept local.
 
 ## Main Workflow
 
 1. Create or link a project.
-2. Start or resume a project-scoped session.
-3. Preview the AI context bundle.
-4. External AI performs coding work.
-5. AI saves checkpoints after meaningful progress.
-6. AI closes the session with next steps.
-7. AI writes durable memory directly when review mode is off.
-8. Review-mode or risky updates go to the Memory Inbox for accept/edit/reject/deferral.
+2. Read the latest relevant previous session.
+3. Start a fresh project-scoped session for the current day or work round.
+4. Preview the AI context bundle.
+5. External AI performs coding work.
+6. AI saves checkpoints after meaningful progress.
+7. AI closes the session with next steps.
+8. AI writes durable memory directly when review mode is off.
+9. Review-mode or risky updates go to the Memory Inbox for accept/edit/reject/deferral.
+
+## Agent Automation
+
+For automatic session behavior in Codex, Claude, or local agents:
+
+1. Start the daemon.
+2. Register the MCP adapter using `templates/mcp/`.
+3. Link source repos from the UI or CLI.
+4. Generate repo bootstrap files from `templates/bootstrap/`.
+5. Optionally install `templates/skills/ai-memory-session` as a generic Codex
+   skill or translate it into another agent's custom instruction format.
+
+Agents should call `memory.get_startup_state`, read the latest previous session,
+start a fresh daily/work-round session, search memory, load context when useful,
+save checkpoints during work, and close or checkpoint at the end. See
+[Agent Automation](docs/AGENT_AUTOMATION.md).
 
 ## CLI Examples
 

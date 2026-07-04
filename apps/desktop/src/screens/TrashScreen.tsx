@@ -1,0 +1,86 @@
+import { useEffect, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useStore } from "../stores/store-context.js";
+import { Empty, Panel, Screen } from "../components/layout.js";
+import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
+
+export const TrashScreen = observer(function TrashScreen() {
+  const store = useStore();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    void store.loadTrash();
+  }, [store]);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => current.includes(id) ? current.filter((candidate) => candidate !== id) : [...current, id]);
+  }
+
+  function selectAll() {
+    setSelectedIds(store.trashItems.map((item) => item.id));
+  }
+
+  function clearSelection() {
+    setSelectedIds([]);
+  }
+
+  return (
+    <Screen title="Trash" actions={<button onClick={() => store.loadTrash()}>Refresh</button>}>
+      <Panel title="Trash Controls">
+        <div className="button-row">
+          <button type="button" disabled={!store.trashItems.length} onClick={selectAll}>Select All</button>
+          <button type="button" disabled={!selectedIds.length} onClick={clearSelection}>Clear Selection</button>
+          <ConfirmDeleteButton
+            itemType="trash-selection"
+            title={`${selectedIds.length} selected trash item${selectedIds.length === 1 ? "" : "s"}`}
+            critical
+            permanent
+            disabled={!selectedIds.length}
+            label="Delete Selected Permanently"
+            onConfirm={() => store.emptyTrash(selectedIds).then(() => setSelectedIds([]))}
+          />
+        </div>
+        <p className="panel-help">
+          Items in trash are removed from active project views but can be restored until they are permanently deleted.
+        </p>
+      </Panel>
+      <Panel title="Deleted Items">
+        {store.trashItems.length ? (
+          <div className="repo-list">
+            {store.trashItems.map((item) => (
+              <div className="repo-row" key={item.id}>
+                <label className="trash-select">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={() => toggleSelected(item.id)}
+                  />
+                  <span className="sr-only">Select {item.title}</span>
+                </label>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.type} {item.projectName ? `in ${item.projectName}` : ""}</span>
+                  <small>{item.deletedAt}</small>
+                  {item.originalPath ? <small>{item.originalPath}</small> : null}
+                </div>
+                <div className="row-actions">
+                  <button type="button" disabled={!item.canRestore} onClick={() => store.restoreTrashItem(item.id)}>Restore</button>
+                  <ConfirmDeleteButton
+                    itemType={`trash-${item.type}`}
+                    title={item.title}
+                    critical
+                    permanent
+                    label="Delete Permanently"
+                    onConfirm={() => store.purgeTrashItem(item.id)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty text="Trash is empty." />
+        )}
+      </Panel>
+    </Screen>
+  );
+});

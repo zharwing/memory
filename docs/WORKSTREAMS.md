@@ -10,12 +10,12 @@ workstreams inside it.
 Example:
 
 ```text
-Project: 10x
+Project: Acme Product
 Workstreams:
-  Huddle
+  Search
   Permissions and Roles
   Post-auth Onboarding
-  Design Explorer
+  Design System
 ```
 
 ## Why Workstream Instead Of Epic

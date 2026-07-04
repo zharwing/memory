@@ -1605,91 +1605,60 @@ tr.selected-row td {
   padding: 12px;
 }
 
-.graph-flow {
-  background: var(--surface);
+.graph-map-shell {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--muted) 18%, transparent) 1px, transparent 1px),
+    var(--surface);
+  background-size: 26px 26px;
   height: 100%;
+  position: relative;
   width: 100%;
 }
 
-.graph-flow .react-flow__pane {
+.graph-map {
   cursor: grab;
+  height: 100%;
+  outline: none;
+  width: 100%;
 }
 
-.graph-flow .react-flow__pane:active {
+.graph-map:active {
   cursor: grabbing;
 }
 
-.graph-flow .react-flow__background {
-  background: var(--surface);
-}
-
-.graph-flow .react-flow__edges {
-  opacity: 0.82;
-}
-
-.graph-flow .react-flow__nodes {
-  position: relative;
-  z-index: 2;
-}
-
-.graph-flow .react-flow__edge-path {
-  stroke: color-mix(in srgb, var(--muted) 46%, transparent);
-  stroke-width: 1.6;
-}
-
-.graph-flow .react-flow__edge-text {
-  fill: var(--muted);
-}
-
-.graph-flow .react-flow__edge-textbg {
-  fill: var(--surface);
-  stroke: var(--border);
-  stroke-width: 1;
-}
-
-.graph-flow .react-flow__edge.graph-flow-edge-belongs-to .react-flow__edge-path,
-.graph-flow .react-flow__edge.graph-flow-edge-related .react-flow__edge-path {
-  stroke: color-mix(in srgb, var(--muted) 46%, transparent);
-}
-
-.graph-flow .react-flow__edge.graph-flow-edge-contains .react-flow__edge-path {
-  stroke: #0f766e;
-  stroke-width: 1.8;
-}
-
-.graph-flow .react-flow__edge.graph-flow-edge-supports .react-flow__edge-path,
-.graph-flow .react-flow__edge.graph-flow-edge-explains .react-flow__edge-path,
-.graph-flow .react-flow__edge.graph-flow-edge-mentions .react-flow__edge-path,
-.graph-flow .react-flow__edge.graph-flow-edge-uses .react-flow__edge-path {
-  stroke: #b87333;
-  stroke-width: 1.8;
-}
-
-.graph-flow .react-flow__edge.graph-flow-edge-works-on .react-flow__edge-path,
-.graph-flow .react-flow__edge.graph-flow-edge-touched .react-flow__edge-path,
-.graph-flow .react-flow__edge.graph-flow-edge-produced .react-flow__edge-path {
-  stroke: var(--accent);
-}
-
-.graph-flow .react-flow__node-default.graph-flow-node {
-  --graph-node-accent: var(--accent);
-  background: var(--surface);
+.graph-map-controls {
   border: 1px solid var(--border);
-  border-left: 4px solid var(--graph-node-accent);
   border-radius: 8px;
-  box-shadow: 0 10px 24px rgba(17, 16, 15, 0.12);
-  color: var(--text);
-  font-size: 13px;
-  min-height: 64px;
-  padding: 0;
-  text-align: left;
-  width: 208px;
+  bottom: 14px;
+  box-shadow: 0 8px 24px rgba(17, 16, 15, 0.12);
+  display: grid;
+  left: 14px;
+  overflow: hidden;
+  position: absolute;
+  z-index: 5;
 }
 
-.graph-flow .react-flow__node-default.graph-flow-node.selected {
-  border-color: var(--graph-node-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--graph-node-accent) 24%, transparent), 0 12px 28px rgba(17, 16, 15, 0.12);
-  z-index: 5;
+.graph-map-controls button {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--text);
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0;
+  width: 32px;
+}
+
+.graph-map-controls button:last-child {
+  border-bottom: 0;
+}
+
+.graph-map-controls button:hover {
+  background: var(--surface-2);
 }
 
 .graph-flow-node-project {
@@ -1746,151 +1715,6 @@ tr.selected-row td {
 .graph-flow-node-code-area,
 .graph-flow-node-external-reference {
   --graph-node-accent: #64748b;
-}
-
-.graph-flow-node-label {
-  display: grid;
-  gap: 7px;
-  padding: 10px 12px;
-}
-
-.graph-flow-node-type-row {
-  align-items: center;
-  display: flex;
-  justify-content: flex-end;
-  min-height: 18px;
-}
-
-.graph-node-type-badge {
-  --graph-type-color: var(--graph-node-accent);
-  align-items: center;
-  background: color-mix(in srgb, var(--graph-type-color) 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--graph-type-color) 36%, var(--border));
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--graph-type-color) 78%, var(--text));
-  display: inline-flex;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0;
-  line-height: 1;
-  max-width: 100%;
-  min-height: 18px;
-  overflow: hidden;
-  padding: 0 7px;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.graph-node-type-topic {
-  --graph-type-color: #0f766e;
-}
-
-.graph-node-type-service {
-  --graph-type-color: #dc2626;
-}
-
-.graph-node-type-package {
-  --graph-type-color: #9333ea;
-}
-
-.graph-node-type-diagram,
-.graph-node-type-diagram-group {
-  --graph-type-color: #f59e0b;
-}
-
-.graph-node-type-decision,
-.graph-node-type-decision-record,
-.graph-node-type-architecture-decision-record {
-  --graph-type-color: #7c3aed;
-}
-
-.graph-node-type-command,
-.graph-node-type-command-note,
-.graph-node-type-commands {
-  --graph-type-color: #475569;
-}
-
-.graph-node-type-gotcha {
-  --graph-type-color: #be123c;
-}
-
-.graph-node-type-overview,
-.graph-node-type-doc,
-.graph-node-type-scratch-note,
-.graph-node-type-architecture-note,
-.graph-node-type-technical-spec,
-.graph-node-type-research,
-.graph-node-type-investigation,
-.graph-node-type-plan,
-.graph-node-type-requirement,
-.graph-node-type-user-flow {
-  --graph-type-color: #b87333;
-}
-
-.graph-flow-node-label strong {
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  display: -webkit-box;
-  font-size: 13px;
-  line-height: 1.25;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.graph-flow-node-label span {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: lowercase;
-  white-space: nowrap;
-}
-
-.graph-flow .react-flow__handle {
-  background: var(--surface);
-  border: 1px solid var(--graph-node-accent);
-  height: 8px;
-  opacity: 0;
-  width: 8px;
-}
-
-.graph-flow .react-flow__controls {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(17, 16, 15, 0.12);
-  overflow: hidden;
-}
-
-.graph-flow .react-flow__controls-button {
-  background: var(--surface);
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  color: var(--text);
-  height: 28px;
-  min-height: 28px;
-  padding: 0;
-  width: 28px;
-}
-
-.graph-flow .react-flow__controls-button:hover {
-  background: var(--surface-2);
-  border-color: var(--border);
-}
-
-.graph-flow .react-flow__controls-button svg {
-  max-height: 14px;
-  max-width: 14px;
-}
-
-.graph-flow .react-flow__minimap {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(17, 16, 15, 0.12);
-  overflow: hidden;
 }
 
 .notice,

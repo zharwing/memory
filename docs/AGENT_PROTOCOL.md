@@ -21,9 +21,14 @@ tracking.
 1. Resolve the active project from the current working directory or explicit
    project id.
 2. Read startup state before assuming whether to resume or start a session.
-3. Search project memory for the task, feature, error, or file names involved.
-4. Start or resume a project-scoped session for meaningful work.
-5. Preview or generate a context bundle when prior context matters.
+3. Read the latest relevant previous session when the user or project prefers
+   daily/session-per-work-round logs. Carry forward unfinished tasks, next
+   steps, blockers, touched files, and decisions.
+4. Search project memory for the task, feature, error, or file names involved.
+5. Start a new project-scoped session for meaningful work by default. Resume
+   only when the user explicitly asks to continue an existing session or the
+   project policy says to reuse active sessions.
+6. Preview or generate a context bundle when prior context matters.
 
 If memory tooling is unavailable, continue with the user's task using local
 project files and report that AI Memory was unavailable.
@@ -48,11 +53,17 @@ project files and report that AI Memory was unavailable.
 
 ## Closeout Flow
 
-1. Close the session with a concrete summary.
-2. Include next steps, blockers, and touched files.
-3. Write durable memory updates when the session established reusable facts,
+1. Treat end-of-day, "work is over", and explicit close-session requests as
+   memory closeout triggers.
+2. Follow project-specific source-control, release, deployment, or task-tracker
+   closeout policy only when that policy is provided outside this universal
+   protocol.
+3. Close the session with a concrete summary.
+4. Include next steps, blockers, touched files, and external closeout artifacts
+   when known.
+5. Write durable memory updates when the session established reusable facts,
    commands, decisions, gotchas, or architecture notes and review mode is off.
-4. Route updates to Memory Inbox only when review mode or update risk calls for
+6. Route updates to Memory Inbox only when review mode or update risk calls for
    it.
 
 ## Privacy And Boundaries

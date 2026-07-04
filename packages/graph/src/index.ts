@@ -159,6 +159,13 @@ export function buildProjectGraph(input: BuildGraphInput): ProjectGraph {
       }
     }
 
+    const diagramGroup = diagramGroupFromSegments(importPathSegments(doc));
+    if (diagramGroup) {
+      for (const repoReference of matchedRepos) {
+        edges.push(edge(input.project.id, repoReference.id, `diagram-group:${diagramGroup.slug}`, "contains", "Repo owns this diagram collection"));
+      }
+    }
+
     for (const workstreamId of doc.workstreamIds) {
       edges.push(edge(input.project.id, docNodeId, `workstream:${workstreamId}`, "supports", "Document is attached to workstream"));
     }
@@ -317,10 +324,10 @@ function entityForTopic(topic: string): ContextEntity | undefined {
 
   if (slug === "diagrams") {
     return {
-      id: "diagram-group:system",
-      type: "diagram-group",
-      label: "System diagrams",
-      reason: "Document is grouped with imported diagrams"
+      id: "topic:diagrams",
+      type: "topic",
+      label: "Diagrams",
+      reason: "Document is tagged with diagrams"
     };
   }
 
@@ -355,16 +362,6 @@ function entitiesFromImportPath(doc: MemoryDocument): ContextEntity[] {
       label: area.label,
       reason: "Imported memory path identifies this code area",
       path: area.path
-    });
-  }
-
-  const diagramGroup = diagramGroupFromSegments(segments);
-  if (diagramGroup) {
-    entities.push({
-      id: `diagram-group:${diagramGroup.slug}`,
-      type: "diagram-group",
-      label: diagramGroup.label,
-      reason: "Imported memory path identifies this diagram collection"
     });
   }
 
@@ -491,15 +488,6 @@ function primaryAreaFromSegments(segments: string[]): { type: GraphNodeType; slu
       type: "package",
       slug,
       label: labelForSlug(slug),
-      path: segments.join("/")
-    };
-  }
-
-  if (category === "diagrams" && second === "projects" && third) {
-    return {
-      type: "service",
-      slug: third,
-      label: labelForSlug(third),
       path: segments.join("/")
     };
   }
