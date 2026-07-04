@@ -20,6 +20,7 @@ export class RootStore {
   semanticGraphStatus: any = undefined;
   semanticEdges: any[] = [];
   semanticGraphRuns: any[] = [];
+  semanticAnalysisPreview: any = undefined;
   contextBundle: any = undefined;
   searchResults: any[] = [];
   importProfiles: any[] = [];
@@ -163,6 +164,7 @@ export class RootStore {
           this.semanticGraphStatus = undefined;
           this.semanticEdges = [];
           this.semanticGraphRuns = [];
+          this.semanticAnalysisPreview = undefined;
         }
       });
       if (this.selectedProjectId) await this.refreshProject();
@@ -227,6 +229,24 @@ export class RootStore {
       });
       runInAction(() => {
         this.semanticGraphSettings = next;
+        this.semanticGraphStatus = status;
+      });
+    });
+  }
+
+  async previewSemanticGraphAnalysis(scope: Record<string, unknown> = { kind: "all-docs" }) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      const preview = await this.client.call("memory.preview_semantic_graph_analysis", {
+        projectId: this.selectedProjectId,
+        scope,
+        persistCandidateIndex: true
+      });
+      const status = await this.client.call("memory.get_semantic_graph_status", {
+        projectId: this.selectedProjectId
+      });
+      runInAction(() => {
+        this.semanticAnalysisPreview = preview;
         this.semanticGraphStatus = status;
       });
     });

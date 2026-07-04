@@ -279,6 +279,21 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     projectId: { type: "string" },
     runId: { type: "string" }
   }, ["projectId", "runId"]),
+  tool("memory.preview_semantic_graph_analysis", "Build a privacy-gated semantic graph extraction plan and deterministic candidate index without calling an LLM.", {
+    projectId: { type: "string" },
+    maxDocumentChars: { type: "number" },
+    persistCandidateIndex: { type: "boolean" },
+    scope: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["all-docs", "changed-docs", "selected-docs", "focused-graph-node", "workstream", "repo"] },
+        documentIds: { type: "array", items: { type: "string" } },
+        nodeId: { type: "string" },
+        workstreamId: { type: "string" },
+        repoPath: { type: "string" }
+      }
+    }
+  }, ["projectId"]),
   tool("memory.propose_semantic_edges", "Create a Memory Inbox proposal from structured semantic graph relationship edges.", {
     projectId: { type: "string" },
     runId: { type: "string" },

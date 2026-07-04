@@ -1,24 +1,43 @@
 import {
   type ProjectRegistry,
+  listProjectDocuments,
+  listProjectSessions,
+  listProjectWorkstreams,
   listProposedUpdates,
   listSemanticRuns,
   proposeMemoryUpdate,
   readSemanticEdges,
+  readSemanticExtraction,
   readSemanticGraphSettings,
   readSemanticRun,
+  semanticCandidateIndexPath,
   updateProposalStatus,
+  writeSemanticCandidateIndex,
   writeSemanticEdges,
   writeSemanticGraphSettings
 } from "@aimem/storage";
-import { semanticEdgesFromProposalPatch, semanticEdgesProposalPatch } from "@aimem/semantic-graph";
+import { buildProjectGraph } from "@aimem/graph";
+import {
+  baselineSemanticExtractionFromPlanItem,
+  buildSemanticCandidateIndex,
+  buildSemanticExtractionPlan,
+  semanticEdgesFromProposalPatch,
+  semanticEdgesProposalPatch,
+  type SemanticCandidateIndex,
+  type SemanticExtractionPlanItem
+} from "@aimem/semantic-graph";
 import {
   createId,
   nowIso,
+  type MemoryDocument,
   type ProposedMemoryUpdate,
+  type ProjectGraph,
+  type SemanticDocumentExtraction,
   type SemanticGraphEdge,
   type SemanticGraphEdgeStatus,
   type SemanticGraphEdgeType,
   type SemanticGraphEvidence,
+  type SemanticGraphScope,
   type SemanticGraphSettings
 } from "@aimem/core";
 import { resolveProject } from "./project-resolver.js";
@@ -119,6 +138,93 @@ export class SemanticGraphService {
     const run = await readSemanticRun(project, params.runId);
     if (!run) throw new Error(`Semantic graph run not found: ${params.runId}`);
     return run;
+  }
+
+  async previewAnalysis(params: {
+    projectId: string;
+    scope?: SemanticGraphScope;
+    maxDocumentChars?: number;
+    persistCandidateIndex?: boolean;
+  }) {
+    const project = await resolveProject(this.registry, params.projectId);
+    const settings = await readSemanticGraphSettings(project);
+    const [documents, sessions, workstreams] = await Promise.all([
+      listProjectDocuments(project),
+      listProjectSessions(project),
+      listProjectWorkstreams(project)
+    ]);
+    const graph = buildProjectGraph({ project, documents, sessions, workstreams });
+    const scope = params.scope || { kind: "all-docs" };
+    const scopedDocuments = documentsForSemanticScope(scope, documents, graph);
+    const rawPlan = buildSemanticExtractionPlan({
+      project,
+      documents: scopedDocuments,
+      maxDocumentChars: params.maxDocumentChars
+    });
+
+    let cachedExtractions = 0;
+    let baselineExtractions = 0;
+    const selectedPlanItems: SemanticExtractionPlanItem[] = [];
+    const extractions: SemanticDocumentExtraction[] = [];
+
+    for (const item of rawPlan.documents) {
+      const cached = await readSemanticExtraction(project, item.documentId, item.contentHash);
+      if (cached) cachedExtractions += 1;
+      if (scope.kind === "changed-docs" && cached) continue;
+
+      selectedPlanItems.push(item);
+      if (cached) {
+        extractions.push(cached);
+      } else {
+        baselineExtractions += 1;
+        extractions.push(baselineSemanticExtractionFromPlanItem({ project, item }));
+      }
+    }
+
+    const candidateIndex = buildSemanticCandidateIndex({
+      project,
+      graph,
+      documents: scopedDocuments,
+      extractions,
+      settings
+    });
+
+    const persistCandidateIndex = params.persistCandidateIndex ?? true;
+    if (persistCandidateIndex) {
+      await writeSemanticCandidateIndex<SemanticCandidateIndex>(project, candidateIndex);
+    }
+
+    return {
+      projectId: project.id,
+      generated: nowIso(),
+      scope,
+      settings,
+      candidateIndexPath: persistCandidateIndex ? semanticCandidateIndexPath(project) : undefined,
+      extractionPlan: {
+        projectId: rawPlan.projectId,
+        generated: rawPlan.generated,
+        documents: selectedPlanItems.map(publicPlanItem),
+        excluded: rawPlan.excluded,
+        counts: {
+          ...rawPlan.counts,
+          eligible: selectedPlanItems.length
+        }
+      },
+      extractionCache: {
+        cached: cachedExtractions,
+        baseline: baselineExtractions,
+        missing: baselineExtractions
+      },
+      candidateIndex,
+      counts: {
+        documentsTotal: scopedDocuments.length,
+        documentsEligible: selectedPlanItems.length,
+        documentsExcluded: rawPlan.excluded.length,
+        cachedExtractions,
+        baselineExtractions,
+        candidates: candidateIndex.counts.candidates
+      }
+    };
   }
 
   async proposeEdges(params: {
@@ -265,6 +371,47 @@ function normalizeSettingsPatch(settings: SemanticGraphSettings): SemanticGraphS
     maxCandidatesPerDocument: clampInteger(settings.maxCandidatesPerDocument, 1, 100),
     maxClusterSize: clampInteger(settings.maxClusterSize, 1, 100)
   };
+}
+
+function documentsForSemanticScope(
+  scope: SemanticGraphScope,
+  documents: MemoryDocument[],
+  graph: ProjectGraph
+): MemoryDocument[] {
+  if (scope.kind === "selected-docs") {
+    const documentIds = new Set(scope.documentIds || []);
+    return documents.filter((doc) => documentIds.has(doc.id));
+  }
+  if (scope.kind === "workstream" && scope.workstreamId) {
+    return documents.filter((doc) => doc.workstreamIds.includes(scope.workstreamId as string));
+  }
+  if (scope.kind === "repo" && scope.repoPath) {
+    const repoPath = normalizePathForCompare(scope.repoPath);
+    const repoName = repoPath.split("/").filter(Boolean).pop() || "";
+    return documents.filter((doc) => {
+      const paths = [doc.filePath, doc.importSourcePath].filter(Boolean).map((value) => normalizePathForCompare(String(value)));
+      return paths.some((candidate) => candidate.startsWith(repoPath) || (repoName && candidate.includes(`/${repoName}/`)));
+    });
+  }
+  if (scope.kind === "focused-graph-node" && scope.nodeId) {
+    const docNodeIds = new Set<string>();
+    if (scope.nodeId.startsWith("doc:")) docNodeIds.add(scope.nodeId);
+    for (const edge of graph.edges) {
+      if (edge.from === scope.nodeId && edge.to.startsWith("doc:")) docNodeIds.add(edge.to);
+      if (edge.to === scope.nodeId && edge.from.startsWith("doc:")) docNodeIds.add(edge.from);
+    }
+    return documents.filter((doc) => docNodeIds.has(`doc:${doc.id}`));
+  }
+  return documents;
+}
+
+function publicPlanItem(item: SemanticExtractionPlanItem) {
+  const { content: _content, ...safeItem } = item;
+  return safeItem;
+}
+
+function normalizePathForCompare(input: string): string {
+  return input.replace(/\\/g, "/").replace(/\/+$/g, "").toLowerCase();
 }
 
 function countByStatus(edges: SemanticGraphEdge[]): Record<SemanticGraphEdgeStatus, number> {
