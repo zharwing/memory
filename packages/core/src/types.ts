@@ -575,3 +575,176 @@ export interface ProjectGraph {
   edges: GraphEdge[];
   generated: ISODateString;
 }
+
+export type SemanticGraphMode = "review" | "auto" | "dry-run";
+
+export type SemanticGraphProviderKind =
+  | "llama.cpp"
+  | "ollama"
+  | "lm-studio"
+  | "openai-compatible"
+  | "anthropic"
+  | "codex"
+  | "claude"
+  | "mcp"
+  | "manual";
+
+export type SemanticGraphScopeKind =
+  | "all-docs"
+  | "changed-docs"
+  | "selected-docs"
+  | "focused-graph-node"
+  | "workstream"
+  | "repo";
+
+export type SemanticGraphRunStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type SemanticGraphEdgeStatus =
+  | "proposed"
+  | "accepted"
+  | "rejected"
+  | "auto-accepted";
+
+export type SemanticGraphEdgeType =
+  | GraphEdge["type"]
+  | "duplicates"
+  | "contradicts";
+
+export interface SemanticGraphSettings {
+  version: 1;
+  enabled: boolean;
+  mode: SemanticGraphMode;
+  providerId?: string;
+  providerKind?: SemanticGraphProviderKind | string;
+  model?: string;
+  autoAcceptThreshold: number;
+  reviewThreshold: number;
+  discardBelowThreshold: number;
+  maxCandidatesPerDocument: number;
+  maxClusterSize: number;
+  includeDeterministicSignals: boolean;
+  includeVectorCandidates: boolean;
+  remoteProvidersEnabled: boolean;
+  updated?: ISODateString;
+}
+
+export interface SemanticGraphScope {
+  kind: SemanticGraphScopeKind;
+  documentIds?: DocumentId[];
+  nodeId?: string;
+  workstreamId?: WorkstreamId;
+  repoPath?: string;
+}
+
+export interface SemanticGraphThresholds {
+  autoAccept: number;
+  review: number;
+  discardBelow: number;
+}
+
+export interface SemanticGraphRunCounts {
+  documentsTotal: number;
+  documentsAnalyzed: number;
+  extractionsReused: number;
+  candidates: number;
+  judged: number;
+  accepted: number;
+  proposed: number;
+  rejected: number;
+  discarded: number;
+}
+
+export interface SemanticGraphRun {
+  id: string;
+  projectId: ProjectId;
+  status: SemanticGraphRunStatus;
+  mode: SemanticGraphMode;
+  scope: SemanticGraphScope;
+  providerId?: string;
+  providerKind?: SemanticGraphProviderKind | string;
+  model?: string;
+  started: ISODateString;
+  finished?: ISODateString;
+  error?: string;
+  thresholds: SemanticGraphThresholds;
+  counts: SemanticGraphRunCounts;
+  outputPath?: string;
+  auditPath?: string;
+}
+
+export interface SemanticGraphEvidence {
+  documentId?: DocumentId;
+  quote: string;
+  location?: string;
+  sourcePath?: string;
+}
+
+export interface SemanticGraphEdgeSource {
+  kind: "llm" | "external-ai" | "manual";
+  providerId?: string;
+  providerKind?: SemanticGraphProviderKind | string;
+  model?: string;
+  runId?: string;
+  sourceAgent?: string;
+  promptVersion?: string;
+}
+
+export interface SemanticGraphEdge {
+  id: string;
+  projectId: ProjectId;
+  from: string;
+  to: string;
+  type: SemanticGraphEdgeType;
+  status: SemanticGraphEdgeStatus;
+  confidence: number;
+  reason: string;
+  evidence: SemanticGraphEvidence[];
+  source: SemanticGraphEdgeSource;
+  created: ISODateString;
+  updated: ISODateString;
+  deterministicEdgeId?: string;
+}
+
+export interface SemanticGraphEdgesFile {
+  version: 1;
+  projectId: ProjectId;
+  updated: ISODateString;
+  edges: SemanticGraphEdge[];
+}
+
+export interface SemanticDocumentEntity {
+  name: string;
+  kind: GraphNodeType | "unknown";
+  nodeId?: string;
+  confidence?: number;
+}
+
+export interface SemanticDocumentCandidateHint {
+  targetName?: string;
+  targetNodeId?: string;
+  type?: SemanticGraphEdgeType;
+  confidence?: number;
+  reason?: string;
+}
+
+export interface SemanticDocumentExtraction {
+  version: 1;
+  projectId: ProjectId;
+  documentId: DocumentId;
+  contentHash: string;
+  providerId?: string;
+  providerKind?: SemanticGraphProviderKind | string;
+  model?: string;
+  created: ISODateString;
+  summary: string;
+  entities: SemanticDocumentEntity[];
+  concepts: string[];
+  mentionedFiles: string[];
+  mentionedPackages: string[];
+  candidateHints: SemanticDocumentCandidateHint[];
+}
