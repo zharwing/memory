@@ -90,6 +90,10 @@ export class AimemClient {
     return this.call("memory.preview_semantic_graph_analysis", params);
   }
 
+  checkSemanticGraphProvider(params: Record<string, unknown>) {
+    return this.call("memory.check_semantic_graph_provider", params);
+  }
+
   proposeSemanticEdges(params: Record<string, unknown>) {
     return this.call("memory.propose_semantic_edges", params);
   }

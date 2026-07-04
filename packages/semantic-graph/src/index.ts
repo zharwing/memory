@@ -22,6 +22,11 @@ import {
 } from "@aimem/core";
 import { applyPrivacyGate, type PrivacyDecision } from "@aimem/privacy";
 
+export interface SemanticPromptMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
 export interface BuildSemanticExtractionPlanInput {
   project: Project;
   documents: MemoryDocument[];
@@ -146,6 +151,12 @@ export interface SemanticGraphProposalPatch {
     reason: string;
     evidence: SemanticGraphEvidence[];
   }>;
+}
+
+export interface SemanticJudgementPromptInput {
+  source: SemanticDocumentExtraction;
+  candidate: SemanticRelationshipCandidate;
+  targetSummary?: string;
 }
 
 const DEFAULT_MAX_DOCUMENT_CHARS = 12000;
@@ -477,6 +488,122 @@ export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined
   }
 }
 
+export function semanticExtractionMessagesForItem(item: SemanticExtractionPlanItem): SemanticPromptMessage[] {
+  return [
+    {
+      role: "system",
+      content: [
+        "Extract project-memory graph facts from one document.",
+        "Return only JSON.",
+        "Do not invent services, packages, files, or dependencies.",
+        "Use exact names from the document when possible."
+      ].join(" ")
+    },
+    {
+      role: "user",
+      content: [
+        "Return this JSON object:",
+        "{",
+        '  "summary": "compact factual summary",',
+        '  "entities": [{"name":"exact name","kind":"service|package|topic|code-area|external-reference|unknown","nodeId":"optional graph node id","confidence":0.0}],',
+        '  "concepts": ["short concept"],',
+        '  "mentionedFiles": ["path or filename"],',
+        '  "mentionedPackages": ["@scope/package"],',
+        '  "candidateHints": [{"targetName":"exact target","targetNodeId":"optional graph node id","type":"explains|supports|mentions|uses|depends-on|related","confidence":0.0,"reason":"short reason"}]',
+        "}",
+        "",
+        item.content
+      ].join("\n")
+    }
+  ];
+}
+
+export function semanticJudgementMessages(input: SemanticJudgementPromptInput): SemanticPromptMessage[] {
+  return [
+    {
+      role: "system",
+      content: [
+        "Judge whether a real project-memory relationship exists.",
+        "Return only JSON.",
+        "Use relationship none when evidence is weak.",
+        "Do not infer beyond the supplied summaries, hints, and deterministic signals."
+      ].join(" ")
+    },
+    {
+      role: "user",
+      content: [
+        "Allowed relationship values: explains, supports, mentions, uses, depends-on, duplicates, contradicts, supersedes, related, none.",
+        "Return this JSON object:",
+        "{",
+        '  "relationship": "explains|supports|mentions|uses|depends-on|duplicates|contradicts|supersedes|related|none",',
+        '  "confidence": 0.0,',
+        '  "reason": "short reason",',
+        '  "evidence": ["short evidence snippet"]',
+        "}",
+        "",
+        `Source document: ${input.source.documentId}`,
+        `Source summary: ${input.source.summary}`,
+        `Source entities: ${input.source.entities.map((entity) => `${entity.name} (${entity.kind})`).join(", ") || "none"}`,
+        `Source concepts: ${input.source.concepts.join(", ") || "none"}`,
+        "",
+        `Candidate: ${input.candidate.targetNodeId}`,
+        `Candidate label: ${input.candidate.targetLabel}`,
+        `Candidate type: ${input.candidate.targetType}`,
+        `Suggested type: ${input.candidate.suggestedType}`,
+        `Candidate reasons: ${input.candidate.reasons.join("; ") || "none"}`,
+        input.targetSummary ? `Target summary: ${input.targetSummary}` : ""
+      ].filter(Boolean).join("\n")
+    }
+  ];
+}
+
+export function semanticExtractionFromProviderJson(input: unknown, args: {
+  project: Project;
+  item: SemanticExtractionPlanItem;
+  providerId?: string;
+  providerKind?: string;
+  model?: string;
+}): SemanticDocumentExtraction {
+  const value = record(input);
+  return {
+    version: 1,
+    projectId: args.project.id,
+    documentId: args.item.documentId,
+    contentHash: args.item.contentHash,
+    providerId: args.providerId,
+    providerKind: args.providerKind,
+    model: args.model,
+    created: nowIso(),
+    summary: stringValue(value.summary).slice(0, 1200) || baselineSummary(args.item),
+    entities: arrayValue(value.entities).map(normalizeProviderEntity).filter(isDefined).slice(0, 40),
+    concepts: arrayValue(value.concepts).map(stringValue).filter(Boolean).slice(0, 40),
+    mentionedFiles: arrayValue(value.mentionedFiles ?? value.mentioned_files).map(stringValue).filter(Boolean).slice(0, 40),
+    mentionedPackages: arrayValue(value.mentionedPackages ?? value.mentioned_packages).map(stringValue).filter(Boolean).slice(0, 40),
+    candidateHints: arrayValue(value.candidateHints ?? value.candidate_hints ?? value.relationshipHints).map(normalizeProviderHint).filter(isDefined).slice(0, 40)
+  };
+}
+
+export function semanticDecisionFromProviderJson(input: unknown, candidateId?: string): SemanticRelationshipDecision {
+  const value = record(input);
+  const type = normalizeDecisionType(stringValue(value.relationship ?? value.type));
+  return {
+    candidateId,
+    type,
+    confidence: clampConfidence(Number(value.confidence ?? 0)),
+    reason: stringValue(value.reason).slice(0, 1200),
+    evidence: arrayValue(value.evidence).map((item) => {
+      if (typeof item === "string") return item.slice(0, 1000);
+      const evidence = record(item);
+      return {
+        documentId: stringOrUndefined(evidence.documentId ?? evidence.document_id),
+        quote: stringValue(evidence.quote).slice(0, 1000),
+        location: stringOrUndefined(evidence.location),
+        sourcePath: stringOrUndefined(evidence.sourcePath ?? evidence.source_path)
+      };
+    }).filter((item) => typeof item === "string" ? item : item.quote)
+  };
+}
+
 export function baselineSemanticExtractionFromPlanItem(input: {
   project: Project;
   item: SemanticExtractionPlanItem;
@@ -688,6 +815,74 @@ function graphNodeTypeForBaselineName(name: string): GraphNodeType | "unknown" {
   return "unknown";
 }
 
+function normalizeProviderEntity(input: unknown): SemanticDocumentExtraction["entities"][number] | undefined {
+  const value = record(input);
+  const name = stringValue(value.name).slice(0, 200);
+  if (!name) return undefined;
+  return {
+    name,
+    kind: normalizeProviderNodeKind(stringValue(value.kind)),
+    nodeId: stringOrUndefined(value.nodeId ?? value.node_id),
+    confidence: value.confidence === undefined ? undefined : clampConfidence(Number(value.confidence))
+  };
+}
+
+function normalizeProviderHint(input: unknown): SemanticDocumentExtraction["candidateHints"][number] | undefined {
+  const value = record(input);
+  const targetName = stringOrUndefined(value.targetName ?? value.target_name ?? value.target);
+  const targetNodeId = stringOrUndefined(value.targetNodeId ?? value.target_node_id);
+  if (!targetName && !targetNodeId) return undefined;
+  const normalizedType = normalizeDecisionType(stringValue(value.type));
+  return {
+    targetName,
+    targetNodeId,
+    type: normalizedType === "none" ? undefined : normalizedType,
+    confidence: value.confidence === undefined ? undefined : clampConfidence(Number(value.confidence)),
+    reason: stringOrUndefined(value.reason)
+  };
+}
+
+function normalizeProviderNodeKind(input: string): GraphNodeType | "unknown" {
+  const allowed = new Set<GraphNodeType | "unknown">([
+    "project",
+    "repo",
+    "workstream",
+    "topic",
+    "service",
+    "package",
+    "diagram-group",
+    "task",
+    "session",
+    "decision",
+    "doc",
+    "diagram",
+    "code-area",
+    "file",
+    "command",
+    "gotcha",
+    "external-reference",
+    "unknown"
+  ]);
+  return allowed.has(input as GraphNodeType | "unknown") ? input as GraphNodeType | "unknown" : "unknown";
+}
+
+function normalizeDecisionType(input: string): SemanticRelationshipDecisionType {
+  const normalized = input.trim().toLowerCase();
+  const allowed = new Set<SemanticRelationshipDecisionType>([
+    "explains",
+    "supports",
+    "mentions",
+    "uses",
+    "depends-on",
+    "duplicates",
+    "contradicts",
+    "supersedes",
+    "related",
+    "none"
+  ]);
+  return allowed.has(normalized as SemanticRelationshipDecisionType) ? normalized as SemanticRelationshipDecisionType : "none";
+}
+
 function relatedDocumentCandidates(
   source: MemoryDocument,
   extraction: SemanticDocumentExtraction,
@@ -876,4 +1071,21 @@ function clampConfidence(input: number): number {
 
 function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
+}
+
+function record(input: unknown): Record<string, unknown> {
+  return input && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : {};
+}
+
+function arrayValue(input: unknown): unknown[] {
+  return Array.isArray(input) ? input : [];
+}
+
+function stringValue(input: unknown): string {
+  return String(input || "").trim();
+}
+
+function stringOrUndefined(input: unknown): string | undefined {
+  const value = stringValue(input);
+  return value || undefined;
 }

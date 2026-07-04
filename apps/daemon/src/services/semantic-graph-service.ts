@@ -18,6 +18,10 @@ import {
 } from "@aimem/storage";
 import { buildProjectGraph } from "@aimem/graph";
 import {
+  checkOpenAiCompatibleProvider,
+  type OpenAiCompatibleProviderConfig
+} from "@aimem/assistant-runtime";
+import {
   baselineSemanticExtractionFromPlanItem,
   buildSemanticCandidateIndex,
   buildSemanticExtractionPlan,
@@ -225,6 +229,38 @@ export class SemanticGraphService {
         candidates: candidateIndex.counts.candidates
       }
     };
+  }
+
+  async checkProvider(params: {
+    projectId: string;
+    endpoint?: string;
+    model?: string;
+    apiKey?: string;
+    timeoutMs?: number;
+    maxOutputTokens?: number;
+    jsonMode?: boolean;
+  }) {
+    const project = await resolveProject(this.registry, params.projectId);
+    const settings = await readSemanticGraphSettings(project);
+    const endpoint = params.endpoint || project.assistantPolicy.endpoint;
+    const model = params.model || settings.model || project.assistantPolicy.modelName;
+    if (!endpoint) {
+      throw new Error("No OpenAI-compatible endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
+    }
+    if (!model) {
+      throw new Error("No model configured. Set semantic graph model, assistantPolicy.modelName, or pass model.");
+    }
+
+    const config: OpenAiCompatibleProviderConfig = {
+      endpoint,
+      model,
+      apiKey: params.apiKey,
+      timeoutMs: params.timeoutMs || 30000,
+      maxOutputTokens: params.maxOutputTokens || 128,
+      temperature: 0,
+      jsonMode: params.jsonMode
+    };
+    return checkOpenAiCompatibleProvider(config);
   }
 
   async proposeEdges(params: {
