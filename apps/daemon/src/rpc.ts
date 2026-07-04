@@ -140,6 +140,8 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.listSemanticGraphRuns(params as never);
     case "memory.get_semantic_graph_run":
       return service.getSemanticGraphRun(params as never);
+    case "memory.preview_semantic_graph_analysis":
+      return service.previewSemanticGraphAnalysis(params as never);
     case "memory.propose_semantic_edges":
       return service.proposeSemanticEdges(params as never);
     case "memory.accept_semantic_edges_proposal":

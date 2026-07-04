@@ -31,6 +31,10 @@ export function semanticGraphRunsRoot(project: Project): string {
   return path.join(project.memoryRoot, "generated", "semantic", "runs");
 }
 
+export function semanticCandidateIndexPath(project: Project): string {
+  return path.join(project.memoryRoot, "generated", "semantic", "candidate-index.json");
+}
+
 export function semanticGraphRunPath(project: Project, runId: string): string {
   return path.join(semanticGraphRunsRoot(project), `${safeFilePart(runId)}.json`);
 }
@@ -162,6 +166,15 @@ export async function writeSemanticRun(project: Project, run: SemanticGraphRun):
   };
   await writeJson(semanticGraphRunPath(project, next.id), next);
   return next;
+}
+
+export async function readSemanticCandidateIndex<T = unknown>(project: Project): Promise<T | undefined> {
+  return readJson<T | undefined>(semanticCandidateIndexPath(project), undefined);
+}
+
+export async function writeSemanticCandidateIndex<T>(project: Project, candidateIndex: T): Promise<T> {
+  await writeJson(semanticCandidateIndexPath(project), candidateIndex);
+  return candidateIndex;
 }
 
 export async function listSemanticRuns(project: Project): Promise<SemanticGraphRun[]> {

@@ -15,6 +15,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
   const semanticSettingsSignature = JSON.stringify(store.semanticGraphSettings || {});
   const edgeCounts = store.semanticGraphEdgeCounts;
   const latestSemanticRun = store.semanticGraphStatus?.runCounts?.latest;
+  const semanticPreview = store.semanticAnalysisPreview;
 
   useEffect(() => {
     setGraphRulesDraft(JSON.stringify(project?.graphRules || [], null, 2));
@@ -255,6 +256,13 @@ export const SettingsScreen = observer(function SettingsScreen() {
             <button type="submit" disabled={!store.selectedProjectId || store.loading}>Save Semantic Graph</button>
             <button
               type="button"
+              disabled={!store.selectedProjectId || store.loading}
+              onClick={() => store.previewSemanticGraphAnalysis({ kind: "all-docs" })}
+            >
+              Preview Analysis
+            </button>
+            <button
+              type="button"
               disabled={store.loading}
               onClick={() => setSemanticDraft({ ...store.semanticGraphSettings })}
             >
@@ -262,6 +270,16 @@ export const SettingsScreen = observer(function SettingsScreen() {
             </button>
           </div>
         </form>
+        {semanticPreview ? (
+          <div className="semantic-preview">
+            <KeyValue label="Eligible docs" value={semanticPreview.counts?.documentsEligible ?? 0} />
+            <KeyValue label="Excluded docs" value={semanticPreview.counts?.documentsExcluded ?? 0} />
+            <KeyValue label="Cached extractions" value={semanticPreview.counts?.cachedExtractions ?? 0} />
+            <KeyValue label="Baseline extractions" value={semanticPreview.counts?.baselineExtractions ?? 0} />
+            <KeyValue label="Candidates" value={semanticPreview.counts?.candidates ?? 0} />
+            <KeyValue label="Candidate index" value={semanticPreview.candidateIndexPath || "Not persisted"} />
+          </div>
+        ) : null}
       </Panel>
       <Panel title="Graph Rules">
         <p className="panel-help">

@@ -477,6 +477,34 @@ export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined
   }
 }
 
+export function baselineSemanticExtractionFromPlanItem(input: {
+  project: Project;
+  item: SemanticExtractionPlanItem;
+}): SemanticDocumentExtraction {
+  const sample = input.item.content.slice(0, 2400);
+  return {
+    version: 1,
+    projectId: input.project.id,
+    documentId: input.item.documentId,
+    contentHash: input.item.contentHash,
+    providerKind: "manual",
+    model: "metadata-baseline",
+    created: nowIso(),
+    summary: baselineSummary(input.item),
+    entities: uniqueStrings([
+      ...input.item.topics,
+      ...packageNamesForText(sample)
+    ]).map((name) => ({
+      name,
+      kind: graphNodeTypeForBaselineName(name)
+    })),
+    concepts: baselineConcepts(input.item),
+    mentionedFiles: input.item.relatedFiles,
+    mentionedPackages: packageNamesForText(sample),
+    candidateHints: []
+  };
+}
+
 function semanticDocumentPromptContent(doc: MemoryDocument): string {
   return [
     `Title: ${doc.title}`,
@@ -631,6 +659,33 @@ function typeForEntityNode(node: GraphNode): SemanticGraphEdgeType {
   if (node.type === "service" || node.type === "code-area") return "explains";
   if (node.type === "topic" || node.type === "external-reference") return "mentions";
   return "related";
+}
+
+function baselineSummary(item: SemanticExtractionPlanItem): string {
+  const firstBodyLine = item.content
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("Title:") && !line.startsWith("Type:") && !line.startsWith("Status:"));
+  return [item.title, firstBodyLine].filter(Boolean).join(" - ").slice(0, 500);
+}
+
+function baselineConcepts(item: SemanticExtractionPlanItem): string[] {
+  const tokens = tokenSet(`${normalizeTextForMatch(item.title)} ${item.topics.map(normalizeTextForMatch).join(" ")}`);
+  return [...tokens].slice(0, 16);
+}
+
+function packageNamesForText(input: string): string[] {
+  const matches = input.match(/@[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*/gi) || [];
+  return uniqueStrings(matches.map((match) => match.trim())).slice(0, 12);
+}
+
+function graphNodeTypeForBaselineName(name: string): GraphNodeType | "unknown" {
+  const normalized = normalizeTextForMatch(name);
+  if (name.startsWith("@") || name.includes("/")) return "package";
+  if (normalized.includes("service")) return "service";
+  if (normalized.includes("diagram")) return "diagram-group";
+  if (normalized) return "topic";
+  return "unknown";
 }
 
 function relatedDocumentCandidates(
