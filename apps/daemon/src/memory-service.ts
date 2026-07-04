@@ -8,6 +8,7 @@ import { ImportService } from "./services/import-service.js";
 import { InboxService } from "./services/inbox-service.js";
 import { ProjectService } from "./services/project-service.js";
 import { SearchService } from "./services/search-service.js";
+import { SemanticGraphService } from "./services/semantic-graph-service.js";
 import { SessionService } from "./services/session-service.js";
 import { TrashService } from "./services/trash-service.js";
 import { WorkstreamService } from "./services/workstream-service.js";
@@ -31,6 +32,7 @@ export class MemoryService {
   private readonly context: ContextService;
   private readonly searchService: SearchService;
   private readonly graph: GraphService;
+  private readonly semanticGraph: SemanticGraphService;
   private readonly inbox: InboxService;
   private readonly backups: BackupService;
   private readonly trash: TrashService;
@@ -46,6 +48,7 @@ export class MemoryService {
     this.context = new ContextService(this.registry);
     this.searchService = new SearchService(this.registry);
     this.graph = new GraphService(this.registry);
+    this.semanticGraph = new SemanticGraphService(this.registry);
     this.inbox = new InboxService(this.registry);
     this.backups = new BackupService(this.registry);
     this.trash = new TrashService(this.registry);
@@ -256,6 +259,40 @@ export class MemoryService {
 
   async getGraph(params: Parameters<GraphService["getGraph"]>[0]) {
     return this.graph.getGraph(params);
+  }
+
+  // Semantic graph
+
+  async getSemanticGraphSettings(params: Parameters<SemanticGraphService["getSettings"]>[0]) {
+    return this.semanticGraph.getSettings(params);
+  }
+
+  async updateSemanticGraphSettings(params: Parameters<SemanticGraphService["updateSettings"]>[0]) {
+    return this.semanticGraph.updateSettings(params);
+  }
+
+  async getSemanticGraphStatus(params: Parameters<SemanticGraphService["getStatus"]>[0]) {
+    return this.semanticGraph.getStatus(params);
+  }
+
+  async listSemanticEdges(params: Parameters<SemanticGraphService["listEdges"]>[0]) {
+    return this.semanticGraph.listEdges(params);
+  }
+
+  async updateSemanticEdgeStatus(params: Parameters<SemanticGraphService["updateEdgeStatus"]>[0]) {
+    return this.semanticGraph.updateEdgeStatus(params);
+  }
+
+  async listSemanticGraphRuns(params: Parameters<SemanticGraphService["listRuns"]>[0]) {
+    return this.semanticGraph.listRuns(params);
+  }
+
+  async getSemanticGraphRun(params: Parameters<SemanticGraphService["getRun"]>[0]) {
+    return this.semanticGraph.getRun(params);
+  }
+
+  async proposeSemanticEdges(params: Parameters<SemanticGraphService["proposeEdges"]>[0]) {
+    return this.semanticGraph.proposeEdges(params);
   }
 
   // Backups

@@ -15,6 +15,7 @@
     "@aimem/storage": "workspace:*",
     "@aimem/context-engine": "workspace:*",
     "@aimem/search": "workspace:*",
-    "@aimem/graph": "workspace:*"
+    "@aimem/graph": "workspace:*",
+    "@aimem/semantic-graph": "workspace:*"
   }
 }

@@ -44,6 +44,9 @@ importers:
       '@aimem/search':
         specifier: workspace:*
         version: link:../../packages/search
+      '@aimem/semantic-graph':
+        specifier: workspace:*
+        version: link:../../packages/semantic-graph
       '@aimem/storage':
         specifier: workspace:*
         version: link:../../packages/storage

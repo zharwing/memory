@@ -126,6 +126,22 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.deleteInboxItem(params as never);
     case "memory.get_graph":
       return service.getGraph(params as never);
+    case "memory.get_semantic_graph_settings":
+      return service.getSemanticGraphSettings(params as never);
+    case "memory.update_semantic_graph_settings":
+      return service.updateSemanticGraphSettings(params as never);
+    case "memory.get_semantic_graph_status":
+      return service.getSemanticGraphStatus(params as never);
+    case "memory.list_semantic_edges":
+      return service.listSemanticEdges(params as never);
+    case "memory.update_semantic_edge_status":
+      return service.updateSemanticEdgeStatus(params as never);
+    case "memory.list_semantic_graph_runs":
+      return service.listSemanticGraphRuns(params as never);
+    case "memory.get_semantic_graph_run":
+      return service.getSemanticGraphRun(params as never);
+    case "memory.propose_semantic_edges":
+      return service.proposeSemanticEdges(params as never);
     case "memory.backup_project":
       return service.backupProject(params as never);
     case "memory.list_backups":
