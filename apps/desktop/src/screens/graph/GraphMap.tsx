@@ -436,7 +436,7 @@ function buildD3GraphModel(
     const type = String(node.type || "node");
     const degree = degreeByNodeId.get(node.id) || 0;
     const isRoot = node.id === focusedNodeId || (!focusedNodeId && type === "project");
-    const colors = graphNodeColors(type);
+    const colors = graphNodeVisualStyle(type);
     const target = targetPositions.get(node.id) || fallbackGraphPosition(index, nodes.length);
     const storedPosition = storedPositions?.[node.id];
     const position = storedPosition || deterministicJitteredPosition(target, node.id);
@@ -909,26 +909,27 @@ function graphNodeFontSize(node: D3GraphNode): number {
   return 12;
 }
 
-function graphNodeColors(type: string): { fill: string; accent: string; text: string } {
+export function graphNodeVisualStyle(type: string): { fill: string; accent: string; text: string } {
   const colors: Record<string, { fill: string; accent: string; text: string }> = {
-    project: { fill: "#eaf1ff", accent: "#2563eb", text: "#1e3a8a" },
+    project: { fill: "#e0e7ff", accent: "#4f46e5", text: "#312e81" },
     repo: { fill: "#e5f7fb", accent: "#0891b2", text: "#164e63" },
-    workstream: { fill: "#f1ecff", accent: "#7c3aed", text: "#4c1d95" },
+    workstream: { fill: "#ecfdf5", accent: "#059669", text: "#064e3b" },
     topic: { fill: "#e8f6f3", accent: "#0f766e", text: "#134e4a" },
     service: { fill: "#ffeded", accent: "#dc2626", text: "#7f1d1d" },
     package: { fill: "#f7ebff", accent: "#9333ea", text: "#581c87" },
-    "diagram-group": { fill: "#fff4e6", accent: "#f97316", text: "#7c2d12" },
-    "code-area": { fill: "#eef2f7", accent: "#64748b", text: "#334155" },
-    task: { fill: "#ebf9ef", accent: "#16a34a", text: "#14532d" },
-    session: { fill: "#ebf9ef", accent: "#16a34a", text: "#14532d" },
-    diagram: { fill: "#fff7df", accent: "#f59e0b", text: "#78350f" },
-    decision: { fill: "#f3edff", accent: "#7c3aed", text: "#4c1d95" },
+    "diagram-group": { fill: "#fff7ed", accent: "#f97316", text: "#7c2d12" },
+    "code-area": { fill: "#f1f5f9", accent: "#64748b", text: "#334155" },
+    task: { fill: "#f0fdf4", accent: "#16a34a", text: "#14532d" },
+    session: { fill: "#ecfeff", accent: "#06b6d4", text: "#155e75" },
+    doc: { fill: "#eff6ff", accent: "#3b82f6", text: "#1e3a8a" },
+    diagram: { fill: "#fffbeb", accent: "#f59e0b", text: "#78350f" },
+    decision: { fill: "#faf5ff", accent: "#a855f7", text: "#581c87" },
     command: { fill: "#f1f5f9", accent: "#475569", text: "#1e293b" },
-    gotcha: { fill: "#fff0f3", accent: "#be123c", text: "#881337" },
-    file: { fill: "#f1f5f9", accent: "#64748b", text: "#334155" },
-    "external-reference": { fill: "#f1f5f9", accent: "#64748b", text: "#334155" }
+    gotcha: { fill: "#fff1f2", accent: "#e11d48", text: "#881337" },
+    file: { fill: "#f8fafc", accent: "#94a3b8", text: "#334155" },
+    "external-reference": { fill: "#fefce8", accent: "#ca8a04", text: "#713f12" }
   };
-  return colors[type] || { fill: "#fff8f1", accent: "#b87333", text: "#5d4030" };
+  return colors[type] || { fill: "#f5f3ff", accent: "#8b5cf6", text: "#4c1d95" };
 }
 
 function graphMapNodeLabel(node: GraphMapNode): string {

@@ -14,10 +14,28 @@ import {
   getGraphStats,
   graphEdgeLabel,
 } from "./graph-display.js";
-import { GraphMap, removeStoredGraphNodePositions } from "./GraphMap.js";
+import { GraphMap, graphNodeVisualStyle, removeStoredGraphNodePositions } from "./GraphMap.js";
 import { buildGraphFlowElements, RawStorageAudit } from "./graph-flow.js";
 
 const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.d3.v2";
+const GRAPH_LEGEND_ITEMS = [
+  ["project", "Project"],
+  ["repo", "Repo"],
+  ["workstream", "Workstream"],
+  ["service", "Service"],
+  ["package", "Package"],
+  ["topic", "Topic"],
+  ["diagram-group", "Diagram group"],
+  ["doc", "Document"],
+  ["diagram", "Diagram"],
+  ["decision", "Decision"],
+  ["command", "Command"],
+  ["gotcha", "Gotcha"],
+  ["session", "Session"],
+  ["task", "Task"],
+  ["file", "File"],
+  ["external-reference", "External"]
+] as const;
 
 export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
@@ -315,23 +333,22 @@ export const GraphScreen = observer(function GraphScreen() {
               ) : null}
               {!isRawGraph ? (
                 <div className="graph-legend" aria-label="Graph legend">
-                  {[
-                    ["project", "Project"],
-                    ["repo", "Repo / workstream"],
-                    ["session", "Session / task"],
-                    ["doc", "Doc"],
-                    ["diagram", "Diagram"],
-                    ["file", "File / reference"],
-                    ["topic", "Topic"],
-                    ["service", "Service"],
-                    ["package", "Package"],
-                    ["diagram-group", "Diagram group"]
-                  ].map(([kind, label]) => (
+                  {GRAPH_LEGEND_ITEMS.map(([kind, label]) => {
+                    const colors = graphNodeVisualStyle(kind);
+                    return (
                     <span key={kind}>
-                      <i className={`graph-legend-dot graph-flow-node-${kind}`} aria-hidden="true" />
+                      <i
+                        className="graph-legend-dot"
+                        style={{
+                          background: colors.fill,
+                          borderColor: colors.accent
+                        }}
+                        aria-hidden="true"
+                      />
                       {label}
                     </span>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : null}
             </div>

@@ -1436,11 +1436,12 @@ tr.selected-row td {
 
 .graph-legend-dot {
   --graph-node-accent: var(--accent);
-  background: var(--graph-node-accent);
+  background: color-mix(in srgb, var(--graph-node-accent) 18%, var(--surface));
+  border: 2px solid var(--graph-node-accent);
   border-radius: 999px;
   display: inline-block;
-  height: 9px;
-  width: 9px;
+  height: 11px;
+  width: 11px;
 }
 
 .graph-board {
