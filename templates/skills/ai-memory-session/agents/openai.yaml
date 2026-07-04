@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Memory Session"
+  short_description: "Start and close daily AI Memory sessions"
+  default_prompt: "Use $ai-memory-session to read the previous session, start today's session, save checkpoints, and close out today's work."

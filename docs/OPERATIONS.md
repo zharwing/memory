@@ -2,9 +2,10 @@
 
 ## Runtime Assumptions
 
-Dependencies have been installed in the current checkout. The desktop TypeScript
-typecheck and Vite production build have passed. The daemon and browser UI Vite dev
-server have been launched successfully.
+Dependencies have been installed in the current checkout. Workspace TypeScript
+build-mode validation and the desktop Vite production build have passed. The CLI
+dev entrypoint and MCP stdio initialization have been smoke tested. The daemon
+and browser UI Vite dev server have been launched successfully.
 
 Native Tauri/Rust validation depends on a local Rust toolchain. Windows
 `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` has passed from
@@ -12,9 +13,11 @@ this checkout. A packaged desktop build has not been run.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and choose a private local memory root:
+Install dependencies, then copy `.env.example` to `.env` and choose a private
+local memory root:
 
 ```text
+corepack pnpm install
 cp .env.example .env
 ```
 
@@ -42,19 +45,19 @@ AIMEM_AUTH_TOKEN=local-dev-token
 Daemon:
 
 ```text
-pnpm dev:daemon
+corepack pnpm dev:daemon
 ```
 
 CLI:
 
 ```text
-pnpm dev:cli projects
+corepack pnpm dev:cli projects
 ```
 
 Browser UI:
 
 ```text
-pnpm dev:web
+corepack pnpm dev:web
 ```
 
 The React/Vite dev server is pinned to `http://localhost:5174` so it does
@@ -73,21 +76,21 @@ screens use OS folder pickers for path fields. Browser dev mode leaves those
 Browse buttons disabled and keeps typed paths as the fallback, because ordinary
 browsers cannot expose arbitrary absolute folder paths to web apps.
 
-Use `pnpm dev:web` for the browser app after `pnpm dev:daemon`. Use
-`pnpm dev:desktop` for the native Tauri window. The Tauri dev command starts or
-reuses the Vite app on port `5174`, and the desktop shell starts or reuses the
-daemon on `127.0.0.1:37841`.
+Use `corepack pnpm dev:web` for the browser app after
+`corepack pnpm dev:daemon`. Use `corepack pnpm dev:desktop` for the native
+Tauri window. The Tauri dev command starts or reuses the Vite app on port
+`5174`, and the desktop shell starts or reuses the daemon on `127.0.0.1:37841`.
 
 Native Tauri dev window:
 
 ```text
-pnpm dev:desktop
+corepack pnpm dev:desktop
 ```
 
 MCP:
 
 ```text
-pnpm dev:mcp
+corepack pnpm dev:mcp
 ```
 
 The daemon and browser UI Vite commands have been run during validation. The native
@@ -166,9 +169,9 @@ Not implemented yet:
 ## Validation Checklist For Future Runtime Work
 
 1. Install dependencies.
-2. Run workspace typecheck.
-3. Run unit tests.
-4. Build packages.
+2. Run `corepack pnpm typecheck`.
+3. Run `corepack pnpm build`.
+4. Run `corepack pnpm test`.
 5. Start daemon.
 6. Initialize a temporary project.
 7. Start a session.
@@ -186,7 +189,10 @@ Not implemented yet:
 - JSON index is a placeholder for SQLite/FTS5.
 - MCP adapter is dependency-free and does not use the official SDK yet.
 - Desktop UI uses hand-authored components instead of shadcn scaffolding.
-- Runtime validation currently covers the daemon health endpoint, React/Vite server, desktop typecheck, and desktop Vite build.
-- Full workspace tests have not been run yet.
+- Runtime validation currently covers workspace TypeScript build-mode validation,
+  desktop Vite build, CLI help, MCP initialization, the daemon health endpoint,
+  and the React/Vite server.
+- The root test command runs, but there are no meaningful unit/integration tests
+  yet.
 - Native Tauri `cargo check` has passed through the Windows toolchain, but full Tauri dev smoke testing and packaging have not been completed.
 - A packaged Windows desktop build has not been produced yet.

@@ -6,14 +6,14 @@
   "type": "module",
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev:daemon": "node --env-file-if-exists=.env --import ./node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/loader.mjs apps/daemon/src/index.ts",
-    "dev:cli": "node --env-file-if-exists=.env --import ./node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/loader.mjs apps/cli/src/index.ts",
-    "dev:mcp": "node --env-file-if-exists=.env --import ./node_modules/.pnpm/tsx@4.22.4/node_modules/tsx/dist/loader.mjs apps/mcp-server/src/index.ts",
+    "dev:daemon": "node --env-file-if-exists=.env --import tsx apps/daemon/src/index.ts",
+    "dev:cli": "node --env-file-if-exists=.env --import tsx apps/cli/src/index.ts",
+    "dev:mcp": "node --env-file-if-exists=.env --import tsx apps/mcp-server/src/index.ts",
     "dev:web": "vite --config apps/desktop/vite.config.ts",
-    "dev:desktop": "pnpm --filter @aimem/desktop tauri dev",
-    "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "dev:desktop": "node scripts/tauri-dev.mjs",
+    "build": "tsc -b && vite build --config apps/desktop/vite.config.ts",
+    "typecheck": "tsc -b",
+    "test": "node scripts/run-tests.mjs"
   },
   "workspaces": [
     "apps/*",

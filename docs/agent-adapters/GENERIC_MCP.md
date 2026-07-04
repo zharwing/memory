@@ -6,12 +6,17 @@ Use this adapter when an agent has AI Memory MCP tools.
 
 1. Call `memory.get_startup_state` with the current working directory or project
    id.
-2. Call `memory.search` with the task, feature, error, or file names involved.
-3. Call `memory.start_or_resume_session` or `memory.start_session` for
-   meaningful work.
-4. Call `memory.preview_context_bundle` before placing prior context into a
+2. Read the latest relevant previous session with `memory.get_latest_session`,
+   `memory.get_recent_sessions`, or `memory.list_project_sessions`.
+3. Carry forward unfinished tasks, next steps, blockers, touched files, and
+   important decisions.
+4. Call `memory.start_session` for a new daily/work-round session by default.
+   Use `memory.start_or_resume_session` only when the user explicitly asks to
+   continue an existing session or project policy says to reuse active sessions.
+5. Call `memory.search` with the task, feature, error, or file names involved.
+6. Call `memory.preview_context_bundle` before placing prior context into a
    prompt.
-5. Call `memory.get_context_bundle` when the bundle is actually used.
+7. Call `memory.get_context_bundle` when the bundle is actually used.
 
 ## During Work
 

@@ -31,15 +31,19 @@ No deep codebase scan happens during project creation.
 ## Daily AI Coding Session
 
 1. User starts from repo folder.
-2. User runs `aimem start "task title"` or opens the desktop app.
-3. System resolves the current project.
-4. System creates or resumes a project-scoped session.
-5. User previews the context bundle.
-6. External AI receives context through MCP, CLI, or clipboard/export.
-7. External AI does coding work.
-8. External AI saves checkpoints after meaningful progress.
-9. External AI closes the session with next steps.
-10. Durable updates are written directly by default. Review-mode or risky updates go to Memory Inbox.
+2. System resolves the current project.
+3. System reads the latest relevant previous session, including the last
+   weekday session after weekends or gaps.
+4. System carries forward unfinished tasks, blockers, next steps, touched files,
+   and important decisions.
+5. User runs `aimem start "task title"` or the agent calls
+   `memory.start_session` to create today's project-scoped session.
+6. User previews the context bundle.
+7. External AI receives context through MCP, CLI, or clipboard/export.
+8. External AI does coding work.
+9. External AI saves checkpoints after meaningful progress.
+10. External AI closes the session with next steps.
+11. Durable updates are written directly by default. Review-mode or risky updates go to Memory Inbox.
 
 ## MCP Agent Startup
 
@@ -49,9 +53,11 @@ No deep codebase scan happens during project creation.
 4. Agent calls `memory.prepare_project_creation`.
 5. User approves project creation through an allowed path.
 6. Agent calls `memory.create_project`.
-7. Agent calls `memory.start_or_resume_session`.
-8. Agent calls `memory.preview_context_bundle`.
-9. Agent continues with the coding task.
+7. Agent reads the latest relevant previous session and extracts carry-forward
+   work.
+8. Agent calls `memory.start_session` for today's work round by default.
+9. Agent calls `memory.preview_context_bundle`.
+10. Agent continues with the coding task.
 
 ## Return To Project
 
