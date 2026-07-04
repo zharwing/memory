@@ -19,6 +19,7 @@
       "@aimem/context-engine": ["packages/context-engine/src/index.ts"],
       "@aimem/search": ["packages/search/src/index.ts"],
       "@aimem/graph": ["packages/graph/src/index.ts"],
+      "@aimem/semantic-graph": ["packages/semantic-graph/src/index.ts"],
       "@aimem/assistant-runtime": ["packages/assistant-runtime/src/index.ts"],
       "@aimem/api-client": ["packages/api-client/src/index.ts"],
       "@aimem/mcp-tools": ["packages/mcp-tools/src/index.ts"],
