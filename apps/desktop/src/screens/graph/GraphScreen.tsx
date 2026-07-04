@@ -17,7 +17,7 @@ import {
 import { GraphMap, removeStoredGraphNodePositions } from "./GraphMap.js";
 import { buildGraphFlowElements, RawStorageAudit } from "./graph-flow.js";
 
-const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.v8";
+const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.d3.v2";
 
 export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
@@ -111,35 +111,76 @@ export const GraphScreen = observer(function GraphScreen() {
   }
 
   function navigateGraphFocus(nextNodeId: string) {
+    graphScreenDebugLog("navigate-focus:start", {
+      nextNodeId,
+      focusedNodeId,
+      focusHistory
+    });
     if (!nextNodeId) {
+      graphScreenDebugLog("navigate-focus:reset-empty", {});
       resetGraphFocus();
       return;
     }
 
     setGraphViewMode("context");
     if (nextNodeId === focusedNodeId) {
+      const previousFocusedNodeId = focusHistory[focusHistory.length - 1] || "";
+      if (previousFocusedNodeId) {
+        const nextHistory = focusHistory.slice(0, -1);
+        graphScreenDebugLog("navigate-focus:back", {
+          from: focusedNodeId,
+          to: previousFocusedNodeId,
+          nextHistory
+        });
+        setFocusedNodeId(previousFocusedNodeId);
+        setFocusHistory(nextHistory);
+        updateGraphSearchParams({ viewMode: "context", focus: previousFocusedNodeId });
+        return;
+      }
+
+      graphScreenDebugLog("navigate-focus:reset-current", {
+        nodeId: nextNodeId
+      });
+      resetGraphFocus();
       return;
     }
 
     const existingHistoryIndex = focusHistory.indexOf(nextNodeId);
     if (existingHistoryIndex !== -1) {
+      graphScreenDebugLog("navigate-focus:history-jump", {
+        nextNodeId,
+        existingHistoryIndex,
+        nextHistory: focusHistory.slice(0, existingHistoryIndex)
+      });
       setFocusedNodeId(nextNodeId);
       setFocusHistory(focusHistory.slice(0, existingHistoryIndex));
       updateGraphSearchParams({ viewMode: "context", focus: nextNodeId });
       return;
     }
 
+    graphScreenDebugLog("navigate-focus:forward", {
+      from: focusedNodeId,
+      to: nextNodeId,
+      nextHistory: focusedNodeId ? [...focusHistory, focusedNodeId] : []
+    });
     setFocusHistory(focusedNodeId ? [...focusHistory, focusedNodeId] : []);
     setFocusedNodeId(nextNodeId);
     updateGraphSearchParams({ viewMode: "context", focus: nextNodeId });
   }
 
   function openGraphDocument(documentId: string) {
+    graphScreenDebugLog("open-document", {
+      documentId,
+      exists: store.docs.some((doc) => doc.id === documentId)
+    });
     setEditingDocId(documentId);
     updateGraphSearchParams({ doc: documentId });
   }
 
   function closeGraphDocument() {
+    graphScreenDebugLog("close-document", {
+      documentId: editingDocId
+    });
     setEditingDocId("");
     updateGraphSearchParams({ doc: null });
   }
@@ -334,3 +375,7 @@ export const GraphScreen = observer(function GraphScreen() {
     </Screen>
   );
 });
+
+function graphScreenDebugLog(eventName: string, details: Record<string, unknown>): void {
+  console.log(`[graph-screen] ${eventName}`, details);
+}
