@@ -152,6 +152,15 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/semantic-graph:
+    dependencies:
+      '@aimem/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aimem/privacy':
+        specifier: workspace:*
+        version: link:../privacy
+
   packages/storage:
     dependencies:
       '@aimem/core':
