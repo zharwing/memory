@@ -294,6 +294,38 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
       }
     }
   }, ["projectId"]),
+  tool("memory.analyze_semantic_graph", "Run LLM-assisted semantic graph analysis with per-document extraction, candidate judging, and review/auto policy.", {
+    projectId: { type: "string" },
+    mode: { type: "string", enum: ["review", "auto", "dry-run"] },
+    dryRun: { type: "boolean" },
+    endpoint: { type: "string" },
+    model: { type: "string" },
+    apiKey: { type: "string" },
+    providerId: { type: "string" },
+    providerKind: { type: "string" },
+    sourceAgent: { type: "string" },
+    timeoutMs: { type: "number" },
+    maxOutputTokens: { type: "number" },
+    jsonMode: { type: "boolean" },
+    maxDocumentChars: { type: "number" },
+    maxDocuments: { type: "number" },
+    maxCandidates: { type: "number" },
+    maxCandidatesPerDocument: { type: "number" },
+    autoAcceptThreshold: { type: "number" },
+    reviewThreshold: { type: "number" },
+    discardBelowThreshold: { type: "number" },
+    persistCandidateIndex: { type: "boolean" },
+    scope: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["all-docs", "changed-docs", "selected-docs", "focused-graph-node", "workstream", "repo"] },
+        documentIds: { type: "array", items: { type: "string" } },
+        nodeId: { type: "string" },
+        workstreamId: { type: "string" },
+        repoPath: { type: "string" }
+      }
+    }
+  }, ["projectId"]),
   tool("memory.check_semantic_graph_provider", "Check an OpenAI-compatible semantic graph provider by requesting a tiny JSON response.", {
     projectId: { type: "string" },
     endpoint: { type: "string" },

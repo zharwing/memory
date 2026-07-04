@@ -1,5 +1,6 @@
 import {
   type ProjectRegistry,
+  createSemanticGraphRun,
   listProjectDocuments,
   listProjectSessions,
   listProjectWorkstreams,
@@ -14,33 +15,45 @@ import {
   updateProposalStatus,
   writeSemanticCandidateIndex,
   writeSemanticEdges,
-  writeSemanticGraphSettings
+  writeSemanticExtraction,
+  writeSemanticGraphSettings,
+  writeSemanticRun
 } from "@aimem/storage";
 import { buildProjectGraph } from "@aimem/graph";
 import {
+  callOpenAiCompatibleJson,
   checkOpenAiCompatibleProvider,
   type OpenAiCompatibleProviderConfig
 } from "@aimem/assistant-runtime";
 import {
+  applySemanticEdgePolicy,
   baselineSemanticExtractionFromPlanItem,
   buildSemanticCandidateIndex,
   buildSemanticExtractionPlan,
+  semanticDecisionFromProviderJson,
   semanticEdgesFromProposalPatch,
   semanticEdgesProposalPatch,
+  semanticExtractionFromProviderJson,
+  semanticExtractionMessagesForItem,
+  semanticJudgementMessages,
   type SemanticCandidateIndex,
-  type SemanticExtractionPlanItem
+  type SemanticExtractionPlanItem,
+  type SemanticRelationshipCandidate,
+  type SemanticRelationshipDecision
 } from "@aimem/semantic-graph";
 import {
   createId,
   nowIso,
   type MemoryDocument,
   type ProposedMemoryUpdate,
+  type Project,
   type ProjectGraph,
   type SemanticDocumentExtraction,
   type SemanticGraphEdge,
   type SemanticGraphEdgeStatus,
   type SemanticGraphEdgeType,
   type SemanticGraphEvidence,
+  type SemanticGraphMode,
   type SemanticGraphScope,
   type SemanticGraphSettings
 } from "@aimem/core";
@@ -242,25 +255,242 @@ export class SemanticGraphService {
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     const settings = await readSemanticGraphSettings(project);
-    const endpoint = params.endpoint || project.assistantPolicy.endpoint;
-    const model = params.model || settings.model || project.assistantPolicy.modelName;
-    if (!endpoint) {
-      throw new Error("No OpenAI-compatible endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
-    }
-    if (!model) {
-      throw new Error("No model configured. Set semantic graph model, assistantPolicy.modelName, or pass model.");
+    const config = semanticProviderConfig(project, settings, {
+      ...params,
+      timeoutMs: params.timeoutMs || 30000,
+      maxOutputTokens: params.maxOutputTokens || 128
+    });
+    return checkOpenAiCompatibleProvider(config);
+  }
+
+  async analyze(params: {
+    projectId: string;
+    scope?: SemanticGraphScope;
+    mode?: SemanticGraphMode;
+    dryRun?: boolean;
+    endpoint?: string;
+    model?: string;
+    apiKey?: string;
+    providerId?: string;
+    providerKind?: string;
+    sourceAgent?: string;
+    timeoutMs?: number;
+    maxOutputTokens?: number;
+    jsonMode?: boolean;
+    maxDocumentChars?: number;
+    maxDocuments?: number;
+    maxCandidates?: number;
+    maxCandidatesPerDocument?: number;
+    autoAcceptThreshold?: number;
+    reviewThreshold?: number;
+    discardBelowThreshold?: number;
+    persistCandidateIndex?: boolean;
+  }) {
+    const project = await resolveProject(this.registry, params.projectId);
+    const storedSettings = await readSemanticGraphSettings(project);
+    const scope = params.scope || { kind: "all-docs" };
+    const mode = params.dryRun ? "dry-run" : params.mode || storedSettings.mode;
+    const settings = normalizeSettingsPatch({
+      ...storedSettings,
+      mode,
+      maxCandidatesPerDocument: params.maxCandidatesPerDocument || storedSettings.maxCandidatesPerDocument,
+      autoAcceptThreshold: params.autoAcceptThreshold ?? storedSettings.autoAcceptThreshold,
+      reviewThreshold: params.reviewThreshold ?? storedSettings.reviewThreshold,
+      discardBelowThreshold: params.discardBelowThreshold ?? storedSettings.discardBelowThreshold
+    });
+    const provider = semanticProviderConfig(project, settings, params);
+
+    const [documents, sessions, workstreams] = await Promise.all([
+      listProjectDocuments(project),
+      listProjectSessions(project),
+      listProjectWorkstreams(project)
+    ]);
+    const graph = buildProjectGraph({ project, documents, sessions, workstreams });
+    const scopedDocuments = documentsForSemanticScope(scope, documents, graph);
+    const rawPlan = buildSemanticExtractionPlan({
+      project,
+      documents: scopedDocuments,
+      maxDocumentChars: params.maxDocumentChars
+    });
+    const maxDocuments = optionalPositiveInteger(params.maxDocuments);
+
+    const selectedPlanItems: SemanticExtractionPlanItem[] = [];
+    const extractions: SemanticDocumentExtraction[] = [];
+    const extractionItems: SemanticExtractionPlanItem[] = [];
+    let extractionsReused = 0;
+
+    for (const item of rawPlan.documents) {
+      const cached = await readSemanticExtraction(project, item.documentId, item.contentHash);
+      if (cached && scope.kind === "changed-docs") {
+        extractionsReused += 1;
+        continue;
+      }
+      if (maxDocuments !== undefined && selectedPlanItems.length >= maxDocuments) break;
+
+      selectedPlanItems.push(item);
+      if (cached) {
+        extractionsReused += 1;
+        extractions.push(cached);
+      } else {
+        extractionItems.push(item);
+      }
     }
 
-    const config: OpenAiCompatibleProviderConfig = {
-      endpoint,
-      model,
-      apiKey: params.apiKey,
-      timeoutMs: params.timeoutMs || 30000,
-      maxOutputTokens: params.maxOutputTokens || 128,
-      temperature: 0,
-      jsonMode: params.jsonMode
-    };
-    return checkOpenAiCompatibleProvider(config);
+    let run = createSemanticGraphRun({
+      project,
+      scope,
+      mode,
+      settings,
+      providerId: params.providerId || settings.providerId,
+      providerKind: params.providerKind || settings.providerKind || "openai-compatible",
+      model: provider.model,
+      counts: {
+        documentsTotal: scopedDocuments.length,
+        extractionsReused
+      }
+    });
+    run = await writeSemanticRun(project, { ...run, status: "running" });
+
+    try {
+      for (const item of extractionItems) {
+        const result = await callOpenAiCompatibleJson(
+          provider,
+          semanticExtractionMessagesForItem(item),
+          { schemaName: "semantic document extraction", retryOnInvalidJson: true }
+        );
+        const extraction = semanticExtractionFromProviderJson(result.value, {
+          project,
+          item,
+          providerId: run.providerId,
+          providerKind: run.providerKind,
+          model: result.model || provider.model
+        });
+        await writeSemanticExtraction(project, extraction);
+        extractions.push(extraction);
+        run = await writeSemanticRun(project, {
+          ...run,
+          counts: {
+            ...run.counts,
+            documentsAnalyzed: run.counts.documentsAnalyzed + 1
+          }
+        });
+      }
+
+      const candidateIndex = buildSemanticCandidateIndex({
+        project,
+        graph,
+        documents: scopedDocuments,
+        extractions,
+        settings
+      });
+      if (params.persistCandidateIndex ?? true) {
+        await writeSemanticCandidateIndex<SemanticCandidateIndex>(project, candidateIndex);
+      }
+
+      const maxCandidates = optionalPositiveInteger(params.maxCandidates);
+      const candidates = maxCandidates === undefined
+        ? candidateIndex.candidates
+        : candidateIndex.candidates.slice(0, maxCandidates);
+      const extractionByDocument = new Map(extractions.map((extraction) => [extraction.documentId, extraction]));
+      const decisions: SemanticRelationshipDecision[] = [];
+
+      for (const candidate of candidates) {
+        const source = extractionByDocument.get(candidate.sourceDocumentId);
+        if (!source) continue;
+        const targetSummary = targetExtractionSummary(candidate, extractionByDocument);
+        const result = await callOpenAiCompatibleJson(
+          provider,
+          semanticJudgementMessages({ source, candidate, targetSummary }),
+          { schemaName: "semantic relationship decision", retryOnInvalidJson: true }
+        );
+        decisions.push(semanticDecisionFromProviderJson(result.value, candidate.id));
+        if (decisions.length % 5 === 0) {
+          run = await writeSemanticRun(project, {
+            ...run,
+            counts: {
+              ...run.counts,
+              candidates: candidateIndex.counts.candidates,
+              judged: decisions.length
+            }
+          });
+        }
+      }
+
+      const policy = applySemanticEdgePolicy({
+        project,
+        settings,
+        run,
+        candidates,
+        decisions,
+        sourceAgent: params.sourceAgent || "aimem-semantic-graph",
+        promptVersion: "semantic-graph-v1"
+      });
+
+      const acceptedEdges = policy.acceptedEdges.length > 0
+        ? await mergeAcceptedSemanticEdges(project, policy.acceptedEdges)
+        : [];
+      const proposal = policy.proposedEdges.length > 0
+        ? await proposeMemoryUpdate({
+            project,
+            type: "graph-update",
+            sourceKind: "memory-assistant",
+            sourceAgent: params.sourceAgent || "aimem-semantic-graph",
+            confidence: confidenceForEdges(policy.proposedEdges),
+            affectedFiles: affectedFilesForEdges(policy.proposedEdges, documents),
+            proposedPatch: semanticEdgesProposalPatch(run.id, policy.proposedEdges),
+            reason: `Semantic graph relationship proposal from ${run.id} (${policy.proposedEdges.length} edge${policy.proposedEdges.length === 1 ? "" : "s"})`
+          })
+        : undefined;
+
+      run = await writeSemanticRun(project, {
+        ...run,
+        status: "completed",
+        finished: nowIso(),
+        outputPath: params.persistCandidateIndex ?? true ? semanticCandidateIndexPath(project) : undefined,
+        counts: {
+          documentsTotal: scopedDocuments.length,
+          documentsAnalyzed: extractionItems.length,
+          extractionsReused,
+          candidates: candidateIndex.counts.candidates,
+          judged: decisions.length,
+          accepted: acceptedEdges.length,
+          proposed: policy.proposedEdges.length + policy.dryRunEdges.length,
+          rejected: policy.counts.rejected,
+          discarded: policy.counts.discarded
+        }
+      });
+
+      return {
+        projectId: project.id,
+        run,
+        scope,
+        mode,
+        candidateIndexPath: run.outputPath,
+        extractionPlan: {
+          projectId: rawPlan.projectId,
+          generated: rawPlan.generated,
+          documents: selectedPlanItems.map(publicPlanItem),
+          excluded: rawPlan.excluded,
+          counts: {
+            ...rawPlan.counts,
+            eligible: selectedPlanItems.length
+          }
+        },
+        acceptedEdges,
+        proposedEdges: policy.proposedEdges,
+        dryRunEdges: policy.dryRunEdges,
+        discardedDecisions: policy.discardedDecisions,
+        proposal
+      };
+    } catch (error) {
+      await writeSemanticRun(project, {
+        ...run,
+        status: "failed",
+        finished: nowIso(),
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
   }
 
   async proposeEdges(params: {
@@ -396,6 +626,114 @@ export class SemanticGraphService {
       proposal: updatedProposal
     };
   }
+}
+
+function semanticProviderConfig(
+  project: Project,
+  settings: SemanticGraphSettings,
+  params: {
+    endpoint?: string;
+    model?: string;
+    apiKey?: string;
+    timeoutMs?: number;
+    maxOutputTokens?: number;
+    jsonMode?: boolean;
+  }
+): OpenAiCompatibleProviderConfig {
+  const endpoint = params.endpoint || project.assistantPolicy.endpoint;
+  const model = params.model || settings.model || project.assistantPolicy.modelName;
+  if (!endpoint) {
+    throw new Error("No OpenAI-compatible endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
+  }
+  if (!model) {
+    throw new Error("No model configured. Set semantic graph model, assistantPolicy.modelName, or pass model.");
+  }
+  if (!settings.remoteProvidersEnabled && !isLocalProviderEndpoint(endpoint)) {
+    throw new Error("Remote semantic graph providers are disabled for this project. Enable remoteProvidersEnabled before sending eligible documents to a remote endpoint.");
+  }
+
+  return {
+    endpoint,
+    model,
+    apiKey: params.apiKey,
+    timeoutMs: params.timeoutMs || 60000,
+    maxOutputTokens: params.maxOutputTokens || 1024,
+    temperature: 0,
+    jsonMode: params.jsonMode
+  };
+}
+
+function isLocalProviderEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint);
+    const host = url.hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".localhost");
+  } catch {
+    return false;
+  }
+}
+
+function optionalPositiveInteger(input: number | undefined): number | undefined {
+  if (input === undefined) return undefined;
+  if (!Number.isFinite(input)) return undefined;
+  return Math.max(1, Math.floor(input));
+}
+
+function targetExtractionSummary(
+  candidate: SemanticRelationshipCandidate,
+  extractions: Map<string, SemanticDocumentExtraction>
+): string | undefined {
+  if (!candidate.targetNodeId.startsWith("doc:")) return undefined;
+  const documentId = candidate.targetNodeId.slice("doc:".length);
+  return extractions.get(documentId)?.summary;
+}
+
+async function mergeAcceptedSemanticEdges(
+  project: Project,
+  acceptedEdges: SemanticGraphEdge[]
+): Promise<SemanticGraphEdge[]> {
+  const edgeFile = await readSemanticEdges(project);
+  const byKey = new Map(edgeFile.edges.map((edge) => [semanticEdgeKey(edge), edge]));
+  for (const edge of acceptedEdges) {
+    const key = semanticEdgeKey(edge);
+    const existing = byKey.get(key);
+    if (existing) {
+      byKey.set(key, {
+        ...existing,
+        status: edge.status,
+        confidence: Math.max(existing.confidence, edge.confidence),
+        evidence: mergeEvidence(existing.evidence, edge.evidence),
+        reason: existing.reason || edge.reason,
+        source: edge.source,
+        updated: nowIso()
+      });
+    } else {
+      byKey.set(key, edge);
+    }
+  }
+
+  const next = await writeSemanticEdges(project, [...byKey.values()]);
+  const acceptedKeys = new Set(acceptedEdges.map(semanticEdgeKey));
+  return next.edges.filter((edge) => acceptedKeys.has(semanticEdgeKey(edge)));
+}
+
+function affectedFilesForEdges(edges: SemanticGraphEdge[], documents: MemoryDocument[]): string[] {
+  const docsByNodeId = new Map(documents.map((doc) => [`doc:${doc.id}`, doc]));
+  const paths = new Set<string>();
+  for (const edge of edges) {
+    for (const nodeId of [edge.from, edge.to]) {
+      const doc = docsByNodeId.get(nodeId);
+      if (doc?.filePath) paths.add(doc.filePath);
+    }
+    for (const evidence of edge.evidence) {
+      if (evidence.sourcePath) paths.add(evidence.sourcePath);
+      if (evidence.documentId) {
+        const doc = docsByNodeId.get(`doc:${evidence.documentId}`);
+        if (doc?.filePath) paths.add(doc.filePath);
+      }
+    }
+  }
+  return [...paths];
 }
 
 function normalizeSettingsPatch(settings: SemanticGraphSettings): SemanticGraphSettings {
