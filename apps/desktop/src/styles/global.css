@@ -1523,7 +1523,9 @@ tr.selected-row td {
   box-shadow: 0 18px 44px rgba(17, 16, 15, 0.16);
   display: grid;
   gap: 10px;
+  max-height: min(720px, calc(100vh - 230px));
   max-width: min(720px, calc(100vw - 340px));
+  overflow: auto;
   padding: 12px;
 }
 
@@ -1531,6 +1533,79 @@ tr.selected-row td {
 .graph-details-popover .graph-edge-summary,
 .graph-details-popover .graph-legend {
   margin: 0;
+}
+
+.semantic-analysis-panel {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.semantic-analysis-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.semantic-analysis-header strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.semantic-analysis-header span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.semantic-graph-mini-stats {
+  display: grid;
+  gap: 0 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.semantic-run-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(128px, 1fr));
+}
+
+.semantic-run-form label {
+  display: grid;
+  gap: 5px;
+}
+
+.semantic-run-form label > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.semantic-run-form input,
+.semantic-run-form select {
+  min-width: 0;
+  width: 100%;
+}
+
+.semantic-run-form label:nth-child(3),
+.semantic-run-form label:nth-child(4),
+.semantic-run-form label:nth-child(5) {
+  grid-column: span 2;
+}
+
+.semantic-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.semantic-run-result {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
 }
 
 .graph-board .empty {
@@ -1972,6 +2047,14 @@ tr.selected-row td {
 
   .graph-details-popover {
     max-width: calc(100vw - 40px);
+  }
+
+  .semantic-run-form,
+  .semantic-run-form label:nth-child(3),
+  .semantic-run-form label:nth-child(4),
+  .semantic-run-form label:nth-child(5) {
+    grid-column: auto;
+    grid-template-columns: 1fr;
   }
 
   .path-input-row {
