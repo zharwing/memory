@@ -57,6 +57,38 @@ export class AimemClient {
   getContextBundle(params: Record<string, unknown>) {
     return this.call("memory.get_context_bundle", params);
   }
+
+  getSemanticGraphSettings(params: Record<string, unknown>) {
+    return this.call("memory.get_semantic_graph_settings", params);
+  }
+
+  updateSemanticGraphSettings(params: Record<string, unknown>) {
+    return this.call("memory.update_semantic_graph_settings", params);
+  }
+
+  getSemanticGraphStatus(params: Record<string, unknown>) {
+    return this.call("memory.get_semantic_graph_status", params);
+  }
+
+  listSemanticEdges(params: Record<string, unknown>) {
+    return this.call("memory.list_semantic_edges", params);
+  }
+
+  updateSemanticEdgeStatus(params: Record<string, unknown>) {
+    return this.call("memory.update_semantic_edge_status", params);
+  }
+
+  listSemanticGraphRuns(params: Record<string, unknown>) {
+    return this.call("memory.list_semantic_graph_runs", params);
+  }
+
+  getSemanticGraphRun(params: Record<string, unknown>) {
+    return this.call("memory.get_semantic_graph_run", params);
+  }
+
+  proposeSemanticEdges(params: Record<string, unknown>) {
+    return this.call("memory.propose_semantic_edges", params);
+  }
 }
 
 function runtimeEnv(): Record<string, string | undefined> {

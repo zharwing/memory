@@ -248,6 +248,98 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
   tool("memory.get_graph", "Get derived graph for the current project.", {
     projectId: { type: "string" }
   }, ["projectId"]),
+  tool("memory.get_semantic_graph_settings", "Get semantic graph settings for a project.", {
+    projectId: { type: "string" }
+  }, ["projectId"]),
+  tool("memory.update_semantic_graph_settings", "Update semantic graph settings for a project.", {
+    projectId: { type: "string" },
+    settings: { type: "object" }
+  }, ["projectId", "settings"]),
+  tool("memory.get_semantic_graph_status", "Get semantic graph edge and run counts for a project.", {
+    projectId: { type: "string" }
+  }, ["projectId"]),
+  tool("memory.list_semantic_edges", "List durable semantic graph edges for a project.", {
+    projectId: { type: "string" },
+    status: {
+      oneOf: [
+        { type: "string", enum: ["proposed", "accepted", "rejected", "auto-accepted"] },
+        { type: "array", items: { type: "string", enum: ["proposed", "accepted", "rejected", "auto-accepted"] } }
+      ]
+    }
+  }, ["projectId"]),
+  tool("memory.update_semantic_edge_status", "Bulk update durable semantic graph edge status.", {
+    projectId: { type: "string" },
+    edgeIds: { type: "array", items: { type: "string" } },
+    status: { type: "string", enum: ["proposed", "accepted", "rejected", "auto-accepted"] }
+  }, ["projectId", "edgeIds", "status"]),
+  tool("memory.list_semantic_graph_runs", "List semantic graph analysis runs for a project.", {
+    projectId: { type: "string" }
+  }, ["projectId"]),
+  tool("memory.get_semantic_graph_run", "Get one semantic graph analysis run.", {
+    projectId: { type: "string" },
+    runId: { type: "string" }
+  }, ["projectId", "runId"]),
+  tool("memory.propose_semantic_edges", "Create a Memory Inbox proposal from structured semantic graph relationship edges.", {
+    projectId: { type: "string" },
+    runId: { type: "string" },
+    sourceAgent: { type: "string" },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    affectedFiles: { type: "array", items: { type: "string" } },
+    reason: { type: "string" },
+    edges: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          from: { type: "string" },
+          to: { type: "string" },
+          type: {
+            type: "string",
+            enum: [
+              "works-on",
+              "touched",
+              "referenced",
+              "produced",
+              "affects",
+              "supersedes",
+              "supports",
+              "explains",
+              "mentions",
+              "uses",
+              "contains",
+              "depends-on",
+              "blocked-by",
+              "belongs-to",
+              "related",
+              "duplicates",
+              "contradicts"
+            ]
+          },
+          confidence: { type: "number" },
+          reason: { type: "string" },
+          evidence: {
+            type: "array",
+            items: {
+              oneOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  properties: {
+                    documentId: { type: "string" },
+                    quote: { type: "string" },
+                    location: { type: "string" },
+                    sourcePath: { type: "string" }
+                  },
+                  required: ["quote"]
+                }
+              ]
+            }
+          }
+        },
+        required: ["from", "to", "type", "confidence", "reason"]
+      }
+    }
+  }, ["projectId", "edges"]),
   tool("memory.backup_project", "Create a local snapshot backup for a project.", {
     projectId: { type: "string" }
   }, ["projectId"]),
