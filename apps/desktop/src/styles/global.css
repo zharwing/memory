@@ -1622,8 +1622,48 @@ tr.selected-row td {
   width: 100%;
 }
 
+.graph-map-svg {
+  display: block;
+  height: 100%;
+  touch-action: none;
+  width: 100%;
+}
+
 .graph-map:active {
   cursor: grabbing;
+}
+
+.graph-map-node {
+  cursor: grab;
+  outline: none;
+}
+
+.graph-map-node.is-actionable {
+  cursor: pointer;
+}
+
+.graph-map-node.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-map-node circle {
+  filter: drop-shadow(0 8px 18px rgba(17, 16, 15, 0.16));
+  transition: stroke-width 120ms ease, filter 120ms ease;
+}
+
+.graph-map-node .graph-map-node-hitbox {
+  filter: none;
+}
+
+.graph-map-node:focus-visible circle,
+.graph-map-node:hover circle {
+  filter: drop-shadow(0 10px 24px rgba(17, 16, 15, 0.22));
+  stroke-width: 7;
+}
+
+.graph-map-node-label {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  pointer-events: none;
 }
 
 .graph-map-controls {
