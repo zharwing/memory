@@ -295,6 +295,10 @@ export class MemoryService {
     return this.semanticGraph.previewAnalysis(params);
   }
 
+  async checkSemanticGraphProvider(params: Parameters<SemanticGraphService["checkProvider"]>[0]) {
+    return this.semanticGraph.checkProvider(params);
+  }
+
   async proposeSemanticEdges(params: Parameters<SemanticGraphService["proposeEdges"]>[0]) {
     return this.semanticGraph.proposeEdges(params);
   }

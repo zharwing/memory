@@ -294,6 +294,15 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
       }
     }
   }, ["projectId"]),
+  tool("memory.check_semantic_graph_provider", "Check an OpenAI-compatible semantic graph provider by requesting a tiny JSON response.", {
+    projectId: { type: "string" },
+    endpoint: { type: "string" },
+    model: { type: "string" },
+    apiKey: { type: "string" },
+    timeoutMs: { type: "number" },
+    maxOutputTokens: { type: "number" },
+    jsonMode: { type: "boolean" }
+  }, ["projectId"]),
   tool("memory.propose_semantic_edges", "Create a Memory Inbox proposal from structured semantic graph relationship edges.", {
     projectId: { type: "string" },
     runId: { type: "string" },
