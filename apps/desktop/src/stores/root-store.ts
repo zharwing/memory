@@ -360,12 +360,13 @@ export class RootStore {
     });
   }
 
-  async acceptSemanticEdgesProposal(proposalId: string) {
+  async acceptSemanticEdgesProposal(proposalId: string, options: Record<string, unknown> = {}) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
       await this.client.call("memory.accept_semantic_edges_proposal", {
         projectId: this.selectedProjectId,
-        proposalId
+        proposalId,
+        ...options
       });
       await this.refreshProject();
       await this.loadSemanticGraph();

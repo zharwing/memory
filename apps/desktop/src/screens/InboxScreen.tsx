@@ -85,9 +85,25 @@ export const InboxScreen = observer(function InboxScreen() {
               }}
             />
             {semanticProposalPatch ? (
-              <button type="button" onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id)}>
-                Accept Semantic Edges
-              </button>
+              <>
+                <button type="button" onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id)}>
+                  Accept All Edges
+                </button>
+                <button
+                  type="button"
+                  disabled={!semanticProposalSummary?.confidenceBands.high}
+                  onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id, { minConfidence: 0.85 })}
+                >
+                  Accept High Confidence
+                </button>
+                <button
+                  type="button"
+                  disabled={!semanticProposalSummary || semanticProposalSummary.confidenceBands.high + semanticProposalSummary.confidenceBands.review === 0}
+                  onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id, { minConfidence: 0.55 })}
+                >
+                  Accept Review+
+                </button>
+              </>
             ) : (
               <button type="button" onClick={() => store.updateInboxStatus(selectedProposal.id, "accepted")}>Mark Accepted</button>
             )}

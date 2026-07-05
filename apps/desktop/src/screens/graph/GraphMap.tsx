@@ -267,13 +267,6 @@ export function GraphMap({
       .clickDistance(GRAPH_DRAG_CLICK_DISTANCE)
       .on("start", function startDrag(event: D3DragEvent<SVGGElement, D3GraphNode, D3GraphNode>, node) {
         event.sourceEvent?.stopPropagation();
-        graphDebugLog("drag:start", {
-          nodeId: node.id,
-          label: node.label,
-          sourceEvent: event.sourceEvent?.type,
-          x: roundPathNumber(Number(node.x || 0)),
-          y: roundPathNumber(Number(node.y || 0))
-        });
         dragState = {
           nodeId: node.id,
           startX: Number(node.x || 0),
@@ -289,13 +282,6 @@ export function GraphMap({
         if (!dragState || dragState.nodeId !== node.id) return;
         const movedDistance = Math.hypot(event.x - dragState.startX, event.y - dragState.startY);
         if (!dragState.moved && movedDistance < GRAPH_DRAG_CLICK_DISTANCE) return;
-        if (!dragState.moved) {
-          graphDebugLog("drag:threshold", {
-            nodeId: node.id,
-            distance: roundPathNumber(movedDistance),
-            threshold: GRAPH_DRAG_CLICK_DISTANCE
-          });
-        }
         dragState.moved = true;
         node.x = event.x;
         node.y = event.y;
@@ -308,12 +294,6 @@ export function GraphMap({
         select(this).classed("is-dragging", false);
         node.fx = undefined;
         node.fy = undefined;
-        graphDebugLog("drag:end", {
-          nodeId: node.id,
-          moved: Boolean(dragState?.moved),
-          suppressClickNodeId,
-          sourceEvent: event.sourceEvent?.type
-        });
         if (dragState?.moved) {
           suppressClickNodeId = node.id;
           saveGraphNodePositions(storageKey, graphModel.nodes);
@@ -335,11 +315,6 @@ export function GraphMap({
           clientY: event.clientY,
           moved: false
         };
-        graphDebugLog("pointer:down", {
-          nodeId: node.id,
-          pointerId: event.pointerId,
-          target: eventTargetSummary(event.target)
-        });
       })
       .on("pointermove", (event: PointerEvent, node) => {
         if (!pointerClickState || pointerClickState.nodeId !== node.id || pointerClickState.pointerId !== event.pointerId) return;
@@ -350,25 +325,12 @@ export function GraphMap({
       })
       .on("pointercancel", (event: PointerEvent, node) => {
         if (pointerClickState?.nodeId !== node.id || pointerClickState.pointerId !== event.pointerId) return;
-        graphDebugLog("pointer:cancel", {
-          nodeId: node.id,
-          pointerId: event.pointerId
-        });
         pointerClickState = null;
       })
       .on("pointerup", (event: PointerEvent, node) => {
         if (!pointerClickState || pointerClickState.nodeId !== node.id || pointerClickState.pointerId !== event.pointerId) return;
         const movedDistance = Math.hypot(event.clientX - pointerClickState.clientX, event.clientY - pointerClickState.clientY);
         const shouldOpen = !pointerClickState.moved && movedDistance < GRAPH_DRAG_CLICK_DISTANCE && suppressClickNodeId !== node.id;
-        graphDebugLog("pointer:up", {
-          nodeId: node.id,
-          pointerId: event.pointerId,
-          moved: pointerClickState.moved,
-          distance: roundPathNumber(movedDistance),
-          shouldOpen,
-          suppressClickNodeId,
-          target: eventTargetSummary(event.target)
-        });
         pointerClickState = null;
         if (shouldOpen) {
           openGraphNode(node, onOpenDocumentRef.current, onFocusNodeRef.current);
@@ -376,20 +338,6 @@ export function GraphMap({
       })
       .on("click", (event, node) => {
         event.stopPropagation();
-        graphDebugLog("node:click", {
-          nodeId: node.id,
-          label: node.label,
-          documentId: node.documentId,
-          focusable: node.focusable,
-          suppressClickNodeId,
-          defaultPrevented: event.defaultPrevented,
-          detail: event.detail,
-          target: eventTargetSummary(event.target)
-        });
-        graphDebugLog("node:click:ignored", {
-          nodeId: node.id,
-          reason: "activation is handled by pointerup"
-        });
       })
       .on("keydown", (event, node) => {
         if (event.key !== "Enter" && event.key !== " ") return;
@@ -819,30 +767,14 @@ function openGraphNode(
   onFocusNode: (nodeId: string) => void
 ): void {
   if (node.documentId) {
-    graphDebugLog("node:open-document", {
-      nodeId: node.id,
-      documentId: node.documentId,
-      label: node.label
-    });
     onOpenDocument(node.documentId);
     return;
   }
 
   if (node.focusable) {
-    graphDebugLog("node:focus", {
-      nodeId: node.id,
-      label: node.label
-    });
     onFocusNode(node.id);
     return;
   }
-
-  graphDebugLog("node:noop", {
-    nodeId: node.id,
-    label: node.label,
-    documentId: node.documentId,
-    focusable: node.focusable
-  });
 }
 
 function appendWrappedLabel(
@@ -1100,14 +1032,4 @@ function stableHash(value: string): number {
 
 function roundPathNumber(value: number): number {
   return Math.round(value * 10) / 10;
-}
-
-function graphDebugLog(eventName: string, details: Record<string, unknown>): void {
-  console.log(`[graph-map] ${eventName}`, details);
-}
-
-function eventTargetSummary(target: EventTarget | null): string {
-  if (!(target instanceof Element)) return String(target);
-  const className = typeof target.className === "string" ? target.className : "";
-  return [target.tagName.toLowerCase(), className].filter(Boolean).join(".");
 }

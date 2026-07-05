@@ -558,6 +558,9 @@ export class SemanticGraphService {
     projectId: string;
     proposalId: string;
     status?: Extract<SemanticGraphEdgeStatus, "accepted" | "auto-accepted">;
+    minConfidence?: number;
+    maxConfidence?: number;
+    edgeIndexes?: number[];
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     const proposals = await listProposedUpdates(project);
@@ -567,10 +570,28 @@ export class SemanticGraphService {
     const patch = semanticEdgesFromProposalPatch(proposal.proposedPatch);
     if (!patch) throw new Error(`Inbox proposal is not a semantic graph edge proposal: ${params.proposalId}`);
 
+    const requestedIndexes = Array.isArray(params.edgeIndexes)
+      ? new Set(params.edgeIndexes.map((index) => Math.floor(Number(index))).filter((index) => Number.isFinite(index) && index >= 0))
+      : undefined;
+    const selectedPatchEdges = patch.edges.filter((edge, index) => {
+      if (requestedIndexes && !requestedIndexes.has(index)) return false;
+      if (params.minConfidence !== undefined && edge.confidence < clampConfidence(params.minConfidence)) return false;
+      if (params.maxConfidence !== undefined && edge.confidence > clampConfidence(params.maxConfidence)) return false;
+      return true;
+    });
+    if (selectedPatchEdges.length === 0) {
+      throw new Error("No semantic proposal edges matched the requested accept filter.");
+    }
+
+    const acceptedIndexes = new Set<number>();
+    patch.edges.forEach((edge, index) => {
+      if (selectedPatchEdges.includes(edge)) acceptedIndexes.add(index);
+    });
+    const remainingPatchEdges = patch.edges.filter((_, index) => !acceptedIndexes.has(index));
     const edgeFile = await readSemanticEdges(project);
     const now = nowIso();
     const status = params.status || "accepted";
-    const acceptedEdges = patch.edges.map((edge): SemanticGraphEdge => ({
+    const acceptedEdges = selectedPatchEdges.map((edge): SemanticGraphEdge => ({
       id: createId("sem-edge"),
       projectId: project.id,
       from: edge.from,
@@ -612,16 +633,21 @@ export class SemanticGraphService {
     }
 
     const next = await writeSemanticEdges(project, [...byKey.values()]);
+    const proposalStatus = remainingPatchEdges.length === 0 ? "accepted" : "edited";
     const updatedProposal = await updateProposalStatus({
       project,
       proposalId: params.proposalId,
-      status: "accepted"
+      status: proposalStatus,
+      editedPatch: remainingPatchEdges.length > 0
+        ? semanticGraphProposalPatch(patch.runId, remainingPatchEdges)
+        : undefined
     });
 
     return {
       created,
       updated,
       accepted: acceptedEdges.length,
+      remaining: remainingPatchEdges.length,
       edges: next.edges.filter((edge) => acceptedEdges.some((accepted) => semanticEdgeKey(accepted) === semanticEdgeKey(edge))),
       proposal: updatedProposal
     };
@@ -830,6 +856,31 @@ function semanticSourceKindForProposal(proposal: ProposedMemoryUpdate): Semantic
 
 function semanticEdgeKey(edge: Pick<SemanticGraphEdge, "from" | "to" | "type">): string {
   return `${edge.from}\u0000${edge.to}\u0000${edge.type}`;
+}
+
+function semanticGraphProposalPatch(
+  runId: string,
+  edges: Array<{
+    from: string;
+    to: string;
+    type: SemanticGraphEdgeType;
+    confidence: number;
+    reason: string;
+    evidence: SemanticGraphEvidence[];
+  }>
+): string {
+  return `${JSON.stringify({
+    kind: "semantic-graph-edges",
+    runId,
+    edges: edges.map((edge) => ({
+      from: edge.from,
+      to: edge.to,
+      type: edge.type,
+      confidence: edge.confidence,
+      reason: edge.reason,
+      evidence: edge.evidence
+    }))
+  }, null, 2)}\n`;
 }
 
 function mergeEvidence(left: SemanticGraphEvidence[], right: SemanticGraphEvidence[]): SemanticGraphEvidence[] {
