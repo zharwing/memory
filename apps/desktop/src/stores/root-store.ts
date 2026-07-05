@@ -373,6 +373,30 @@ export class RootStore {
     });
   }
 
+  async updateSemanticEdgeStatus(edgeIds: string[], status: string) {
+    if (!this.selectedProjectId || edgeIds.length === 0) return;
+    await this.run(async () => {
+      await this.client.call("memory.update_semantic_edge_status", {
+        projectId: this.selectedProjectId,
+        edgeIds,
+        status
+      });
+      const [semanticGraphStatus, semanticEdges, graph] = await Promise.all([
+        this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
+        this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_graph", {
+          projectId: this.selectedProjectId,
+          ...graphRelationshipParams(this.graphRelationshipMode)
+        })
+      ]);
+      runInAction(() => {
+        this.semanticGraphStatus = semanticGraphStatus;
+        this.semanticEdges = semanticEdges as any[];
+        this.graph = graph;
+      });
+    });
+  }
+
   async applyGraphRulesProposal(proposalId: string, graphRules: any[]) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {

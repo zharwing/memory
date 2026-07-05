@@ -1752,6 +1752,13 @@ tr.selected-row td {
   margin-top: 4px;
 }
 
+.graph-edge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .semantic-analysis-panel {
   border-top: 1px solid var(--border);
   display: grid;
