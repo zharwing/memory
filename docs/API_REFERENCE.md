@@ -158,6 +158,31 @@ Example graph rules payload:
 
 See [Graph Rules](GRAPH_RULES.md) for match semantics and AI workflow.
 
+### Semantic Graph
+
+- `memory.get_semantic_graph_settings`
+- `memory.update_semantic_graph_settings`
+- `memory.get_semantic_graph_status`
+- `memory.list_semantic_edges`
+- `memory.update_semantic_edge_status`
+- `memory.list_semantic_graph_runs`
+- `memory.get_semantic_graph_run`
+- `memory.preview_semantic_graph_analysis`
+- `memory.analyze_semantic_graph`
+- `memory.check_semantic_graph_provider`
+- `memory.propose_semantic_edges`
+- `memory.accept_semantic_edges_proposal`
+
+Semantic graph methods are optional. They add LLM-assisted relationship
+analysis on top of the deterministic graph. `preview` builds the scoped
+document/candidate plan without calling a model. `analyze` supports `dry-run`,
+`review`, and `auto` modes. Review mode writes Memory Inbox proposals; accepted
+edges are stored under `semantic-graph/edges.json` and can be overlaid with
+`memory.get_graph` by passing semantic include options.
+
+See [Semantic Graph Analysis](SEMANTIC_GRAPH.md) for the recommended local
+provider and review workflow.
+
 ### Memory Inbox
 
 - `memory.propose_memory_update`
@@ -242,6 +267,11 @@ aimem assistant status --project <id>
 aimem assistant summarize-session --project <id> --session <id>
 aimem assistant return-summary --project <id>
 aimem assistant classify-doc --project <id> --doc <id>
+aimem semantic-graph status --project <id>
+aimem semantic-graph analyze --project <id> --mode dry-run --max-docs 8
+aimem semantic-graph analyze --project <id> --mode review --node <graph-node-id>
+aimem semantic-graph runs --project <id>
+aimem semantic-graph edges --project <id> --status accepted,auto-accepted
 ```
 
 ## MCP Tools
@@ -292,6 +322,18 @@ Core tools:
 - `memory.delete_inbox_item`
 - `memory.get_graph`
 - `memory.update_graph_rules`
+- `memory.get_semantic_graph_settings`
+- `memory.update_semantic_graph_settings`
+- `memory.get_semantic_graph_status`
+- `memory.list_semantic_edges`
+- `memory.update_semantic_edge_status`
+- `memory.list_semantic_graph_runs`
+- `memory.get_semantic_graph_run`
+- `memory.preview_semantic_graph_analysis`
+- `memory.analyze_semantic_graph`
+- `memory.check_semantic_graph_provider`
+- `memory.propose_semantic_edges`
+- `memory.accept_semantic_edges_proposal`
 - `memory.backup_project`
 - `memory.list_backups`
 - `memory.delete_backup`

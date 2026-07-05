@@ -191,10 +191,26 @@ such as repos, workstreams, sessions, docs, diagrams, and files. Edges are
 metadata relationships such as `works-on`, `touched`, `referenced`, `supports`,
 `explains`, or `uses`.
 
+Graph relationship modes:
+
+- **Basic** shows deterministic metadata relationships and graph-rule links.
+  It does not require an LLM.
+- **AI reviewed** adds accepted semantic relationships from the optional AI
+  analysis layer.
+- **AI review** also shows pending semantic relationship proposals from Inbox
+  so users can inspect and accept individual edges.
+
 When imported docs need clearer hubs, edit graph rules in
 **Settings -> Project -> Graph Rules**. Rules map imported paths such as
 `apps/*` or `services/*` to context nodes such as packages, services, topics,
 code areas, or diagram groups. See [Graph Rules](GRAPH_RULES.md).
+
+Graph Details includes the semantic graph controls. Use **Preview** and
+**Dry run** before review mode when testing a local model. Semantic edge details
+show source, target, status, confidence, reason, and evidence. Selected semantic
+edges can be accepted or hidden directly from Details, and proposal-backed edges
+can be opened in Inbox for grouped review. See
+[Semantic Graph Analysis](SEMANTIC_GRAPH.md).
 
 Repo links are created in two ways:
 
