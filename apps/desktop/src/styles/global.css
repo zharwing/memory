@@ -1535,6 +1535,58 @@ tr.selected-row td {
   margin: 0;
 }
 
+.graph-edge-inspector {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.graph-edge-inspector-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.graph-edge-inspector-header strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.graph-edge-reason,
+.graph-edge-evidence {
+  display: grid;
+  gap: 6px;
+}
+
+.graph-edge-reason > span,
+.graph-edge-evidence > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.graph-edge-reason p {
+  line-height: 1.45;
+  margin: 0;
+}
+
+.graph-edge-evidence blockquote {
+  border-left: 3px solid #7c3aed;
+  color: var(--text);
+  line-height: 1.45;
+  margin: 0;
+  padding: 4px 0 4px 10px;
+}
+
+.graph-edge-evidence cite {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-style: normal;
+  margin-top: 4px;
+}
+
 .semantic-analysis-panel {
   border-top: 1px solid var(--border);
   display: grid;
