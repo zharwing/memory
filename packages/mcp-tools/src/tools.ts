@@ -189,8 +189,19 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     projectId: { type: "string" },
     sessionId: { type: "string" },
     summary: { type: "string" },
-    nextSteps: { type: "array", items: { type: "string" } }
+    nextSteps: { type: "array", items: { type: "string" } },
+    autoSummarize: { type: "boolean" }
   }, ["projectId", "sessionId"]),
+  tool("memory.generate_session_summary", "Generate or refresh a searchable TLDR summary for one session.", {
+    projectId: { type: "string" },
+    sessionId: { type: "string" },
+    force: { type: "boolean" }
+  }, ["projectId", "sessionId"]),
+  tool("memory.generate_session_summaries", "Generate searchable TLDR summaries for sessions in bulk.", {
+    projectId: { type: "string" },
+    mode: { type: "string", enum: ["missing", "all"] },
+    limit: { type: "number" }
+  }, ["projectId"]),
   tool("memory.delete_session", "Move a session to trash.", {
     projectId: { type: "string" },
     sessionId: { type: "string" }

@@ -4,28 +4,31 @@ Semantic graph analysis is the optional AI-assisted relationship layer for the
 Graph page. It does not replace the normal graph. The normal graph remains
 available without any model.
 
-## Modes
+## Product Model
 
-The Graph page has three relationship modes:
+The Graph page is the trusted project map. It shows saved relationships only:
 
-- **Basic**
-  Uses deterministic project metadata, imported paths, graph rules, sessions,
-  docs, topics, related files, and repo links. This is the default and works
-  without an LLM.
+- deterministic relationships from project metadata, imported paths, graph
+  rules, docs, topics, related files, and repo links
+- accepted or auto-accepted semantic relationships
 
-- **AI reviewed**
-  Shows Basic links plus semantic relationships that were accepted by a user or
-  auto-accepted by an enabled local/approved provider.
+Pending AI relationship suggestions are not drawn on the main graph. They live
+in Memory Inbox until accepted. After acceptance, those relationships become
+trusted graph links and appear in Graph.
 
-- **AI review**
-  Shows Basic links plus accepted semantic links and pending semantic proposals
-  from the Memory Inbox. Use this mode to inspect proposed links before
-  accepting them.
+Each project has only one current pending AI relationship proposal. Running the
+relationship review again replaces older pending AI relationship batches instead
+of stacking duplicate approvals in Inbox.
 
-The URL keeps the active mode and focus, for example:
+Sessions are not shown as normal graph nodes by default. A session is activity
+history and provenance, not durable project structure. Closed sessions should
+receive searchable TLDR metadata, and durable docs/relationships should carry
+the long-lived project knowledge.
+
+The URL keeps the active project, library section, and focus, for example:
 
 ```text
-/graph?focus=package%3Amy-package&relationships=ai-review
+/p/<project-id>/library/graph?focus=package%3Amy-package
 ```
 
 ## Recommended Flow
@@ -33,18 +36,36 @@ The URL keeps the active mode and focus, for example:
 1. Import or create project docs.
 2. Add Graph Rules if imported paths should become service, package, topic, or
    diagram-group hubs.
-3. Open Graph in **Basic** mode and confirm the deterministic map is useful.
+3. Open Graph and confirm the saved map is useful.
 4. Open Assistant and configure an OpenAI-compatible provider, such as
    llama.cpp, Ollama, LM Studio, or another local endpoint.
 5. Open Graph Details.
-6. Run **Preview** first. Preview builds the extraction and candidate plan
-   without calling the model.
-7. Run **Dry run** on a focused node or a small project slice.
-8. Run **Review** when the dry-run shape looks reasonable.
-9. Open **AI review** mode and inspect proposed edges in Graph Details.
-10. Accept individual edges from Graph Details or review the full proposal in
-    Inbox.
-11. Switch to **AI reviewed** mode to see only accepted AI relationships.
+6. In **AI relationship review**, choose the scope and click **Run review**.
+7. Review the generated proposal in Inbox.
+8. Accept the useful relationships.
+9. Return to Graph to see accepted relationships as trusted links.
+
+Provider overrides, dry-run mode, auto mode, document/candidate limits,
+timeouts, output-token limits, and provider JSON mode are available under
+**Advanced**.
+
+## Should LM Studio Be Running?
+
+Only start LM Studio, Ollama, llama.cpp, or another OpenAI-compatible provider
+when you are testing model-backed behavior:
+
+- provider checks
+- dry-run semantic analysis
+- review-mode semantic analysis
+- auto semantic analysis
+
+Do not start a model for Graph or semantic graph preview. Preview
+builds the document extraction and candidate plan without calling a model.
+
+If using LM Studio, load a model, start its local OpenAI-compatible server, and
+copy the endpoint and model name into **Settings -> Assistant** or pass them to
+the semantic graph CLI/RPC calls. See [Testing With AI Providers](AI_TESTING.md)
+for the full smoke test.
 
 ## Local Small-LLM Strategy
 
@@ -66,6 +87,25 @@ Chunk metadata keeps the chunk id, heading path, and line range so evidence can
 point back to the source area. Use a focused node, changed-docs scope, and low
 document/candidate limits when testing a 12 GB VRAM local model. Increase limits
 only after the model returns stable JSON and useful evidence.
+
+## Relationship Quality
+
+Semantic graph quality depends on the candidate list as much as the model. The
+candidate builder prioritizes richer relationship targets, such as docs,
+services, packages, and code areas, before metadata-only targets such as files
+and topics. When richer candidates exist, file/topic candidates are capped so
+they do not crowd out actual conceptual relationships.
+
+Review-mode proposals should usually contain:
+
+- direct document-to-document or document-to-service/package/code relationships
+- file/topic edges only when they add useful evidence
+- no duplicate inverse `related` pairs for the same two documents
+- relationship types and directions that match the evidence
+
+Do not accept noisy proposals just because they are high confidence. If the
+proposal is mostly metadata links, narrow the scope, improve document titles,
+topics, and related files, then rerun dry-run or review mode.
 
 ## Standalone Chunking
 
@@ -139,40 +179,24 @@ preferred approach. Vector search would add storage, dependency, privacy, and
 rebuild complexity without clear value for small and medium project-memory
 sets.
 
-## llama.cpp Example
+## Local OpenAI-Compatible Example
 
-Start a llama.cpp OpenAI-compatible server separately. The exact model and
-command depend on your local install. AI Memory only needs the HTTP endpoint.
+Start an OpenAI-compatible server separately. This can be LM Studio, Ollama,
+llama.cpp, or another local endpoint. The exact model and command depend on
+your local install. AI Memory only needs the HTTP endpoint and model name.
 
 In Assistant:
 
 ```text
 Runtime: Custom OpenAI-compatible
-Endpoint: http://127.0.0.1:8080/v1
-Model: <your-local-model-name>
+Endpoint: <local-openai-compatible-endpoint>
+Model: <local-model-name>
 ```
 
 Then use **Test provider**. If the provider responds with valid JSON, Graph can
-use it for semantic analysis.
-
-For first runs in Graph Details:
-
-```text
-Mode: Dry run
-Scope: Focused node
-Max docs: 8
-Max candidates: 24
-Per doc: 8
-```
-
-If the result is useful, switch to:
-
-```text
-Mode: Review
-```
-
-Review mode creates an Inbox proposal instead of immediately trusting every
-relationship.
+use it for semantic analysis. In Graph Details, **Run review** creates an Inbox
+proposal instead of immediately trusting every relationship. Dry-run and tuning
+controls are under **Advanced**.
 
 ## Review And Approval
 
@@ -187,21 +211,55 @@ Each edge must include:
 - reason
 - evidence quote
 
-In Graph Details:
-
-- **Accept Edge** accepts one selected proposed relationship.
-- **Hide Edge** marks an accepted durable relationship as rejected.
-- **Open Inbox** opens the full proposal for grouped review.
-
 In Inbox:
 
 - **Accept All Edges** accepts the whole semantic proposal.
 - **Accept High Confidence** accepts only high-confidence edges.
 - **Accept Review+** accepts high and review-confidence edges.
-- **Reject** rejects the proposal.
+- **Accept link** accepts one suggested relationship.
+- **Remove link** drops one suggested relationship from the current approval.
+- **Regenerate review** reruns the AI relationship review and replaces the
+  current pending approval.
+- **Reject all** rejects the proposal.
+
+New review-mode proposals include a provider-generated reviewer summary stored
+with the proposal. The UI displays that summary directly. It does not synthesize
+AI reasoning in the browser. Proposals created before this summary field existed
+show that no AI summary is available and should be rerun if a real summary is
+needed.
 
 When only some edges are accepted, the proposal remains edited with the
 remaining edges.
+
+## Session TLDRs
+
+Sessions are summarized separately from graph relationships. On close, AI Memory
+generates a compact searchable TLDR for the session when a local assistant
+provider is configured. If no safe local provider is available, it writes a
+deterministic metadata summary instead. The summary is stored on the session
+frontmatter/body, not as a graph node.
+
+Session TLDR metadata includes:
+
+- `summary`
+- `topics`
+- `summary_generated_at`
+- `summary_source`
+- `summary_model`
+
+The Sessions UI can:
+
+- generate or refresh one selected session TLDR
+- summarize only sessions missing generated TLDR metadata
+- regenerate all session TLDRs from the Advanced control
+
+CLI equivalents:
+
+```text
+corepack pnpm dev:cli assistant generate-session-summary --project <project-id> --session <session-id>
+corepack pnpm dev:cli assistant generate-session-summaries --project <project-id>
+corepack pnpm dev:cli assistant generate-session-summaries --project <project-id> --all
+```
 
 ## Storage
 
@@ -247,9 +305,11 @@ The CLI exposes the same semantic graph operations:
 corepack pnpm dev:cli semantic-graph status --project <project-id>
 corepack pnpm dev:cli semantic-graph analyze --project <project-id> --mode dry-run --max-docs 8
 corepack pnpm dev:cli semantic-graph analyze --project <project-id> --mode review --max-docs 8
+corepack pnpm dev:cli semantic-graph analyze --project <project-id> --mode dry-run --no-json-mode
 corepack pnpm dev:cli semantic-graph runs --project <project-id>
 corepack pnpm dev:cli semantic-graph edges --project <project-id>
 ```
 
-Use Basic graph mode when no provider is configured. Semantic analysis is an
-advanced layer for users who want model-assisted relationship cleanup.
+Use the Graph context map without a provider for saved metadata relationships.
+Semantic analysis is an advanced layer for users who want model-assisted
+relationship cleanup; suggestions stay in Inbox until accepted.

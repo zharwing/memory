@@ -8,6 +8,7 @@ import {
   type ProposedUpdateType
 } from "@aimem/core";
 import { listFiles, readJson, writeJson } from "./fs.js";
+import { promises as fs } from "node:fs";
 
 export async function proposeMemoryUpdate(args: {
   project: Project;
@@ -47,6 +48,21 @@ export async function listProposedUpdates(project: Project): Promise<ProposedMem
   return updates.filter(isDefined).sort((a, b) => b.created.localeCompare(a.created));
 }
 
+export async function deleteProposedUpdates(project: Project, proposalIds: string[]): Promise<{ deleted: number }> {
+  let deleted = 0;
+  for (const proposalId of new Set(proposalIds.filter(Boolean))) {
+    const filePath = proposalPath(project, proposalId);
+    try {
+      await fs.unlink(filePath);
+      deleted += 1;
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code !== "ENOENT") throw error;
+    }
+  }
+  return { deleted };
+}
+
 export async function updateProposalStatus(args: {
   project: Project;
   proposalId: string;
@@ -66,8 +82,12 @@ export async function updateProposalStatus(args: {
 }
 
 async function writeProposal(project: Project, update: ProposedMemoryUpdate): Promise<void> {
-  const filePath = path.join(project.memoryRoot, "inbox", "proposed-updates", `${update.id}.json`);
+  const filePath = proposalPath(project, update.id);
   await writeJson(filePath, update);
+}
+
+function proposalPath(project: Project, proposalId: string): string {
+  return path.join(project.memoryRoot, "inbox", "proposed-updates", `${proposalId}.json`);
 }
 
 function isDefined<T>(value: T | undefined): value is T {

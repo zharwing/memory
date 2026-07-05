@@ -57,7 +57,7 @@ export function formatMarkdown(frontmatter: Record<string, FrontmatterValue>, bo
     .map(([key, value]) => formatYamlLine(key, value))
     .join("\n");
 
-  return `---\n${yaml}\n---\n\n${body.trim()}\n`;
+  return `---\n${yaml}\n---\n${body}`;
 }
 
 function formatYamlLine(key: string, value: FrontmatterValue): string {

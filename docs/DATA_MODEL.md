@@ -461,9 +461,9 @@ This keeps semantic graph standalone and avoids sending full huge documents to a
 small local model.
 
 Pending review edges are stored as Memory Inbox `graph-update` proposals until
-the user accepts them. Accepted and auto-accepted semantic edges can be overlaid
-onto the derived graph with AI reviewed mode. Rejected edges stay in durable
-metadata so a user decision is not lost on rebuild.
+the user accepts them. Accepted and auto-accepted semantic edges become saved
+relationships in the Graph context map. Rejected edges stay in durable metadata
+so a user decision is not lost on rebuild.
 
 The semantic candidate index is deterministic by default. It is built from
 project metadata, graph rules, imported paths, extracted mentions, and existing

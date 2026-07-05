@@ -12,6 +12,9 @@ export declare function proposeMemoryUpdate(args: {
     reason: string;
 }): Promise<ProposedMemoryUpdate>;
 export declare function listProposedUpdates(project: Project): Promise<ProposedMemoryUpdate[]>;
+export declare function deleteProposedUpdates(project: Project, proposalIds: string[]): Promise<{
+    deleted: number;
+}>;
 export declare function updateProposalStatus(args: {
     project: Project;
     proposalId: string;

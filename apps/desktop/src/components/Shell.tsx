@@ -14,6 +14,8 @@ import {
   Wrench
 } from "lucide-react";
 import { useStore } from "../stores/store-context.js";
+import { appPathFromPathname, projectPath } from "../utils/routes.js";
+import { pendingInboxItems } from "../utils/inbox.js";
 
 const primaryNav = [
   { label: "Dashboard", href: "/dashboard", icon: Home, matches: ["/dashboard"] },
@@ -34,12 +36,14 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
   const store = useStore();
   const project = store.selectedProject;
   const location = useLocation();
-  const pendingInboxCount = store.inbox.filter((item) => item.status === "pending").length;
+  const appPath = appPathFromPathname(location.pathname);
+  const selectedProjectId = project?.id || store.selectedProjectId;
+  const pendingInboxCount = pendingInboxItems(store.inbox).length;
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="brand" to="/dashboard">
+        <Link className="brand" to={projectPath(selectedProjectId, "/dashboard")}>
           <Boxes size={22} />
           <span>AI Memory</span>
         </Link>
@@ -51,7 +55,7 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
         <nav className="sidebar-nav">
           <div className="nav-section">
             {primaryNav.map(({ label, href, icon: Icon, matches }) => (
-              <Link key={href} to={href} className={`nav-item ${isActive(location.pathname, matches) ? "active" : ""}`}>
+              <Link key={href} to={projectPath(selectedProjectId, href)} className={`nav-item ${isActive(appPath, matches) ? "active" : ""}`}>
                 <Icon size={17} />
                 <span>{label}</span>
                 {label === "Library" && pendingInboxCount > 0 ? <small>{pendingInboxCount}</small> : null}
@@ -60,7 +64,7 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
           </div>
           <div className="nav-section utility">
             {utilityNav.map(({ label, href, icon: Icon, matches }) => (
-              <Link key={href} to={href} className={`nav-item ${isActive(location.pathname, matches) ? "active" : ""}`}>
+              <Link key={href} to={label === "Setup" ? href : projectPath(selectedProjectId, href)} className={`nav-item ${isActive(appPath, matches) ? "active" : ""}`}>
                 <Icon size={17} />
                 <span>{label}</span>
               </Link>

@@ -10,6 +10,12 @@ export interface SemanticProposalEdge {
 export interface SemanticProposalPatch {
   kind: "semantic-graph-edges";
   runId: string;
+  summary?: {
+    title: string;
+    summary: string;
+    keyRelationships: string[];
+    reviewNotes: string[];
+  };
   edges: SemanticProposalEdge[];
 }
 
@@ -36,9 +42,26 @@ export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined
     return {
       kind: "semantic-graph-edges",
       runId: String(parsed.runId || "external-semantic-run"),
+      summary: parseProposalSummary(parsed.summary),
       edges
     };
   } catch {
     return undefined;
   }
+}
+
+function parseProposalSummary(input: any): SemanticProposalPatch["summary"] | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const summary = String(input.summary || "").trim();
+  if (!summary) return undefined;
+  return {
+    title: String(input.title || "AI relationship review").trim(),
+    summary,
+    keyRelationships: Array.isArray(input.keyRelationships)
+      ? input.keyRelationships.map((item: any) => String(item || "").trim()).filter(Boolean)
+      : [],
+    reviewNotes: Array.isArray(input.reviewNotes)
+      ? input.reviewNotes.map((item: any) => String(item || "").trim()).filter(Boolean)
+      : []
+  };
 }

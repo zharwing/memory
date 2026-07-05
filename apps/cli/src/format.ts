@@ -47,6 +47,8 @@ Commands:
   import-profiles                  List built-in folder import profiles
   assistant status --project <id>  Show Memory Assistant status
   assistant summarize-session --project <id> --session <id>
+  assistant generate-session-summary --project <id> --session <id>
+  assistant generate-session-summaries --project <id> [--all]
   assistant return-summary --project <id>
   import <file> --project <id>     Import one file as a document
   import-folder <path> --project <id> [--profile <name>]
@@ -61,8 +63,12 @@ Flags:
   --changed                        Analyze changed docs only
   --node <graph-node-id>            Analyze a focused graph node neighborhood
   --doc <id,id>                    Analyze selected document ids
-  --endpoint <url>                 OpenAI-compatible semantic graph provider URL
-  --model <name>                   Semantic graph provider model name
+  --endpoint <url>                 Advanced provider URL override for model-backed jobs
+  --model <name>                   Advanced provider model override for model-backed jobs
+  --json-mode / --no-json-mode     Toggle OpenAI JSON response_format for provider compatibility
+  --no-auto-summary                Close session without automatic searchable TLDR generation
+  --skip-existing                  Do not regenerate an existing session TLDR
+  --all                            Regenerate all session TLDRs for bulk assistant summaries
   --max-docs <n>                   Limit semantic graph documents
   --max-candidates <n>             Limit semantic graph candidate relationships
   --per-doc <n>                    Limit semantic graph candidates per document

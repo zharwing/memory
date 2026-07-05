@@ -1,11 +1,13 @@
 import path from "node:path";
 import type { ProjectRegistry } from "@aimem/storage";
 import {
+  deleteProposedUpdates,
   listProposedUpdates,
   movePathToTrash,
   proposeMemoryUpdate as storageProposeMemoryUpdate,
   updateProposalStatus as storageUpdateProposalStatus
 } from "@aimem/storage";
+import { semanticEdgesFromProposalPatch } from "@aimem/semantic-graph";
 import { resolveProject } from "./project-resolver.js";
 
 export class InboxService {
@@ -50,7 +52,18 @@ export class InboxService {
   }
 
   async listInbox(params: { projectId: string }) {
-    return listProposedUpdates(await resolveProject(this.registry, params.projectId));
+    const project = await resolveProject(this.registry, params.projectId);
+    const proposals = await listProposedUpdates(project);
+    const semanticProposals = proposals.filter((proposal) =>
+      proposal.type === "graph-update" &&
+      Boolean(semanticEdgesFromProposalPatch(proposal.proposedPatch))
+    );
+    const obsoleteSemanticProposalIds = semanticProposals.slice(1).map((proposal) => proposal.id);
+    if (obsoleteSemanticProposalIds.length > 0) {
+      await deleteProposedUpdates(project, obsoleteSemanticProposalIds);
+      return listProposedUpdates(project);
+    }
+    return proposals;
   }
 
   async updateInboxStatus(params: {

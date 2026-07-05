@@ -58,9 +58,9 @@ export const AssistantScreen = observer(function AssistantScreen() {
     void store.checkAssistantProvider({
       endpoint: draft.endpoint.trim() || undefined,
       model: draft.modelName.trim() || undefined,
-      timeoutMs: 15000,
+      timeoutMs: 60000,
       maxOutputTokens: 160,
-      jsonMode: true
+      jsonMode: false
     });
   }
 
@@ -121,7 +121,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 value={draft.endpoint}
                 disabled={!store.selectedProjectId || store.loading}
                 onChange={(event) => updateDraft({ endpoint: event.target.value })}
-                placeholder="http://127.0.0.1:8080/v1"
+                placeholder="http://127.0.0.1:1234/v1"
               />
             </label>
             <label>
@@ -133,24 +133,29 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 placeholder="llama-local"
               />
             </label>
-            <label>
-              <span>Model path</span>
-              <input
-                value={draft.modelPath}
-                disabled={!store.selectedProjectId || store.loading}
-                onChange={(event) => updateDraft({ modelPath: event.target.value })}
-                placeholder="optional local path"
-              />
-            </label>
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={Boolean(draft.autoAcceptLowRiskMetadata)}
-                disabled={!store.selectedProjectId || store.loading}
-                onChange={(event) => updateDraft({ autoAcceptLowRiskMetadata: event.target.checked })}
-              />
-              <span>Auto-accept low-risk metadata</span>
-            </label>
+            <details className="advanced-fields assistant-advanced-fields">
+              <summary>Advanced</summary>
+              <div className="advanced-fields-body">
+                <label>
+                  <span>Model path</span>
+                  <input
+                    value={draft.modelPath}
+                    disabled={!store.selectedProjectId || store.loading}
+                    onChange={(event) => updateDraft({ modelPath: event.target.value })}
+                    placeholder="optional local path"
+                  />
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(draft.autoAcceptLowRiskMetadata)}
+                    disabled={!store.selectedProjectId || store.loading}
+                    onChange={(event) => updateDraft({ autoAcceptLowRiskMetadata: event.target.checked })}
+                  />
+                  <span>Auto-accept low-risk metadata</span>
+                </label>
+              </div>
+            </details>
           </div>
           <div className="button-row">
             <button type="submit" className="icon-text-button" disabled={!store.selectedProjectId || store.loading}>

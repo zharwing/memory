@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CircleHelp } from "lucide-react";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
@@ -8,6 +8,9 @@ import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { DocumentEditorModal } from "../components/DocumentEditorModal.js";
 import { filterDocuments, isStarterDraftDoc } from "../utils/documents.js";
+import { projectPath } from "../utils/routes.js";
+import { semanticEdgesFromProposalPatch } from "../utils/semantic-proposals.js";
+import { pendingInboxItems } from "../utils/inbox.js";
 
 export const DocsScreen = observer(function DocsScreen() {
   const store = useStore();
@@ -25,6 +28,14 @@ export const DocsScreen = observer(function DocsScreen() {
   const pageIndex = Math.min(page, pageCount - 1);
   const pagedDocs = filteredDocs.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
   const editingDoc = store.docs.find((doc) => doc.id === editingDocId);
+  const pendingRelationshipApprovals = pendingInboxItems(store.inbox).filter((item) =>
+    item.type === "graph-update" &&
+    semanticEdgesFromProposalPatch(item.proposedPatch)?.edges.length
+  );
+  const pendingRelationshipCount = pendingRelationshipApprovals.length;
+  const pendingRelationshipSuggestions = pendingRelationshipApprovals.reduce((total, item) => {
+    return total + (semanticEdgesFromProposalPatch(item.proposedPatch)?.edges.length || 0);
+  }, 0);
 
   useEffect(() => {
     const urlDocId = searchParams.get("doc") || "";
@@ -78,6 +89,20 @@ export const DocsScreen = observer(function DocsScreen() {
   return (
     <Screen title="Docs Library">
       <LibraryTabs />
+      {pendingRelationshipCount > 0 ? (
+        <div className="notice inbox-alert">
+          <div>
+            <strong>{pendingRelationshipCount} AI relationship {pendingRelationshipCount === 1 ? "approval is" : "approvals are"} waiting</strong>
+            <p>
+              AI relationship processing found {pendingRelationshipSuggestions} suggested {pendingRelationshipSuggestions === 1 ? "link" : "links"} for this project.
+              Approve or reject them in Inbox before they appear in the Graph.
+            </p>
+          </div>
+          <Link className="button-link primary" to={projectPath(store.selectedProjectId, "/inbox")}>
+            Go to Inbox
+          </Link>
+        </div>
+      ) : null}
       {(filter === "draft" || showStarterDocsHelp) ? (
         <div className="notice docs-explainer">
           <strong>Draft starter docs</strong>

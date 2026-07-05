@@ -51,6 +51,7 @@ export async function startSession(args: {
     updated: now,
     taskTitle,
     goal: args.goal,
+    topics: [],
     nextSteps: [],
     blockers: [],
     touchedFiles: [],
@@ -98,6 +99,10 @@ export async function writeSession(session: Session, body?: string): Promise<voi
       task_title: session.taskTitle,
       goal: session.goal,
       summary: session.summary,
+      topics: session.topics,
+      summary_generated_at: session.summaryGeneratedAt,
+      summary_source: session.summarySource,
+      summary_model: session.summaryModel,
       next_steps: session.nextSteps,
       blockers: session.blockers,
       touched_files: session.touchedFiles,
@@ -179,6 +184,10 @@ export async function closeSession(args: {
   sessionId: SessionId;
   summary?: string;
   nextSteps?: string[];
+  topics?: string[];
+  summaryGeneratedAt?: string;
+  summarySource?: Session["summarySource"];
+  summaryModel?: string;
 }): Promise<Session> {
   const session = await getSession(args.project, args.sessionId);
   if (!session) throw new Error(`Session not found: ${args.sessionId}`);
@@ -187,6 +196,10 @@ export async function closeSession(args: {
     ...session,
     status: "closed",
     summary: args.summary || session.summary,
+    topics: args.topics ? mergeUnique(session.topics, args.topics) : session.topics,
+    summaryGeneratedAt: args.summaryGeneratedAt || session.summaryGeneratedAt,
+    summarySource: args.summarySource || (args.summary ? "manual" : session.summarySource),
+    summaryModel: args.summaryModel || session.summaryModel,
     nextSteps: mergeUnique(session.nextSteps, args.nextSteps || []),
     updated: now,
     closed: now,
@@ -195,6 +208,38 @@ export async function closeSession(args: {
       summary: args.summary,
       nextSteps: args.nextSteps || []
     })
+  };
+  await writeSession(next);
+  return next;
+}
+
+export async function updateSessionSummary(args: {
+  project: Project;
+  sessionId: SessionId;
+  summary: string;
+  topics?: string[];
+  nextSteps?: string[];
+  blockers?: string[];
+  touchedFiles?: string[];
+  summaryGeneratedAt?: string;
+  summarySource?: Session["summarySource"];
+  summaryModel?: string;
+}): Promise<Session> {
+  const session = await getSession(args.project, args.sessionId);
+  if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+  const updated = args.summaryGeneratedAt || nowIso();
+  const next: Session = {
+    ...session,
+    summary: args.summary,
+    topics: mergeUnique(session.topics, args.topics || []),
+    nextSteps: mergeUnique(session.nextSteps, args.nextSteps || []),
+    blockers: mergeUnique(session.blockers, args.blockers || []),
+    touchedFiles: mergeUnique(session.touchedFiles, args.touchedFiles || []),
+    summaryGeneratedAt: updated,
+    summarySource: args.summarySource || "assistant",
+    summaryModel: args.summaryModel || session.summaryModel,
+    updated,
+    body: replaceSessionSummarySection(session.body ?? sessionToBody(session), args.summary)
   };
   await writeSession(next);
   return next;
@@ -220,6 +265,10 @@ export async function readSession(filePath: string): Promise<Session> {
     taskTitle: String(fm.task_title || path.basename(filePath, ".md")),
     goal: stringOrUndefined(fm.goal),
     summary: stringOrUndefined(fm.summary),
+    topics: arrayOfStrings(fm.topics),
+    summaryGeneratedAt: stringOrUndefined(fm.summary_generated_at),
+    summarySource: summarySourceOrUndefined(fm.summary_source),
+    summaryModel: stringOrUndefined(fm.summary_model),
     nextSteps: arrayOfStrings(fm.next_steps),
     blockers: arrayOfStrings(fm.blockers),
     touchedFiles: arrayOfStrings(fm.touched_files),
@@ -315,6 +364,13 @@ ${close.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}
   return `${body.trim()}\n\n${section.trim()}\n`;
 }
 
+function replaceSessionSummarySection(body: string, summary: string): string {
+  const nextSummary = `## Summary\n\n${summary.trim() || "No summary recorded yet."}`;
+  const summarySection = /## Summary\n\n[\s\S]*?(?=\n## |\n?$)/;
+  if (summarySection.test(body)) return body.replace(summarySection, nextSummary);
+  return `${body.trim()}\n\n${nextSummary}\n`;
+}
+
 function extractCheckpoints(body: string): SessionCheckpoint[] {
   const matches = [...body.matchAll(/^#{2,3}\s+(?:Checkpoint\s+-\s+)?(\d{4}-\d{2}-\d{2}T[^\n]+)$/gm)];
 
@@ -360,6 +416,12 @@ function arrayOfStrings(input: unknown): string[] {
 function stringOrUndefined(input: unknown): string | undefined {
   const value = String(input || "");
   return value ? value : undefined;
+}
+
+function summarySourceOrUndefined(input: unknown): Session["summarySource"] | undefined {
+  return input === "manual" || input === "assistant" || input === "deterministic" || input === "import"
+    ? input
+    : undefined;
 }
 
 function mergeUnique(left: string[], right: string[]): string[] {

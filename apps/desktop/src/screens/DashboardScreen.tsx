@@ -5,11 +5,14 @@ import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
 import { reviewModeLabel } from "../utils/labels.js";
+import { projectPath } from "../utils/routes.js";
+import { pendingInboxItems } from "../utils/inbox.js";
 
 export const DashboardScreen = observer(function DashboardScreen() {
   const store = useStore();
   const summary = store.summary;
   const memoryWritePolicy = store.selectedMemoryWritePolicy;
+  const pendingReviewCount = pendingInboxItems(store.inbox).length;
   return (
     <Screen title="Project Dashboard" actions={<DashboardActions />}>
       <div className="dashboard-grid">
@@ -31,7 +34,7 @@ export const DashboardScreen = observer(function DashboardScreen() {
           </p>
           <KeyValue label="Review mode" value={reviewModeLabel(memoryWritePolicy.reviewMode)} />
           <KeyValue label="Direct agent writes" value={memoryWritePolicy.allowAgentDirectWrites ? "Allowed" : "Disabled"} />
-          <KeyValue label="Pending review" value={store.inbox.filter((item) => item.status === "pending").length} />
+          <KeyValue label="Pending review" value={pendingReviewCount} />
         </Panel>
         <Panel title="Graph Snapshot">
           <KeyValue label="Nodes" value={store.graph?.nodes?.length || 0} />
@@ -59,7 +62,7 @@ function DashboardActions() {
           <option key={workstream.id} value={workstream.id}>{workstream.name}</option>
         ))}
       </select>
-      <NavLink className="button-link" to="/workstreams">Create Workstream</NavLink>
+      <NavLink className="button-link" to={projectPath(store.selectedProjectId, "/workstreams")}>Create Workstream</NavLink>
       <button type="submit">Start Today's Session</button>
       <button type="button" onClick={() => store.refreshProject()}>Refresh</button>
     </form>
@@ -70,7 +73,11 @@ function RecentSessions() {
   const store = useStore();
   return (
     <Panel title="Recent Project Sessions">
-      <DataTable columns={["updated", "status", "taskTitle"]} rows={store.sessions.slice(0, 6)} />
+      <DataTable
+        columns={["updated", "status", "taskTitle"]}
+        columnLabels={{ updated: "Updated", status: "Status", taskTitle: "Task" }}
+        rows={store.sessions.slice(0, 6)}
+      />
     </Panel>
   );
 }

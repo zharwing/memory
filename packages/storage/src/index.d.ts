@@ -12,3 +12,4 @@ export * from "./indexer.js";
 export * from "./importer.js";
 export * from "./workstreams.js";
 export * from "./trash.js";
+export * from "./semantic-graph.js";

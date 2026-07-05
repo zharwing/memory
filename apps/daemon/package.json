@@ -16,6 +16,7 @@
     "@aimem/context-engine": "workspace:*",
     "@aimem/search": "workspace:*",
     "@aimem/graph": "workspace:*",
+    "@aimem/privacy": "workspace:*",
     "@aimem/semantic-graph": "workspace:*"
   }
 }
