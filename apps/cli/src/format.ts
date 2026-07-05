@@ -37,6 +37,10 @@ Commands:
   search --project <id> "query"
   inbox --project <id>             List proposed memory updates
   graph --project <id>             Print graph JSON
+  semantic-graph status --project <id>
+  semantic-graph analyze --project <id> [--changed|--node <id>|--doc <ids>]
+  semantic-graph runs --project <id>
+  semantic-graph edges --project <id> [--status accepted,proposed]
   backup --project <id>            Create local snapshot backup
   validate --project <id>          Validate project workspace
   rebuild-index --project <id>     Rebuild dependency-free JSON index
@@ -53,6 +57,15 @@ Commands:
 Flags:
   --json                           Print raw JSON where a command normally formats output
   --preview                        Preview context without persisting bundle
+  --mode <dry-run|review|auto>      Semantic graph analysis mode
+  --changed                        Analyze changed docs only
+  --node <graph-node-id>            Analyze a focused graph node neighborhood
+  --doc <id,id>                    Analyze selected document ids
+  --endpoint <url>                 OpenAI-compatible semantic graph provider URL
+  --model <name>                   Semantic graph provider model name
+  --max-docs <n>                   Limit semantic graph documents
+  --max-candidates <n>             Limit semantic graph candidate relationships
+  --per-doc <n>                    Limit semantic graph candidates per document
   --name <name>                    Human-friendly repo or project name
   --description <text>             Repo description
   --role <role>                    Free-form repo category/role
