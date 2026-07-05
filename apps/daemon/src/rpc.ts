@@ -54,6 +54,8 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.getProjectSummary(params as never);
     case "memory.update_memory_write_policy":
       return service.updateMemoryWritePolicy(params as never);
+    case "memory.update_assistant_policy":
+      return service.updateAssistantPolicy(params as never);
     case "memory.update_graph_rules":
       return service.updateGraphRules(params as never);
     case "memory.ensure_project":

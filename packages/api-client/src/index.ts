@@ -66,6 +66,10 @@ export class AimemClient {
     return this.call("memory.get_semantic_graph_settings", params);
   }
 
+  updateAssistantPolicy(params: Record<string, unknown>) {
+    return this.call("memory.update_assistant_policy", params);
+  }
+
   updateSemanticGraphSettings(params: Record<string, unknown>) {
     return this.call("memory.update_semantic_graph_settings", params);
   }

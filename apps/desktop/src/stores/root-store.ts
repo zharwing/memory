@@ -22,6 +22,8 @@ export class RootStore {
   semanticGraphRuns: any[] = [];
   semanticAnalysisPreview: any = undefined;
   semanticAnalysisResult: any = undefined;
+  assistantStatus: any = undefined;
+  assistantProviderCheck: any = undefined;
   contextBundle: any = undefined;
   searchResults: any[] = [];
   importProfiles: any[] = [];
@@ -79,13 +81,14 @@ export class RootStore {
   async selectProject(projectId: string) {
     this.selectedProjectId = projectId;
     this.semanticAnalysisResult = undefined;
+    this.assistantProviderCheck = undefined;
     await this.refreshProject();
   }
 
   async refreshProject() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const [summary, sessions, docs, workstreams, inbox, graph, semanticGraphSettings, semanticGraphStatus, contextBundle] = await Promise.all([
+      const [summary, sessions, docs, workstreams, inbox, graph, semanticGraphSettings, semanticGraphStatus, assistantStatus, contextBundle] = await Promise.all([
         this.client.call("memory.get_project_summary", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_project_sessions", { projectId: this.selectedProjectId, limit: 20 }),
         this.client.call("memory.list_docs", { projectId: this.selectedProjectId }),
@@ -94,6 +97,7 @@ export class RootStore {
         this.client.call("memory.get_graph", { projectId: this.selectedProjectId }),
         this.client.call("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
         this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
+        this.client.call("memory.assistant_status", { projectId: this.selectedProjectId }),
         this.client.call("memory.preview_context_bundle", { projectId: this.selectedProjectId, requestedBy: "desktop" })
       ]);
       runInAction(() => {
@@ -107,6 +111,7 @@ export class RootStore {
         this.graph = graph;
         this.semanticGraphSettings = semanticGraphSettings;
         this.semanticGraphStatus = semanticGraphStatus;
+        this.assistantStatus = assistantStatus;
         this.contextBundle = contextBundle;
       });
     });
@@ -168,6 +173,8 @@ export class RootStore {
           this.semanticGraphRuns = [];
           this.semanticAnalysisPreview = undefined;
           this.semanticAnalysisResult = undefined;
+          this.assistantStatus = undefined;
+          this.assistantProviderCheck = undefined;
         }
       });
       if (this.selectedProjectId) await this.refreshProject();
@@ -188,6 +195,47 @@ export class RootStore {
       await this.loadProjects();
       await this.refreshProject();
     });
+  }
+
+  async updateAssistantPolicy(policy: Record<string, unknown>) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      await this.client.call("memory.update_assistant_policy", {
+        projectId: this.selectedProjectId,
+        policy
+      });
+      await this.loadProjects();
+      await this.refreshProject();
+    });
+  }
+
+  async checkAssistantProvider(args: Record<string, unknown> = {}) {
+    if (!this.selectedProjectId) return undefined;
+    let result: any = undefined;
+    await this.run(async () => {
+      try {
+        result = await this.client.call("memory.check_semantic_graph_provider", {
+          projectId: this.selectedProjectId,
+          ...args
+        });
+        runInAction(() => {
+          this.assistantProviderCheck = result;
+        });
+      } catch (error) {
+        result = {
+          ok: false,
+          endpoint: String(args.endpoint || ""),
+          model: String(args.model || ""),
+          latencyMs: 0,
+          message: error instanceof Error ? error.message : String(error)
+        };
+        runInAction(() => {
+          this.assistantProviderCheck = result;
+        });
+        throw error;
+      }
+    });
+    return result;
   }
 
   async updateGraphRules(graphRules: any[]) {

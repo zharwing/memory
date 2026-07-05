@@ -82,6 +82,7 @@ export const GraphScreen = observer(function GraphScreen() {
   const semanticEdgeCounts = store.semanticGraphEdgeCounts;
   const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
   const semanticResult = store.semanticAnalysisResult;
+  const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
 
   useEffect(() => {
     const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
@@ -120,9 +121,10 @@ export const GraphScreen = observer(function GraphScreen() {
   useEffect(() => {
     setSemanticRunDraft((current) => ({
       ...current,
-      model: current.model || store.semanticGraphSettings?.model || ""
+      endpoint: current.endpoint || assistantPolicy.endpoint || "",
+      model: current.model || store.semanticGraphSettings?.model || assistantPolicy.modelName || ""
     }));
-  }, [store.selectedProjectId, store.semanticGraphSettings?.model]);
+  }, [store.selectedProjectId, store.semanticGraphSettings?.model, assistantPolicy.endpoint, assistantPolicy.modelName]);
 
   useEffect(() => {
     if (!focusedNodeId && semanticRunDraft.scopeKind === "focused") {

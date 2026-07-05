@@ -89,6 +89,10 @@ export class MemoryService {
     return this.projects.updateMemoryWritePolicy(params);
   }
 
+  async updateAssistantPolicy(params: Parameters<ProjectService["updateAssistantPolicy"]>[0]) {
+    return this.projects.updateAssistantPolicy(params);
+  }
+
   async updateGraphRules(params: Parameters<ProjectService["updateGraphRules"]>[0]) {
     return this.projects.updateGraphRules(params);
   }
