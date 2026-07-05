@@ -445,10 +445,32 @@ Semantic edge fields:
 - `evidence`
 - `source`
 
+Semantic document extractions may include chunk metadata:
+
+- `chunkId`
+- `index`
+- `headingPath`
+- `startLine`
+- `endLine`
+- per-chunk summary, entities, concepts, mentions, and candidate hints
+
+Large documents are split into bounded Markdown/line-aware chunks. The model
+extracts facts per chunk, then llm-memory merges those chunk facts into a single
+document-level `SemanticDocumentExtraction` cached by document content hash.
+This keeps semantic graph standalone and avoids sending full huge documents to a
+small local model.
+
 Pending review edges are stored as Memory Inbox `graph-update` proposals until
 the user accepts them. Accepted and auto-accepted semantic edges can be overlaid
 onto the derived graph with AI reviewed mode. Rejected edges stay in durable
 metadata so a user decision is not lost on rebuild.
+
+The semantic candidate index is deterministic by default. It is built from
+project metadata, graph rules, imported paths, extracted mentions, and existing
+graph links. A vector store is not required for semantic relationships and is
+not part of the default data model. Vector candidates can be added later as a
+rebuildable optional source if users need similarity discovery for weakly
+structured or very large document sets.
 
 ## Index Model
 

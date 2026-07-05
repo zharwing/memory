@@ -30,10 +30,12 @@ import {
   baselineSemanticExtractionFromPlanItem,
   buildSemanticCandidateIndex,
   buildSemanticExtractionPlan,
+  mergeSemanticDocumentExtractions,
   semanticDecisionFromProviderJson,
   semanticEdgesFromProposalPatch,
   semanticEdgesProposalPatch,
   semanticExtractionFromProviderJson,
+  semanticExtractionMessagesForChunk,
   semanticExtractionMessagesForItem,
   semanticJudgementMessages,
   type SemanticCandidateIndex,
@@ -353,17 +355,33 @@ export class SemanticGraphService {
 
     try {
       for (const item of extractionItems) {
-        const result = await callOpenAiCompatibleJson(
-          provider,
-          semanticExtractionMessagesForItem(item),
-          { schemaName: "semantic document extraction", retryOnInvalidJson: true }
-        );
-        const extraction = semanticExtractionFromProviderJson(result.value, {
+        const chunkExtractions: SemanticDocumentExtraction[] = [];
+        let model = provider.model;
+        for (const chunk of item.chunks) {
+          const result = await callOpenAiCompatibleJson(
+            provider,
+            item.chunks.length === 1
+              ? semanticExtractionMessagesForItem(item)
+              : semanticExtractionMessagesForChunk(item, chunk),
+            { schemaName: "semantic document extraction", retryOnInvalidJson: true }
+          );
+          model = result.model || model;
+          chunkExtractions.push(semanticExtractionFromProviderJson(result.value, {
+            project,
+            item,
+            chunk: item.chunks.length === 1 ? undefined : chunk,
+            providerId: run.providerId,
+            providerKind: run.providerKind,
+            model
+          }));
+        }
+        const extraction = mergeSemanticDocumentExtractions({
           project,
           item,
+          extractions: chunkExtractions,
           providerId: run.providerId,
           providerKind: run.providerKind,
-          model: result.model || provider.model
+          model
         });
         await writeSemanticExtraction(project, extraction);
         extractions.push(extraction);
@@ -807,7 +825,10 @@ function documentsForSemanticScope(
 
 function publicPlanItem(item: SemanticExtractionPlanItem) {
   const { content: _content, ...safeItem } = item;
-  return safeItem;
+  return {
+    ...safeItem,
+    chunks: item.chunks.map(({ content: _chunkContent, ...chunk }) => chunk)
+  };
 }
 
 function normalizePathForCompare(input: string): string {

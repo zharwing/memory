@@ -3,8 +3,12 @@ import { describe, it } from "node:test";
 import { createProjectModel, type SemanticGraphSettings } from "@aimem/core";
 import {
   applySemanticEdgePolicy,
+  buildSemanticExtractionPlan,
+  mergeSemanticDocumentExtractions,
+  semanticExtractionFromProviderJson,
   semanticEdgesFromProposalPatch,
   semanticEdgesProposalPatch,
+  splitSemanticDocumentIntoChunks,
   type SemanticRelationshipCandidate,
   type SemanticRelationshipDecision
 } from "@aimem/semantic-graph";
@@ -186,6 +190,109 @@ describe("semantic edge proposal patches", () => {
     assert.equal(parsed?.edges[0].to, "service:billing");
     assert.equal(parsed?.edges[0].confidence, 0.72);
     assert.equal(parsed?.edges[0].evidence[0].quote, "Billing Service owns invoices.");
+  });
+});
+
+describe("chunked semantic extraction", () => {
+  it("splits large markdown documents into bounded heading-aware chunks", () => {
+    const chunks = splitSemanticDocumentIntoChunks([
+      "# Architecture",
+      "Billing service owns invoices.",
+      "",
+      "## Runtime",
+      "A".repeat(900),
+      "",
+      "## API",
+      "B".repeat(900)
+    ].join("\n"), 500);
+
+    assert.ok(chunks.length >= 2);
+    assert.equal(chunks[0].chunkId, "chunk-0001");
+    assert.ok(chunks.some((chunk) => chunk.headingPath.includes("Runtime")));
+    assert.ok(chunks.some((chunk) => chunk.location.includes("lines")));
+    assert.ok(chunks.every((chunk) => chunk.content.length <= 1200));
+  });
+
+  it("merges per-chunk provider extractions into one document extraction", () => {
+    const [item] = buildSemanticExtractionPlan({
+      project,
+      maxDocumentChars: 500,
+      documents: [
+        {
+          id: "doc-big",
+          projectId: project.id,
+          title: "Large Billing Memory",
+          type: "architecture-note",
+          status: "active",
+          visibility: "ai-eligible",
+          topics: ["billing"],
+          workstreamIds: [],
+          relatedTasks: [],
+          relatedFiles: ["services/billing.ts"],
+          relatedSessions: [],
+          relatedDiagrams: [],
+          created: "2026-07-04T00:00:00.000Z",
+          updated: "2026-07-04T00:00:00.000Z",
+          filePath: "docs/billing.md",
+          body: [
+            "# Billing",
+            "Billing Service owns invoices and payments.",
+            "Billing ownership details. ".repeat(80),
+            "",
+            "## Frontend",
+            "@app/payments-ui renders checkout screens.",
+            "Checkout package details. ".repeat(80)
+          ].join("\n")
+        }
+      ]
+    }).documents;
+
+    const extraction = mergeSemanticDocumentExtractions({
+      project,
+      item,
+      extractions: [
+        semanticExtractionFromProviderJson({
+          summary: "Billing Service owns invoices.",
+          entities: [{ name: "Billing Service", kind: "service", confidence: 0.9 }],
+          concepts: ["invoices"],
+          mentionedFiles: ["services/billing.ts"],
+          mentionedPackages: [],
+          candidateHints: [{ targetName: "Billing Service", type: "explains", confidence: 0.8, reason: "explicit ownership" }]
+        }, {
+          project,
+          item,
+          chunk: item.chunks[0],
+          providerKind: "llama.cpp",
+          model: "local"
+        }),
+        semanticExtractionFromProviderJson({
+          summary: "Payments UI renders checkout screens.",
+          entities: [{ name: "@app/payments-ui", kind: "package", confidence: 0.8 }],
+          concepts: ["checkout"],
+          mentionedFiles: [],
+          mentionedPackages: ["@app/payments-ui"],
+          candidateHints: [{ targetName: "@app/payments-ui", type: "uses", confidence: 0.7, reason: "explicit package mention" }]
+        }, {
+          project,
+          item,
+          chunk: item.chunks[1],
+          providerKind: "llama.cpp",
+          model: "local"
+        })
+      ],
+      providerKind: "llama.cpp",
+      model: "local"
+    });
+
+    assert.equal(extraction.sourceMode, "chunked");
+    assert.ok(item.chunks.length >= 2);
+    assert.equal(extraction.chunks?.length, 2);
+    assert.deepEqual(extraction.mentionedPackages, ["@app/payments-ui"]);
+    assert.ok(extraction.entities.some((entity) => entity.name === "Billing Service"));
+    assert.ok(extraction.entities.some((entity) => entity.name === "@app/payments-ui"));
+    assert.ok(extraction.candidateHints.some((hint) => hint.targetName === "Billing Service"));
+    assert.ok(extraction.summary.includes("Billing Service"));
+    assert.ok(extraction.summary.includes("Payments UI"));
   });
 });
 

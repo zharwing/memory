@@ -739,6 +739,20 @@ export interface SemanticDocumentCandidateHint {
   reason?: string;
 }
 
+export interface SemanticDocumentExtractionChunk {
+  chunkId: string;
+  index: number;
+  headingPath: string[];
+  startLine?: number;
+  endLine?: number;
+  summary: string;
+  entities: SemanticDocumentEntity[];
+  concepts: string[];
+  mentionedFiles: string[];
+  mentionedPackages: string[];
+  candidateHints: SemanticDocumentCandidateHint[];
+}
+
 export interface SemanticDocumentExtraction {
   version: 1;
   projectId: ProjectId;
@@ -754,4 +768,7 @@ export interface SemanticDocumentExtraction {
   mentionedFiles: string[];
   mentionedPackages: string[];
   candidateHints: SemanticDocumentCandidateHint[];
+  chunks?: SemanticDocumentExtractionChunk[];
+  sourceMode?: "document" | "chunked" | "baseline";
+  truncated?: boolean;
 }

@@ -33,6 +33,18 @@ export interface BuildSemanticExtractionPlanInput {
   maxDocumentChars?: number;
 }
 
+export interface SemanticExtractionPlanChunk {
+  chunkId: string;
+  index: number;
+  headingPath: string[];
+  location: string;
+  startLine: number;
+  endLine: number;
+  content: string;
+  originalCharCount: number;
+  promptCharCount: number;
+}
+
 export interface SemanticExtractionPlanItem {
   documentId: DocumentId;
   nodeId: string;
@@ -50,6 +62,7 @@ export interface SemanticExtractionPlanItem {
   promptCharCount: number;
   truncated: boolean;
   redactionCount: number;
+  chunks: SemanticExtractionPlanChunk[];
 }
 
 export interface SemanticExtractionPlan {
@@ -160,6 +173,7 @@ export interface SemanticJudgementPromptInput {
 }
 
 const DEFAULT_MAX_DOCUMENT_CHARS = 12000;
+const MIN_CHUNK_CHARS = 1200;
 const DEFAULT_MAX_CANDIDATES_PER_DOCUMENT = 12;
 const MIN_REASON_SCORE = 1;
 const HIGH_SIGNAL_SCORE = 7;
@@ -205,7 +219,8 @@ export function buildSemanticExtractionPlan(input: BuildSemanticExtractionPlanIn
     }
 
     if (privacy.redactions.length > 0) redacted += 1;
-    const content = truncateForPrompt(privacy.content, maxDocumentChars);
+    const chunks = splitSemanticDocumentIntoChunks(privacy.content, maxDocumentChars);
+    const promptCharCount = chunks.reduce((total, chunk) => total + chunk.promptCharCount, 0);
     documents.push({
       documentId: doc.id,
       nodeId: documentNodeId(doc.id),
@@ -218,11 +233,12 @@ export function buildSemanticExtractionPlan(input: BuildSemanticExtractionPlanIn
       filePath: doc.filePath,
       updated: doc.updated,
       contentHash: semanticDocumentContentHash(doc, privacy),
-      content: content.value,
+      content: chunks[0]?.content || "",
       originalCharCount: privacy.content.length,
-      promptCharCount: content.value.length,
-      truncated: content.truncated,
-      redactionCount: privacy.redactions.length
+      promptCharCount,
+      truncated: false,
+      redactionCount: privacy.redactions.length,
+      chunks
     });
   }
 
@@ -493,6 +509,9 @@ export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined
 }
 
 export function semanticExtractionMessagesForItem(item: SemanticExtractionPlanItem): SemanticPromptMessage[] {
+  if (item.chunks.length === 1) {
+    return semanticExtractionMessagesForChunk(item, item.chunks[0]);
+  }
   return [
     {
       role: "system",
@@ -517,6 +536,48 @@ export function semanticExtractionMessagesForItem(item: SemanticExtractionPlanIt
         "}",
         "",
         item.content
+      ].join("\n")
+    }
+  ];
+}
+
+export function semanticExtractionMessagesForChunk(
+  item: SemanticExtractionPlanItem,
+  chunk: SemanticExtractionPlanChunk
+): SemanticPromptMessage[] {
+  return [
+    {
+      role: "system",
+      content: [
+        "Extract project-memory graph facts from one bounded document chunk.",
+        "Return only JSON.",
+        "Do not invent services, packages, files, or dependencies.",
+        "Use exact names from the chunk when possible.",
+        "Prefer evidence and hints that are explicit in this chunk."
+      ].join(" ")
+    },
+    {
+      role: "user",
+      content: [
+        "Return this JSON object:",
+        "{",
+        '  "summary": "compact factual summary of this chunk",',
+        '  "entities": [{"name":"exact name","kind":"service|package|topic|code-area|external-reference|unknown","nodeId":"optional graph node id","confidence":0.0}],',
+        '  "concepts": ["short concept"],',
+        '  "mentionedFiles": ["path or filename"],',
+        '  "mentionedPackages": ["@scope/package"],',
+        '  "candidateHints": [{"targetName":"exact target","targetNodeId":"optional graph node id","type":"explains|supports|mentions|uses|depends-on|related","confidence":0.0,"reason":"short reason"}]',
+        "}",
+        "",
+        `Document title: ${item.title}`,
+        `Document type: ${item.type}`,
+        `Document status: ${item.status}`,
+        `Document topics: ${item.topics.join(", ") || "none"}`,
+        `Related files: ${item.relatedFiles.join(", ") || "none"}`,
+        `Chunk: ${chunk.chunkId}`,
+        `Location: ${chunk.location}`,
+        "",
+        chunk.content
       ].join("\n")
     }
   ];
@@ -549,6 +610,9 @@ export function semanticJudgementMessages(input: SemanticJudgementPromptInput): 
         `Source summary: ${input.source.summary}`,
         `Source entities: ${input.source.entities.map((entity) => `${entity.name} (${entity.kind})`).join(", ") || "none"}`,
         `Source concepts: ${input.source.concepts.join(", ") || "none"}`,
+        input.source.chunks?.length
+          ? `Source chunk summaries: ${input.source.chunks.slice(0, 8).map((chunk) => `${chunk.chunkId} ${chunk.headingPath.join(" > ") || "document"}: ${chunk.summary}`).join(" | ")}`
+          : "",
         "",
         `Candidate: ${input.candidate.targetNodeId}`,
         `Candidate label: ${input.candidate.targetLabel}`,
@@ -564,11 +628,34 @@ export function semanticJudgementMessages(input: SemanticJudgementPromptInput): 
 export function semanticExtractionFromProviderJson(input: unknown, args: {
   project: Project;
   item: SemanticExtractionPlanItem;
+  chunk?: SemanticExtractionPlanChunk;
   providerId?: string;
   providerKind?: string;
   model?: string;
 }): SemanticDocumentExtraction {
   const value = record(input);
+  const entities = arrayValue(value.entities).map(normalizeProviderEntity).filter(isDefined).slice(0, 40);
+  const concepts = arrayValue(value.concepts).map(stringValue).filter(Boolean).slice(0, 40);
+  const mentionedFiles = arrayValue(value.mentionedFiles ?? value.mentioned_files).map(stringValue).filter(Boolean).slice(0, 40);
+  const mentionedPackages = arrayValue(value.mentionedPackages ?? value.mentioned_packages).map(stringValue).filter(Boolean).slice(0, 40);
+  const candidateHints = arrayValue(value.candidateHints ?? value.candidate_hints ?? value.relationshipHints).map(normalizeProviderHint).filter(isDefined).slice(0, 40);
+  const summary = stringValue(value.summary).slice(0, 1200) || baselineSummary(args.item);
+  const chunkExtraction = args.chunk
+    ? {
+        chunkId: args.chunk.chunkId,
+        index: args.chunk.index,
+        headingPath: args.chunk.headingPath,
+        startLine: args.chunk.startLine,
+        endLine: args.chunk.endLine,
+        summary,
+        entities,
+        concepts,
+        mentionedFiles,
+        mentionedPackages,
+        candidateHints
+      }
+    : undefined;
+
   return {
     version: 1,
     projectId: args.project.id,
@@ -578,12 +665,65 @@ export function semanticExtractionFromProviderJson(input: unknown, args: {
     providerKind: args.providerKind,
     model: args.model,
     created: nowIso(),
-    summary: stringValue(value.summary).slice(0, 1200) || baselineSummary(args.item),
-    entities: arrayValue(value.entities).map(normalizeProviderEntity).filter(isDefined).slice(0, 40),
-    concepts: arrayValue(value.concepts).map(stringValue).filter(Boolean).slice(0, 40),
-    mentionedFiles: arrayValue(value.mentionedFiles ?? value.mentioned_files).map(stringValue).filter(Boolean).slice(0, 40),
-    mentionedPackages: arrayValue(value.mentionedPackages ?? value.mentioned_packages).map(stringValue).filter(Boolean).slice(0, 40),
-    candidateHints: arrayValue(value.candidateHints ?? value.candidate_hints ?? value.relationshipHints).map(normalizeProviderHint).filter(isDefined).slice(0, 40)
+    summary,
+    entities,
+    concepts,
+    mentionedFiles,
+    mentionedPackages,
+    candidateHints,
+    chunks: chunkExtraction ? [chunkExtraction] : undefined,
+    sourceMode: args.chunk ? "chunked" : "document",
+    truncated: args.item.truncated
+  };
+}
+
+export function mergeSemanticDocumentExtractions(input: {
+  project: Project;
+  item: SemanticExtractionPlanItem;
+  extractions: SemanticDocumentExtraction[];
+  providerId?: string;
+  providerKind?: string;
+  model?: string;
+}): SemanticDocumentExtraction {
+  const extractions = input.extractions.filter((extraction) => extraction.documentId === input.item.documentId);
+  if (extractions.length === 0) {
+    return baselineSemanticExtractionFromPlanItem({
+      project: input.project,
+      item: input.item
+    });
+  }
+  if (extractions.length === 1 && input.item.chunks.length <= 1) {
+    return extractions[0];
+  }
+
+  const chunks = extractions
+    .flatMap((extraction) => extraction.chunks || [])
+    .sort((left, right) => left.index - right.index);
+  const summaries = chunks.length
+    ? chunks.map((chunk) => {
+        const heading = chunk.headingPath.join(" > ") || `chunk ${chunk.index + 1}`;
+        return `${heading}: ${chunk.summary}`;
+      })
+    : extractions.map((extraction) => extraction.summary);
+
+  return {
+    version: 1,
+    projectId: input.project.id,
+    documentId: input.item.documentId,
+    contentHash: input.item.contentHash,
+    providerId: input.providerId || extractions[0].providerId,
+    providerKind: input.providerKind || extractions[0].providerKind,
+    model: input.model || extractions[0].model,
+    created: nowIso(),
+    summary: summaries.join(" | ").slice(0, 1600) || baselineSummary(input.item),
+    entities: mergeSemanticEntities(extractions.flatMap((extraction) => extraction.entities)).slice(0, 80),
+    concepts: uniqueStrings(extractions.flatMap((extraction) => extraction.concepts)).slice(0, 80),
+    mentionedFiles: uniqueStrings(extractions.flatMap((extraction) => extraction.mentionedFiles)).slice(0, 80),
+    mentionedPackages: uniqueStrings(extractions.flatMap((extraction) => extraction.mentionedPackages)).slice(0, 80),
+    candidateHints: mergeSemanticCandidateHints(extractions.flatMap((extraction) => extraction.candidateHints)).slice(0, 80),
+    chunks,
+    sourceMode: "chunked",
+    truncated: input.item.truncated
   };
 }
 
@@ -612,7 +752,22 @@ export function baselineSemanticExtractionFromPlanItem(input: {
   project: Project;
   item: SemanticExtractionPlanItem;
 }): SemanticDocumentExtraction {
-  const sample = input.item.content.slice(0, 2400);
+  const fullChunkText = input.item.chunks.map((chunk) => chunk.content).join("\n\n");
+  const sample = fullChunkText.slice(0, 2400);
+  const packages = packageNamesForText(fullChunkText);
+  const chunkSummaries = input.item.chunks.map((chunk) => ({
+    chunkId: chunk.chunkId,
+    index: chunk.index,
+    headingPath: chunk.headingPath,
+    startLine: chunk.startLine,
+    endLine: chunk.endLine,
+    summary: baselineChunkSummary(chunk),
+    entities: [] as SemanticDocumentExtraction["entities"],
+    concepts: baselineConceptsForText(`${chunk.headingPath.join(" ")} ${chunk.content}`),
+    mentionedFiles: [],
+    mentionedPackages: packageNamesForText(chunk.content),
+    candidateHints: [] as SemanticDocumentExtraction["candidateHints"]
+  }));
   return {
     version: 1,
     projectId: input.project.id,
@@ -624,15 +779,18 @@ export function baselineSemanticExtractionFromPlanItem(input: {
     summary: baselineSummary(input.item),
     entities: uniqueStrings([
       ...input.item.topics,
-      ...packageNamesForText(sample)
+      ...packages
     ]).map((name) => ({
       name,
       kind: graphNodeTypeForBaselineName(name)
     })),
     concepts: baselineConcepts(input.item),
     mentionedFiles: input.item.relatedFiles,
-    mentionedPackages: packageNamesForText(sample),
-    candidateHints: []
+    mentionedPackages: packages,
+    candidateHints: [],
+    chunks: chunkSummaries,
+    sourceMode: "baseline",
+    truncated: input.item.truncated
   };
 }
 
@@ -656,6 +814,150 @@ function truncateForPrompt(input: string, maxChars: number): { value: string; tr
     value: `${input.slice(0, Math.max(0, maxChars - 36)).trimEnd()}\n\n[truncated for semantic analysis]`,
     truncated: true
   };
+}
+
+export function splitSemanticDocumentIntoChunks(input: string, maxChunkChars = DEFAULT_MAX_DOCUMENT_CHARS): SemanticExtractionPlanChunk[] {
+  const targetMaxChars = Math.max(MIN_CHUNK_CHARS, maxChunkChars);
+  const lines = input.split(/\r?\n/);
+  const sections = markdownSections(lines);
+  const chunks: SemanticExtractionPlanChunk[] = [];
+
+  for (const section of sections) {
+    const sectionChunks = splitSectionLines(section.lines, section.startLine, targetMaxChars);
+    for (const sectionChunk of sectionChunks) {
+      const content = sectionChunk.lines.join("\n").trim();
+      if (!content) continue;
+      chunks.push({
+        chunkId: `chunk-${String(chunks.length + 1).padStart(4, "0")}`,
+        index: chunks.length,
+        headingPath: section.headingPath,
+        location: chunkLocation(section.headingPath, sectionChunk.startLine, sectionChunk.endLine),
+        startLine: sectionChunk.startLine,
+        endLine: sectionChunk.endLine,
+        content,
+        originalCharCount: content.length,
+        promptCharCount: content.length
+      });
+    }
+  }
+
+  if (chunks.length > 0) return chunks;
+  return [
+    {
+      chunkId: "chunk-0001",
+      index: 0,
+      headingPath: [],
+      location: "lines 1-1",
+      startLine: 1,
+      endLine: 1,
+      content: "",
+      originalCharCount: 0,
+      promptCharCount: 0
+    }
+  ];
+}
+
+function markdownSections(lines: string[]): Array<{ headingPath: string[]; startLine: number; lines: string[] }> {
+  const sections: Array<{ headingPath: string[]; startLine: number; lines: string[] }> = [];
+  const headingPath: string[] = [];
+  let current: { headingPath: string[]; startLine: number; lines: string[] } = {
+    headingPath: [],
+    startLine: 1,
+    lines: []
+  };
+
+  lines.forEach((line, index) => {
+    const lineNumber = index + 1;
+    const heading = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (heading && current.lines.some((candidate) => candidate.trim())) {
+      sections.push(current);
+      const level = heading[1].length;
+      headingPath.splice(level - 1);
+      headingPath[level - 1] = heading[2].trim();
+      current = {
+        headingPath: headingPath.filter(Boolean),
+        startLine: lineNumber,
+        lines: [line]
+      };
+      return;
+    }
+
+    if (heading) {
+      const level = heading[1].length;
+      headingPath.splice(level - 1);
+      headingPath[level - 1] = heading[2].trim();
+      current.headingPath = headingPath.filter(Boolean);
+    }
+    current.lines.push(line);
+  });
+
+  if (current.lines.some((line) => line.trim())) sections.push(current);
+  return sections;
+}
+
+function splitSectionLines(
+  lines: string[],
+  baseStartLine: number,
+  maxChunkChars: number
+): Array<{ startLine: number; endLine: number; lines: string[] }> {
+  const chunks: Array<{ startLine: number; endLine: number; lines: string[] }> = [];
+  let currentLines: string[] = [];
+  let currentStartLine = baseStartLine;
+  let currentCharCount = 0;
+
+  lines.forEach((line, index) => {
+    const lineNumber = baseStartLine + index;
+    const nextLineLength = line.length + 1;
+    if (currentLines.length > 0 && currentCharCount + nextLineLength > maxChunkChars) {
+      chunks.push({
+        startLine: currentStartLine,
+        endLine: lineNumber - 1,
+        lines: currentLines
+      });
+      currentLines = [];
+      currentCharCount = 0;
+      currentStartLine = lineNumber;
+    }
+
+    if (line.length > maxChunkChars) {
+      if (currentLines.length > 0) {
+        chunks.push({
+          startLine: currentStartLine,
+          endLine: lineNumber - 1,
+          lines: currentLines
+        });
+        currentLines = [];
+        currentCharCount = 0;
+      }
+      for (let offset = 0; offset < line.length; offset += maxChunkChars) {
+        chunks.push({
+          startLine: lineNumber,
+          endLine: lineNumber,
+          lines: [line.slice(offset, offset + maxChunkChars)]
+        });
+      }
+      currentStartLine = lineNumber + 1;
+      return;
+    }
+
+    if (currentLines.length === 0) currentStartLine = lineNumber;
+    currentLines.push(line);
+    currentCharCount += nextLineLength;
+  });
+
+  if (currentLines.length > 0) {
+    chunks.push({
+      startLine: currentStartLine,
+      endLine: currentStartLine + currentLines.length - 1,
+      lines: currentLines
+    });
+  }
+  return chunks;
+}
+
+function chunkLocation(headingPath: string[], startLine: number, endLine: number): string {
+  const heading = headingPath.length ? `${headingPath.join(" > ")}; ` : "";
+  return `${heading}lines ${startLine}-${endLine}`;
 }
 
 interface SemanticRelationshipCandidateDraft {
@@ -805,6 +1107,18 @@ function baselineConcepts(item: SemanticExtractionPlanItem): string[] {
   return [...tokens].slice(0, 16);
 }
 
+function baselineConceptsForText(input: string): string[] {
+  return [...tokenSet(normalizeTextForMatch(input))].slice(0, 12);
+}
+
+function baselineChunkSummary(chunk: SemanticExtractionPlanChunk): string {
+  const firstLine = chunk.content
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("Title:") && !line.startsWith("Type:") && !line.startsWith("Status:"));
+  return [chunk.headingPath.join(" > "), firstLine].filter(Boolean).join(" - ").slice(0, 500);
+}
+
 function packageNamesForText(input: string): string[] {
   const matches = input.match(/@[a-z0-9][a-z0-9_.-]*\/[a-z0-9][a-z0-9_.-]*/gi) || [];
   return uniqueStrings(matches.map((match) => match.trim())).slice(0, 12);
@@ -831,6 +1145,21 @@ function normalizeProviderEntity(input: unknown): SemanticDocumentExtraction["en
   };
 }
 
+function mergeSemanticEntities(
+  entities: SemanticDocumentExtraction["entities"]
+): SemanticDocumentExtraction["entities"] {
+  const byKey = new Map<string, SemanticDocumentExtraction["entities"][number]>();
+  for (const entity of entities) {
+    const key = `${normalizeTextForMatch(entity.name)}\u0000${entity.kind}\u0000${entity.nodeId || ""}`;
+    const existing = byKey.get(key);
+    if (!existing || (entity.confidence || 0) > (existing.confidence || 0)) {
+      byKey.set(key, entity);
+    }
+  }
+  return [...byKey.values()]
+    .sort((left, right) => (right.confidence || 0) - (left.confidence || 0) || left.name.localeCompare(right.name));
+}
+
 function normalizeProviderHint(input: unknown): SemanticDocumentExtraction["candidateHints"][number] | undefined {
   const value = record(input);
   const targetName = stringOrUndefined(value.targetName ?? value.target_name ?? value.target);
@@ -844,6 +1173,25 @@ function normalizeProviderHint(input: unknown): SemanticDocumentExtraction["cand
     confidence: value.confidence === undefined ? undefined : clampConfidence(Number(value.confidence)),
     reason: stringOrUndefined(value.reason)
   };
+}
+
+function mergeSemanticCandidateHints(
+  hints: SemanticDocumentExtraction["candidateHints"]
+): SemanticDocumentExtraction["candidateHints"] {
+  const byKey = new Map<string, SemanticDocumentExtraction["candidateHints"][number]>();
+  for (const hint of hints) {
+    const key = [
+      normalizeTextForMatch(hint.targetName || ""),
+      hint.targetNodeId || "",
+      hint.type || ""
+    ].join("\u0000");
+    const existing = byKey.get(key);
+    if (!existing || (hint.confidence || 0) > (existing.confidence || 0)) {
+      byKey.set(key, hint);
+    }
+  }
+  return [...byKey.values()]
+    .sort((left, right) => (right.confidence || 0) - (left.confidence || 0));
 }
 
 function normalizeProviderNodeKind(input: string): GraphNodeType | "unknown" {
