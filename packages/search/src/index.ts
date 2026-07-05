@@ -63,6 +63,7 @@ function scoreSession(projectId: ProjectId, session: Session, terms: string[]): 
     session.taskTitle,
     session.goal,
     session.summary,
+    session.topics.join(" "),
     session.nextSteps.join(" "),
     session.blockers.join(" "),
     session.touchedFiles.join(" "),

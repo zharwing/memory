@@ -40,6 +40,9 @@ This folder contains product and engineering documentation for the AI Memory imp
 - [Testing Plan](TESTING_PLAN.md)
   Phased plan for unit and integration tests using node:test over compiled dist output, with privacy and storage first.
 
+- [Testing With AI Providers](AI_TESTING.md)
+  Manual LM Studio/Ollama/llama.cpp-style provider checks, session TLDR tests, and semantic graph smoke tests.
+
 - [Importing](IMPORTING.md)
   Generic Markdown import profiles, preview/commit workflow, CLI examples, and MCP usage.
 
@@ -67,7 +70,8 @@ This folder contains product and engineering documentation for the AI Memory imp
 11. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
 12. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
 13. Use [Semantic Graph Analysis](SEMANTIC_GRAPH.md) when enabling AI-reviewed relationships.
-14. Use [Operations](OPERATIONS.md) when running or packaging the app.
+14. Use [Testing With AI Providers](AI_TESTING.md) when checking LM Studio, session TLDR generation, or another model-backed provider.
+15. Use [Operations](OPERATIONS.md) when running or packaging the app.
 
 ## Documentation Policy
 

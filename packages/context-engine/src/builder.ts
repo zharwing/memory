@@ -201,6 +201,7 @@ function renderSession(session: Session): string {
 Status: ${session.status}
 Branch: ${session.branch || "unknown"}
 Summary: ${session.summary || "No summary recorded."}
+Topics: ${session.topics.join(", ") || "None recorded"}
 Next steps:
 ${session.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}
 Blockers:

@@ -185,6 +185,14 @@ export class MemoryService {
     return this.sessions.closeSession(params);
   }
 
+  async generateSessionSummary(params: Parameters<SessionService["generateSessionSummary"]>[0]) {
+    return this.sessions.generateSessionSummary(params);
+  }
+
+  async generateSessionSummaries(params: Parameters<SessionService["generateSessionSummaries"]>[0]) {
+    return this.sessions.generateSessionSummaries(params);
+  }
+
   async deleteSession(params: Parameters<SessionService["deleteSession"]>[0]) {
     return this.sessions.deleteSession(params);
   }

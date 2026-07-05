@@ -75,7 +75,8 @@ button:hover,
 
 button[type="submit"],
 .project-card.selected,
-.button-link.primary {
+.button-link.primary,
+.icon-text-button.primary {
   background: var(--accent);
   color: #fffdf9;
   border-color: var(--accent);
@@ -91,6 +92,11 @@ button[type="submit"],
   min-height: 38px;
   padding: 0 14px;
   text-decoration: none;
+}
+
+.button-link.compact-link {
+  min-height: 30px;
+  padding: 0 10px;
 }
 
 .danger-button {
@@ -346,11 +352,27 @@ input[type="checkbox"] {
 }
 
 .section-tab {
+  align-items: center;
   border-bottom: 2px solid transparent;
   color: var(--muted);
+  display: inline-flex;
+  gap: 7px;
   min-height: 34px;
   padding: 7px 12px 6px;
   text-decoration: none;
+}
+
+.section-tab small {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fffdf9;
+  display: inline-flex;
+  font-size: 0.74rem;
+  height: 19px;
+  justify-content: center;
+  min-width: 19px;
+  padding: 0 6px;
 }
 
 .section-tab.active {
@@ -451,6 +473,15 @@ input[type="checkbox"] {
 
 .assistant-settings-form .button-row {
   justify-content: flex-end;
+}
+
+.assistant-advanced-fields {
+  grid-column: 1 / -1;
+}
+
+.assistant-advanced-fields .advanced-fields-body label {
+  display: grid;
+  gap: 6px;
 }
 
 .assistant-provider-check {
@@ -561,6 +592,204 @@ input[type="checkbox"] {
 
 .semantic-proposal-group-rows small {
   color: var(--muted);
+}
+
+.semantic-proposal-conclusion {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.semantic-proposal-conclusion > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.semantic-proposal-conclusion h3 {
+  color: var(--text);
+  font-size: 18px;
+  margin: 0;
+}
+
+.semantic-proposal-conclusion p {
+  line-height: 1.5;
+  margin: 0;
+}
+
+.semantic-proposal-ai-list,
+.semantic-proposal-review-notes ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.semantic-proposal-ai-list li,
+.semantic-proposal-review-notes li {
+  line-height: 1.45;
+}
+
+.semantic-proposal-review-notes {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.semantic-proposal-review-notes strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.semantic-proposal-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.semantic-proposal-badges strong {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  padding: 5px 9px;
+}
+
+.semantic-connection-review-list {
+  display: grid;
+  gap: 8px;
+}
+
+.semantic-connection-review-list article {
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  padding: 10px 12px;
+}
+
+.semantic-connection-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.semantic-connection-path {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.semantic-connection-review-list strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.semantic-connection-review-list span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.semantic-confidence-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
+.semantic-confidence-pill.high {
+  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
+  color: var(--success);
+}
+
+.semantic-confidence-pill.review {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+  color: var(--warning);
+}
+
+.semantic-confidence-pill.low {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  color: var(--danger);
+}
+
+.semantic-connection-review-list p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.semantic-connection-actions {
+  align-self: stretch;
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+}
+
+.semantic-connection-actions button {
+  min-height: 30px;
+  padding: 0 8px;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .semantic-connection-review-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .semantic-connection-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.semantic-proposal-details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.semantic-proposal-details summary {
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 38px;
+  padding: 10px 12px;
+}
+
+.semantic-proposal-details[open] {
+  padding-bottom: 10px;
+}
+
+.semantic-proposal-details[open] summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.semantic-proposal-details .semantic-proposal-summary,
+.semantic-proposal-details .semantic-edge-cards,
+.semantic-proposal-details .markdown-preview {
+  margin: 0 10px;
+}
+
+.semantic-proposal-details.technical {
+  margin-top: 12px;
 }
 
 .semantic-edge-cards {
@@ -805,6 +1034,25 @@ input[type="checkbox"] {
   gap: 10px;
   margin-top: 16px;
   flex-wrap: wrap;
+}
+
+.session-summary-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+}
+
+.session-summary-panel p {
+  line-height: 1.5;
+  margin: 0;
+}
+
+.session-summary-advanced {
+  padding: 8px 10px;
 }
 
 .row-actions {
@@ -1092,6 +1340,20 @@ input[type="checkbox"] {
 
 .rendered-markdown.empty-preview {
   color: var(--muted);
+}
+
+.rich-markdown-editor {
+  caret-color: var(--accent);
+  outline: none;
+}
+
+.rich-markdown-editor:focus {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.rich-markdown-editor.empty-preview:empty::before {
+  color: var(--muted);
+  content: attr(data-placeholder);
 }
 
 .rendered-markdown h1,
@@ -1506,30 +1768,21 @@ tr.selected-row td {
 
 .graph-view-toolbar {
   align-items: center;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto auto;
   gap: 8px;
-  justify-content: space-between;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .graph-mode-control {
-  flex: 0 0 auto;
-}
-
-.graph-relationship-control {
-  flex: 0 0 auto;
-}
-
-.graph-relationship-control button {
-  white-space: nowrap;
+  width: 280px;
 }
 
 .graph-focus-control {
   align-items: center;
   color: var(--muted);
   display: flex;
-  flex: 1 1 360px;
   gap: 8px;
   min-width: 220px;
 }
@@ -1550,6 +1803,11 @@ tr.selected-row td {
   align-items: center;
   display: inline-flex;
   gap: 6px;
+}
+
+.icon-text-button.selected {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .graph-help-trigger {
@@ -1790,10 +2048,33 @@ tr.selected-row td {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
+.semantic-provider-strip {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 4px 6px 4px 10px;
+}
+
+.semantic-provider-strip span {
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .semantic-run-form {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(4, minmax(128px, 1fr));
+}
+
+.semantic-run-form-basic {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .semantic-run-form label {
@@ -1823,6 +2104,22 @@ tr.selected-row td {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.semantic-run-actions.primary {
+  justify-content: space-between;
+}
+
+.semantic-run-advanced {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.semantic-json-mode {
+  align-self: end;
+  min-height: 38px;
 }
 
 .semantic-run-result {
@@ -2111,13 +2408,26 @@ tr.selected-row td {
   margin-bottom: 12px;
 }
 
+.inbox-alert {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .docs-explainer strong {
   color: var(--text);
 }
 
-.docs-explainer p {
+.docs-explainer p,
+.inbox-alert p {
   line-height: 1.45;
   margin: 0;
+}
+
+.inbox-alert strong {
+  color: var(--text);
 }
 
 .dialog-backdrop {
@@ -2267,6 +2577,18 @@ tr.selected-row td {
 
   .diagram-viewer-canvas .mermaid-svg {
     min-width: 760px;
+  }
+
+  .graph-view-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .graph-mode-control {
+    width: 100%;
+  }
+
+  .graph-focus-control {
+    min-width: 0;
   }
 
   .graph-details-popover {

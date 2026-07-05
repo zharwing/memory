@@ -1,6 +1,7 @@
 import {
   type ProjectRegistry,
   createSemanticGraphRun,
+  deleteProposedUpdates,
   listProjectDocuments,
   listProjectSessions,
   listProjectWorkstreams,
@@ -38,6 +39,8 @@ import {
   semanticExtractionMessagesForChunk,
   semanticExtractionMessagesForItem,
   semanticJudgementMessages,
+  semanticProposalSummaryFromProviderJson,
+  semanticProposalSummaryMessages,
   type SemanticCandidateIndex,
   type SemanticExtractionPlanItem,
   type SemanticRelationshipCandidate,
@@ -443,20 +446,35 @@ export class SemanticGraphService {
         sourceAgent: params.sourceAgent || "aimem-semantic-graph",
         promptVersion: "semantic-graph-v1"
       });
+      const acceptedPolicyEdges = refineSemanticReviewEdges(policy.acceptedEdges);
+      const proposedPolicyEdges = refineSemanticReviewEdges(policy.proposedEdges);
+      const dryRunPolicyEdges = refineSemanticReviewEdges(policy.dryRunEdges);
+      const qualityFilteredEdges =
+        policy.acceptedEdges.length + policy.proposedEdges.length + policy.dryRunEdges.length
+        - acceptedPolicyEdges.length - proposedPolicyEdges.length - dryRunPolicyEdges.length;
 
-      const acceptedEdges = policy.acceptedEdges.length > 0
-        ? await mergeAcceptedSemanticEdges(project, policy.acceptedEdges)
+      const acceptedEdges = acceptedPolicyEdges.length > 0
+        ? await mergeAcceptedSemanticEdges(project, acceptedPolicyEdges)
         : [];
-      const proposal = policy.proposedEdges.length > 0
-        ? await proposeMemoryUpdate({
+      const proposalSummary = proposedPolicyEdges.length > 0
+        ? semanticProposalSummaryFromProviderJson((await callOpenAiCompatibleJson(
+            provider,
+            semanticProposalSummaryMessages({
+              graph,
+              edges: proposedPolicyEdges
+            }),
+            { schemaName: "semantic relationship proposal summary", retryOnInvalidJson: true }
+          )).value)
+        : undefined;
+      const proposal = proposedPolicyEdges.length > 0
+        ? await proposeCurrentSemanticEdges({
             project,
-            type: "graph-update",
             sourceKind: "memory-assistant",
             sourceAgent: params.sourceAgent || "aimem-semantic-graph",
-            confidence: confidenceForEdges(policy.proposedEdges),
-            affectedFiles: affectedFilesForEdges(policy.proposedEdges, documents),
-            proposedPatch: semanticEdgesProposalPatch(run.id, policy.proposedEdges),
-            reason: `Semantic graph relationship proposal from ${run.id} (${policy.proposedEdges.length} edge${policy.proposedEdges.length === 1 ? "" : "s"})`
+            confidence: confidenceForEdges(proposedPolicyEdges),
+            affectedFiles: affectedFilesForEdges(proposedPolicyEdges, documents),
+            proposedPatch: semanticEdgesProposalPatch(run.id, proposedPolicyEdges, proposalSummary),
+            reason: `Semantic graph relationship proposal from ${run.id} (${proposedPolicyEdges.length} edge${proposedPolicyEdges.length === 1 ? "" : "s"})`
           })
         : undefined;
 
@@ -472,9 +490,9 @@ export class SemanticGraphService {
           candidates: candidateIndex.counts.candidates,
           judged: decisions.length,
           accepted: acceptedEdges.length,
-          proposed: policy.proposedEdges.length + policy.dryRunEdges.length,
+          proposed: proposedPolicyEdges.length + dryRunPolicyEdges.length,
           rejected: policy.counts.rejected,
-          discarded: policy.counts.discarded
+          discarded: policy.counts.discarded + qualityFilteredEdges
         }
       });
 
@@ -495,8 +513,8 @@ export class SemanticGraphService {
           }
         },
         acceptedEdges,
-        proposedEdges: policy.proposedEdges,
-        dryRunEdges: policy.dryRunEdges,
+        proposedEdges: proposedPolicyEdges,
+        dryRunEdges: dryRunPolicyEdges,
         discardedDecisions: policy.discardedDecisions,
         proposal
       };
@@ -555,20 +573,23 @@ export class SemanticGraphService {
       deterministicEdgeId: edge.deterministicEdgeId
     }));
 
-    const invalid = edges.find((edge) => !edge.from || !edge.to || !edge.reason);
+    const refinedEdges = refineSemanticReviewEdges(edges);
+    const invalid = refinedEdges.find((edge) => !edge.from || !edge.to || !edge.reason);
     if (invalid) {
       throw new Error("Each semantic edge proposal requires from, to, and reason.");
     }
+    if (refinedEdges.length === 0) {
+      throw new Error("No semantic edge proposals remained after quality filtering.");
+    }
 
-    return proposeMemoryUpdate({
+    return proposeCurrentSemanticEdges({
       project,
-      type: "graph-update",
       sourceKind: "external-ai",
       sourceAgent: params.sourceAgent,
-      confidence: params.confidence || confidenceForEdges(edges),
+      confidence: params.confidence || confidenceForEdges(refinedEdges),
       affectedFiles: params.affectedFiles || [],
-      proposedPatch: semanticEdgesProposalPatch(runId, edges),
-      reason: params.reason || `Semantic graph relationship proposal (${edges.length} edge${edges.length === 1 ? "" : "s"})`
+      proposedPatch: semanticEdgesProposalPatch(runId, refinedEdges),
+      reason: params.reason || `Semantic graph relationship proposal (${refinedEdges.length} edge${refinedEdges.length === 1 ? "" : "s"})`
     });
   }
 
@@ -670,6 +691,35 @@ export class SemanticGraphService {
       proposal: updatedProposal
     };
   }
+}
+
+async function proposeCurrentSemanticEdges(args: {
+  project: Project;
+  sourceKind: ProposedMemoryUpdate["sourceKind"];
+  sourceAgent?: string;
+  confidence?: ProposedMemoryUpdate["confidence"];
+  affectedFiles?: string[];
+  proposedPatch: string;
+  reason: string;
+}): Promise<ProposedMemoryUpdate> {
+  const existing = await listProposedUpdates(args.project);
+  const obsoleteIds = existing
+    .filter((proposal) =>
+      proposal.type === "graph-update" &&
+      Boolean(semanticEdgesFromProposalPatch(proposal.proposedPatch))
+    )
+    .map((proposal) => proposal.id);
+  await deleteProposedUpdates(args.project, obsoleteIds);
+  return proposeMemoryUpdate({
+    project: args.project,
+    type: "graph-update",
+    sourceKind: args.sourceKind,
+    sourceAgent: args.sourceAgent,
+    confidence: args.confidence,
+    affectedFiles: args.affectedFiles,
+    proposedPatch: args.proposedPatch,
+    reason: args.reason
+  });
 }
 
 function semanticProviderConfig(
@@ -780,6 +830,51 @@ function affectedFilesForEdges(edges: SemanticGraphEdge[], documents: MemoryDocu
   return [...paths];
 }
 
+function refineSemanticReviewEdges(edges: SemanticGraphEdge[]): SemanticGraphEdge[] {
+  const byKey = new Map<string, SemanticGraphEdge>();
+  for (const edge of edges) {
+    const key = semanticEdgeKey(edge);
+    const existing = byKey.get(key);
+    if (!existing || edge.confidence > existing.confidence || edge.evidence.length > existing.evidence.length) {
+      byKey.set(key, edge);
+    }
+  }
+
+  const deduped = [...byKey.values()];
+  if (!deduped.some((edge) => !isMetadataOnlySemanticEdge(edge))) return deduped;
+
+  const metadataCounts = new Map<string, number>();
+  const refined: SemanticGraphEdge[] = [];
+  for (const edge of deduped) {
+    if (!isMetadataOnlySemanticEdge(edge)) {
+      refined.push(edge);
+      continue;
+    }
+
+    const owner = metadataOwnerKey(edge);
+    const count = metadataCounts.get(owner) || 0;
+    if (count >= 1) continue;
+    metadataCounts.set(owner, count + 1);
+    refined.push(edge);
+  }
+
+  return refined;
+}
+
+function isMetadataOnlySemanticEdge(edge: Pick<SemanticGraphEdge, "from" | "to">): boolean {
+  return isMetadataOnlyNode(edge.from) || isMetadataOnlyNode(edge.to);
+}
+
+function isMetadataOnlyNode(nodeId: string): boolean {
+  return nodeId.startsWith("file:") || nodeId.startsWith("topic:");
+}
+
+function metadataOwnerKey(edge: Pick<SemanticGraphEdge, "from" | "to">): string {
+  if (edge.from.startsWith("doc:")) return edge.from;
+  if (edge.to.startsWith("doc:")) return edge.to;
+  return `${edge.from}\u0000${edge.to}`;
+}
+
 function normalizeSettingsPatch(settings: SemanticGraphSettings): SemanticGraphSettings {
   return {
     ...settings,
@@ -876,6 +971,9 @@ function semanticSourceKindForProposal(proposal: ProposedMemoryUpdate): Semantic
 }
 
 function semanticEdgeKey(edge: Pick<SemanticGraphEdge, "from" | "to" | "type">): string {
+  if (edge.type === "related" && edge.from.startsWith("doc:") && edge.to.startsWith("doc:")) {
+    return `related\u0000${[edge.from, edge.to].sort().join("\u0000")}`;
+  }
   return `${edge.from}\u0000${edge.to}\u0000${edge.type}`;
 }
 

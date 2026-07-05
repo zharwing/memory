@@ -89,6 +89,8 @@ Error shape:
 - `memory.list_project_sessions`
 - `memory.save_checkpoint`
 - `memory.close_session`
+- `memory.generate_session_summary`
+- `memory.generate_session_summaries`
 - `memory.delete_session`
 
 ### Workstreams
@@ -223,10 +225,14 @@ provided.
 
 - `memory.assistant_status`
 - `memory.summarize_session`
+- `memory.generate_session_summary`
+- `memory.generate_session_summaries`
 - `memory.prepare_return_summary`
 - `memory.classify_imported_doc`
 
-Assistant methods create reviewable Memory Inbox proposals. They do not directly update canonical memory.
+Legacy assistant proposal methods create reviewable Memory Inbox proposals.
+Session TLDR generation methods write searchable session summary metadata
+directly unless a future project policy routes that metadata through review.
 
 ## CLI Commands
 
@@ -248,6 +254,9 @@ aimem sessions --project <id>
 aimem context --project <id> --preview
 aimem checkpoint --project <id> --session <id> "summary"
 aimem close --project <id> --session <id> "summary"
+aimem assistant generate-session-summary --project <id> --session <id>
+aimem assistant generate-session-summaries --project <id>
+aimem assistant generate-session-summaries --project <id> --all
 aimem search --project <id> "query"
 aimem inbox --project <id>
 aimem graph --project <id>
@@ -265,11 +274,14 @@ aimem agent-instructions --project <id> --agent claude --output CLAUDE.md
 aimem agent-instructions --project <id> --agent qwen --output QWEN.md
 aimem assistant status --project <id>
 aimem assistant summarize-session --project <id> --session <id>
+aimem assistant generate-session-summary --project <id> --session <id>
+aimem assistant generate-session-summaries --project <id>
 aimem assistant return-summary --project <id>
 aimem assistant classify-doc --project <id> --doc <id>
 aimem semantic-graph status --project <id>
 aimem semantic-graph analyze --project <id> --mode dry-run --max-docs 8
 aimem semantic-graph analyze --project <id> --mode review --node <graph-node-id>
+aimem semantic-graph analyze --project <id> --mode dry-run --no-json-mode
 aimem semantic-graph runs --project <id>
 aimem semantic-graph edges --project <id> --status accepted,auto-accepted
 ```
@@ -307,6 +319,8 @@ Core tools:
 - `memory.get_context_bundle`
 - `memory.save_checkpoint`
 - `memory.close_session`
+- `memory.generate_session_summary`
+- `memory.generate_session_summaries`
 - `memory.delete_session`
 - `memory.search`
 - `memory.create_doc`
@@ -345,6 +359,8 @@ Core tools:
 - `memory.rebuild_index`
 - `memory.assistant_status`
 - `memory.summarize_session`
+- `memory.generate_session_summary`
+- `memory.generate_session_summaries`
 - `memory.prepare_return_summary`
 - `memory.classify_imported_doc`
 

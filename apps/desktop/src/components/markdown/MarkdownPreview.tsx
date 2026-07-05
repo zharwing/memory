@@ -1,16 +1,45 @@
-import type { ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { isLikelyMermaidSource, MermaidDiagramPreview } from "./MermaidDiagramPreview.js";
 
-export function MarkdownPreview({ body }: { body: string }) {
-  if (!body.trim()) return <div className="rendered-markdown empty-preview">No document body recorded.</div>;
+export function MarkdownPreview({
+  body,
+  editable = false,
+  onInput,
+  ariaLabel
+}: {
+  body: string;
+  editable?: boolean;
+  onInput?: (event: FormEvent<HTMLDivElement>) => void;
+  ariaLabel?: string;
+}) {
+  const editorProps = editable
+    ? {
+        contentEditable: true,
+        suppressContentEditableWarning: true,
+        onInput,
+        role: "textbox",
+        "aria-multiline": true,
+        "aria-label": ariaLabel || "Rendered markdown editor",
+        tabIndex: 0
+      }
+    : {};
+  const className = `rendered-markdown${editable ? " rich-markdown-editor" : ""}${!body.trim() ? " empty-preview" : ""}`;
+
+  if (!body.trim()) {
+    return (
+      <div className={className} data-placeholder="Start writing..." {...editorProps}>
+        {editable ? null : "No document body recorded."}
+      </div>
+    );
+  }
   if (isLikelyMermaidSource(body.trim())) {
     return (
-      <div className="rendered-markdown">
+      <div className={className} {...editorProps}>
         <MermaidDiagramPreview source={body.trim()} />
       </div>
     );
   }
-  return <div className="rendered-markdown">{renderMarkdownBlocks(body)}</div>;
+  return <div className={className} {...editorProps}>{renderMarkdownBlocks(body)}</div>;
 }
 
 function renderMarkdownBlocks(markdown: string): ReactNode[] {

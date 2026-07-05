@@ -8,6 +8,9 @@ import {
   semanticExtractionFromProviderJson,
   semanticEdgesFromProposalPatch,
   semanticEdgesProposalPatch,
+  semanticJudgementMessages,
+  semanticProposalSummaryFromProviderJson,
+  semanticProposalSummaryMessages,
   splitSemanticDocumentIntoChunks,
   type SemanticRelationshipCandidate,
   type SemanticRelationshipDecision
@@ -180,16 +183,96 @@ describe("semantic edge proposal patches", () => {
       ]
     });
 
-    const patch = semanticEdgesProposalPatch("run-review", policy.proposedEdges);
+    const patch = semanticEdgesProposalPatch("run-review", policy.proposedEdges, {
+      title: "Billing summary",
+      summary: "The model says this document belongs with Billing Service because it explains invoice ownership.",
+      keyRelationships: ["Billing doc supports Billing Service."],
+      reviewNotes: ["Check the invoice ownership wording."]
+    });
     const parsed = semanticEdgesFromProposalPatch(patch);
 
     assert.equal(parsed?.kind, "semantic-graph-edges");
     assert.equal(parsed?.runId, "run-review");
+    assert.equal(parsed?.summary?.summary, "The model says this document belongs with Billing Service because it explains invoice ownership.");
     assert.equal(parsed?.edges.length, 1);
     assert.equal(parsed?.edges[0].from, "doc:doc-a");
     assert.equal(parsed?.edges[0].to, "service:billing");
     assert.equal(parsed?.edges[0].confidence, 0.72);
     assert.equal(parsed?.edges[0].evidence[0].quote, "Billing Service owns invoices.");
+  });
+});
+
+describe("semantic proposal summary prompt", () => {
+  it("asks the provider for real reviewer-facing proposal summaries", () => {
+    const policy = applySemanticEdgePolicy({
+      project,
+      settings,
+      run: {
+        id: "run-review",
+        mode: "review",
+        providerKind: "openai-compatible",
+        model: "test"
+      },
+      candidates: [candidate],
+      decisions: [
+        relationshipDecision({
+          confidence: 0.72,
+          reason: "The document explains the service behavior.",
+          evidence: ["Billing Service owns invoices."]
+        })
+      ]
+    });
+    const messages = semanticProposalSummaryMessages({ edges: policy.proposedEdges });
+    const prompt = messages.map((message) => message.content).join("\n");
+
+    assert.match(prompt, /reviewer-facing summary/);
+    assert.match(prompt, /Use only the supplied relationships/);
+    assert.match(prompt, /Do not invent facts/);
+
+    const summary = semanticProposalSummaryFromProviderJson({
+      title: "Billing relationship review",
+      summary: "The provider explains why the billing document belongs with the billing service.",
+      keyRelationships: ["Billing doc supports Billing Service."],
+      reviewNotes: ["Confirm the owner wording."]
+    });
+    assert.equal(summary.title, "Billing relationship review");
+    assert.equal(summary.keyRelationships.length, 1);
+  });
+});
+
+describe("semantic relationship judgement prompt", () => {
+  it("guides doc-to-doc decisions away from metadata-only dependency claims", () => {
+    const messages = semanticJudgementMessages({
+      source: {
+        version: 1,
+        projectId: project.id,
+        documentId: "doc-a",
+        contentHash: "hash-a",
+        created: "2026-07-05T00:00:00.000Z",
+        summary: "Overview says a UI calls a billing API.",
+        entities: [],
+        concepts: ["billing", "checkout"],
+        mentionedFiles: ["services/billing.ts"],
+        mentionedPackages: [],
+        candidateHints: [],
+        sourceMode: "document",
+        truncated: false
+      },
+      candidate: {
+        ...candidate,
+        id: "candidate-doc",
+        targetNodeId: "doc:doc-b",
+        targetLabel: "Billing Runtime",
+        targetType: "doc",
+        suggestedType: "related"
+      },
+      targetSummary: "Runtime details for the billing API."
+    });
+    const prompt = messages.map((message) => message.content).join("\n");
+
+    assert.match(prompt, /For doc-to-doc candidates, prefer related/);
+    assert.match(prompt, /Reserve uses and depends-on for explicit dependency direction/);
+    assert.match(prompt, /evidence only repeats generic topics or related file metadata/);
   });
 });
 

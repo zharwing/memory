@@ -141,6 +141,10 @@ export interface Session {
   taskTitle: string;
   goal?: string;
   summary?: string;
+  topics: string[];
+  summaryGeneratedAt?: ISODateString;
+  summarySource?: "manual" | "assistant" | "deterministic" | "import";
+  summaryModel?: string;
   nextSteps: string[];
   blockers: string[];
   touchedFiles: string[];

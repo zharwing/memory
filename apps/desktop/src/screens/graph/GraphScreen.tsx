@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Link, useSearchParams } from "react-router-dom";
-import { CircleHelp, FlaskConical, Play, RotateCcw, X } from "lucide-react";
+import { CircleHelp, FlaskConical, Play, RotateCcw, Settings2, X } from "lucide-react";
 import { useStore } from "../../stores/store-context.js";
 import type { GraphRelationshipMode } from "../../stores/root-store.js";
 import { KeyValue, Screen } from "../../components/layout.js";
@@ -17,6 +17,7 @@ import {
 } from "./graph-display.js";
 import { GraphMap, graphNodeVisualStyle, removeStoredGraphNodePositions } from "./GraphMap.js";
 import { buildGraphFlowElements, type GraphMapEdge, RawStorageAudit } from "./graph-flow.js";
+import { projectPath } from "../../utils/routes.js";
 
 const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.d3.v2";
 const GRAPH_LEGEND_ITEMS = [
@@ -42,7 +43,7 @@ export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialGraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
-  const initialRelationshipMode = graphRelationshipModeFromSearchParam(searchParams.get("relationships")) || "deterministic";
+  const initialRelationshipMode = graphRelationshipModeFromSearchParam(searchParams.get("relationships")) || "ai-reviewed";
   const graph = useMemo(() => enhanceGraphForDisplay(store.graph, store.docs), [store.graph, store.docs]);
   const [graphViewMode, setGraphViewMode] = useState<GraphViewMode>(initialGraphViewMode);
   const [focusedNodeId, setFocusedNodeId] = useState(initialGraphViewMode === "all" ? "" : searchParams.get("focus") || "");
@@ -52,15 +53,19 @@ export const GraphScreen = observer(function GraphScreen() {
   const [showGraphHelp, setShowGraphHelp] = useState(false);
   const [showGraphDetails, setShowGraphDetails] = useState(false);
   const [semanticRunDraft, setSemanticRunDraft] = useState({
-    mode: "dry-run",
+    mode: "review",
     scopeKind: "focused",
     endpoint: "",
     model: "",
     apiKey: "",
-    maxDocuments: "8",
-    maxCandidates: "24",
-    maxCandidatesPerDocument: "8"
+    maxDocuments: "",
+    maxCandidates: "",
+    maxCandidatesPerDocument: "8",
+    timeoutMs: "120000",
+    maxOutputTokens: "1024",
+    jsonMode: false
   });
+  const [showSemanticAdvanced, setShowSemanticAdvanced] = useState(false);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const graphStats = useMemo(() => getGraphStats(graph), [graph]);
   const focusOptions = useMemo(() => getGraphFocusOptions(graph), [graph]);
@@ -84,12 +89,17 @@ export const GraphScreen = observer(function GraphScreen() {
   );
   const canHideSelectedSemanticEdge = Boolean(selectedDurableSemanticEdgeId);
   const graphProjectId = store.selectedProjectId || String(graph?.projectId || "project");
+  const graphNodeById = useMemo(
+    () => new Map((Array.isArray(graph?.nodes) ? graph.nodes : []).map((node: any) => [String(node.id || ""), node])),
+    [graph]
+  );
   const graphNodeIds = useMemo(() => new Set((Array.isArray(graph?.nodes) ? graph.nodes : []).map((node: any) => String(node.id || ""))), [graph]);
   const graphRelationshipMode = store.graphRelationshipMode;
   const graphRelationshipLabel = graphRelationshipModeLabel(graphRelationshipMode);
   const graphPositionKey = `${GRAPH_POSITION_STORAGE_PREFIX}:${graphProjectId}:${graphViewMode}:${graphRelationshipMode}:${focusedNodeId || "overview"}`;
   const isRawGraph = graphViewMode === "all";
   const editingDoc = store.docs.find((doc) => doc.id === editingDocId);
+  const focusedGraphNode = focusedNodeId ? graphNodeById.get(focusedNodeId) : undefined;
   const graphScopeLabel = isRawGraph ? "Import audit" : focusedNodeId ? `Focused: ${graphElements.focusLabel || "selected node"}` : "Context map";
   const graphNodeCount = isRawGraph ? graphStats.nodes : graphElements.nodes.length;
   const graphLinkCount = isRawGraph ? graphStats.relationships : graphElements.edges.length;
@@ -99,13 +109,26 @@ export const GraphScreen = observer(function GraphScreen() {
   const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
   const semanticResult = store.semanticAnalysisResult;
   const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
+  const semanticProviderEndpoint = semanticRunDraft.endpoint.trim() || assistantPolicy.endpoint || "";
+  const semanticProviderModel = semanticRunDraft.model.trim() || store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
+  const semanticProviderReady = Boolean(semanticProviderEndpoint && semanticProviderModel);
 
   useEffect(() => {
     const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
-    const nextGraphRelationshipMode = graphRelationshipModeFromSearchParam(searchParams.get("relationships")) || "deterministic";
+    const rawRelationshipMode = searchParams.get("relationships");
+    const nextGraphRelationshipMode = graphRelationshipModeFromSearchParam(rawRelationshipMode) || "ai-reviewed";
     const nextFocusedNodeId = nextGraphViewMode === "all" ? "" : searchParams.get("focus") || "";
     const nextEditingDocId = searchParams.get("doc") || "";
     const nextSelectedGraphEdgeId = searchParams.get("edge") || "";
+
+    if (rawRelationshipMode && !graphRelationshipModeFromSearchParam(rawRelationshipMode)) {
+      setSearchParams((current) => {
+        const nextParams = new URLSearchParams(current);
+        nextParams.delete("relationships");
+        return nextParams;
+      }, { replace: true });
+      return;
+    }
 
     if (nextGraphRelationshipMode !== store.graphRelationshipMode) {
       void store.setGraphRelationshipMode(nextGraphRelationshipMode);
@@ -123,12 +146,16 @@ export const GraphScreen = observer(function GraphScreen() {
   }, []);
 
   useEffect(() => {
-    if (focusedNodeId && graphNodeIds.size > 0 && !graphNodeIds.has(focusedNodeId)) {
+    if (
+      focusedNodeId &&
+      graphNodeIds.size > 0 &&
+      (!graphNodeIds.has(focusedNodeId) || String(focusedGraphNode?.type || "") === "project")
+    ) {
       setFocusedNodeId("");
       setFocusHistory([]);
       updateGraphSearchParams({ focus: null }, true);
     }
-  }, [focusedNodeId, graphNodeIds]);
+  }, [focusedNodeId, graphNodeIds, focusedGraphNode]);
 
   useEffect(() => {
     if (editingDocId && store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId)) {
@@ -174,7 +201,7 @@ export const GraphScreen = observer(function GraphScreen() {
       }
 
       if (nextState.relationshipMode) {
-        if (nextState.relationshipMode === "deterministic") nextParams.delete("relationships");
+        if (nextState.relationshipMode === "ai-reviewed") nextParams.delete("relationships");
         else nextParams.set("relationships", nextState.relationshipMode);
       }
 
@@ -197,11 +224,6 @@ export const GraphScreen = observer(function GraphScreen() {
     }, { replace });
   }
 
-  function setGraphRelationshipMode(nextMode: GraphRelationshipMode) {
-    void store.setGraphRelationshipMode(nextMode);
-    updateGraphSearchParams({ relationshipMode: nextMode });
-  }
-
   function resetGraphFocus() {
     setFocusedNodeId("");
     setFocusHistory([]);
@@ -216,7 +238,8 @@ export const GraphScreen = observer(function GraphScreen() {
   }
 
   function navigateGraphFocus(nextNodeId: string) {
-    if (!nextNodeId) {
+    const nextNode = graphNodeById.get(nextNodeId);
+    if (!nextNodeId || String(nextNode?.type || "") === "project") {
       resetGraphFocus();
       return;
     }
@@ -302,7 +325,10 @@ export const GraphScreen = observer(function GraphScreen() {
       apiKey: semanticRunDraft.apiKey.trim() || undefined,
       maxDocuments: numberOrUndefined(semanticRunDraft.maxDocuments),
       maxCandidates: numberOrUndefined(semanticRunDraft.maxCandidates),
-      maxCandidatesPerDocument: numberOrUndefined(semanticRunDraft.maxCandidatesPerDocument)
+      maxCandidatesPerDocument: numberOrUndefined(semanticRunDraft.maxCandidatesPerDocument),
+      timeoutMs: numberOrUndefined(semanticRunDraft.timeoutMs),
+      maxOutputTokens: numberOrUndefined(semanticRunDraft.maxOutputTokens),
+      jsonMode: Boolean(semanticRunDraft.jsonMode)
     });
   }
 
@@ -353,29 +379,6 @@ export const GraphScreen = observer(function GraphScreen() {
             }}
           >
             Import audit
-          </button>
-        </div>
-        <div className="segmented-control compact graph-relationship-control" role="group" aria-label="Relationship mode">
-          <button
-            type="button"
-            className={graphRelationshipMode === "deterministic" ? "selected" : ""}
-            onClick={() => setGraphRelationshipMode("deterministic")}
-          >
-            Basic
-          </button>
-          <button
-            type="button"
-            className={graphRelationshipMode === "ai-reviewed" ? "selected" : ""}
-            onClick={() => setGraphRelationshipMode("ai-reviewed")}
-          >
-            AI reviewed
-          </button>
-          <button
-            type="button"
-            className={graphRelationshipMode === "ai-review" ? "selected" : ""}
-            onClick={() => setGraphRelationshipMode("ai-review")}
-          >
-            AI review
           </button>
         </div>
         <label className="graph-focus-control">
@@ -436,7 +439,7 @@ export const GraphScreen = observer(function GraphScreen() {
         <div className="notice graph-explainer compact">
           <strong>Context graph, not storage inventory</strong>
           <p>
-            Context map keeps high-signal hubs visible first. Basic uses deterministic naming and import signals; AI reviewed overlays accepted model relationships; AI review also shows proposed edges.
+            Context map shows saved relationships only. AI suggestions stay in Inbox until you accept them, then they appear here as part of the trusted graph.
           </p>
         </div>
       ) : null}
@@ -459,11 +462,11 @@ export const GraphScreen = observer(function GraphScreen() {
                   </>
                 ) : focusedNodeId ? (
                   <>
-                    <strong>Focused neighborhood:</strong> nearby {graphRelationshipLabel.toLowerCase()} relationships around {graphElements.focusLabel || "the selected node"}.
+                    <strong>Focused neighborhood:</strong> nearby saved relationships around {graphElements.focusLabel || "the selected node"}.
                   </>
                 ) : (
                   <>
-                    <strong>Context map:</strong> high-signal hubs first, with {graphRelationshipLabel.toLowerCase()} relationships and leaf docs hidden until a node is focused.
+                    <strong>Context map:</strong> saved relationships only, with leaf docs hidden until a node is focused.
                   </>
                 )}
               </div>
@@ -561,7 +564,7 @@ export const GraphScreen = observer(function GraphScreen() {
                       {selectedProposedSemanticEdge ? (
                         <Link
                           className="button-link"
-                          to={`/inbox?proposal=${encodeURIComponent(selectedProposedSemanticEdge.proposalId)}`}
+                          to={projectPath(store.selectedProjectId, `/inbox?proposal=${encodeURIComponent(selectedProposedSemanticEdge.proposalId)}`)}
                         >
                           Open Inbox
                         </Link>
@@ -573,7 +576,7 @@ export const GraphScreen = observer(function GraphScreen() {
               {!isRawGraph ? (
                 <div className="semantic-analysis-panel">
                   <div className="semantic-analysis-header">
-                    <strong>Advanced AI analysis</strong>
+                    <strong>AI relationship review</strong>
                     <span>{semanticLatestRun?.status || "No runs"}</span>
                   </div>
                   <div className="semantic-graph-mini-stats">
@@ -581,19 +584,13 @@ export const GraphScreen = observer(function GraphScreen() {
                     <KeyValue label="Proposed" value={semanticEdgeCounts.proposed || 0} />
                     <KeyValue label="Latest" value={semanticLatestRun?.started ? formatShortDateTime(semanticLatestRun.started) : "None"} />
                   </div>
-                  <div className="semantic-run-form">
-                    <label>
-                      <span>Mode</span>
-                      <select
-                        value={semanticRunDraft.mode}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ mode: event.target.value })}
-                      >
-                        <option value="dry-run">Dry run</option>
-                        <option value="review">Review</option>
-                        <option value="auto">Auto</option>
-                      </select>
-                    </label>
+                  <div className="semantic-provider-strip">
+                    <span>{semanticProviderReady ? `${semanticProviderModel} at ${semanticProviderEndpoint}` : "Provider not configured"}</span>
+                    <Link className="button-link compact-link" to={projectPath(store.selectedProjectId, "/assistant")}>
+                      Assistant
+                    </Link>
+                  </div>
+                  <div className="semantic-run-form semantic-run-form-basic">
                     <label>
                       <span>Scope</span>
                       <select
@@ -606,88 +603,151 @@ export const GraphScreen = observer(function GraphScreen() {
                         <option value="all-docs">Project</option>
                       </select>
                     </label>
-                    <label>
-                      <span>Endpoint</span>
-                      <input
-                        value={semanticRunDraft.endpoint}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ endpoint: event.target.value })}
-                        placeholder="http://127.0.0.1:8080/v1"
-                      />
-                    </label>
-                    <label>
-                      <span>Model</span>
-                      <input
-                        value={semanticRunDraft.model}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ model: event.target.value })}
-                        placeholder="local model"
-                      />
-                    </label>
-                    <label>
-                      <span>API key</span>
-                      <input
-                        type="password"
-                        value={semanticRunDraft.apiKey}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ apiKey: event.target.value })}
-                        placeholder="optional"
-                      />
-                    </label>
-                    <label>
-                      <span>Max docs</span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={semanticRunDraft.maxDocuments}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ maxDocuments: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      <span>Max candidates</span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={semanticRunDraft.maxCandidates}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ maxCandidates: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      <span>Per doc</span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={semanticRunDraft.maxCandidatesPerDocument}
-                        disabled={store.loading}
-                        onChange={(event) => updateSemanticRunDraft({ maxCandidatesPerDocument: event.target.value })}
-                      />
-                    </label>
                   </div>
-                  <div className="semantic-run-actions">
+                  <div className="semantic-run-actions primary">
                     <button
                       type="button"
-                      className="icon-text-button"
-                      disabled={!store.selectedProjectId || store.loading}
-                      onClick={previewSemanticAnalysis}
-                    >
-                      <FlaskConical size={14} />
-                      Preview
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-text-button"
-                      disabled={!store.selectedProjectId || store.loading}
+                      className="icon-text-button primary"
+                      disabled={!store.selectedProjectId || store.loading || !semanticProviderReady}
                       onClick={runSemanticAnalysis}
                     >
                       <Play size={14} />
-                      Run
+                      Run review
+                    </button>
+                    <button
+                      type="button"
+                      className={`icon-text-button ${showSemanticAdvanced ? "selected" : ""}`}
+                      disabled={store.loading}
+                      onClick={() => setShowSemanticAdvanced((open) => !open)}
+                      aria-expanded={showSemanticAdvanced}
+                    >
+                      <Settings2 size={14} />
+                      Advanced
                     </button>
                   </div>
+                  {showSemanticAdvanced ? (
+                    <div className="semantic-run-advanced">
+                      <div className="semantic-run-form">
+                        <label>
+                          <span>Mode</span>
+                          <select
+                            value={semanticRunDraft.mode}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ mode: event.target.value })}
+                          >
+                            <option value="review">Review</option>
+                            <option value="dry-run">Dry run</option>
+                            <option value="auto">Auto</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>Endpoint override</span>
+                          <input
+                            value={semanticRunDraft.endpoint}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ endpoint: event.target.value })}
+                            placeholder={assistantPolicy.endpoint || "http://127.0.0.1:1234/v1"}
+                          />
+                        </label>
+                        <label>
+                          <span>Model override</span>
+                          <input
+                            value={semanticRunDraft.model}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ model: event.target.value })}
+                            placeholder={store.semanticGraphSettings?.model || assistantPolicy.modelName || "local model"}
+                          />
+                        </label>
+                        <label>
+                          <span>API key</span>
+                          <input
+                            type="password"
+                            value={semanticRunDraft.apiKey}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ apiKey: event.target.value })}
+                            placeholder="optional"
+                          />
+                        </label>
+                        <label>
+                          <span>Max docs</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={semanticRunDraft.maxDocuments}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ maxDocuments: event.target.value })}
+                            placeholder="all"
+                          />
+                        </label>
+                        <label>
+                          <span>Max candidates</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={semanticRunDraft.maxCandidates}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ maxCandidates: event.target.value })}
+                            placeholder="all"
+                          />
+                        </label>
+                        <label>
+                          <span>Per doc</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={semanticRunDraft.maxCandidatesPerDocument}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ maxCandidatesPerDocument: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>Timeout ms</span>
+                          <input
+                            type="number"
+                            min="1000"
+                            step="1000"
+                            value={semanticRunDraft.timeoutMs}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ timeoutMs: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>Output tokens</span>
+                          <input
+                            type="number"
+                            min="128"
+                            step="128"
+                            value={semanticRunDraft.maxOutputTokens}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ maxOutputTokens: event.target.value })}
+                          />
+                        </label>
+                        <label className="checkbox-row semantic-json-mode">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(semanticRunDraft.jsonMode)}
+                            disabled={store.loading}
+                            onChange={(event) => updateSemanticRunDraft({ jsonMode: event.target.checked })}
+                          />
+                          <span>Provider JSON mode</span>
+                        </label>
+                      </div>
+                      <div className="semantic-run-actions">
+                        <button
+                          type="button"
+                          className="icon-text-button"
+                          disabled={!store.selectedProjectId || store.loading}
+                          onClick={previewSemanticAnalysis}
+                        >
+                          <FlaskConical size={14} />
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {semanticResult?.run ? (
                     <div className="semantic-run-result">
                       <div className="semantic-analysis-header">
@@ -711,7 +771,7 @@ export const GraphScreen = observer(function GraphScreen() {
         </div>
         {isRawGraph ? (
           <RawStorageAudit graph={graph} />
-        ) : graphElements.nodes.length ? (
+        ) : graphElements.edges.length ? (
           <GraphMap
             nodes={graphElements.nodes}
             edges={graphElements.edges}
@@ -724,12 +784,21 @@ export const GraphScreen = observer(function GraphScreen() {
           />
         ) : (
           <div className="graph-empty-state">
-            <strong>No useful links yet</strong>
-            <p>
-              This project currently has only storage membership links or no focusable hubs.
-              Import paths, topics, workstreams, sessions, files, and reviewed AI proposals can create context graph links.
-            </p>
-            <button type="button" onClick={() => setGraphViewMode("all")}>Show import audit</button>
+            {focusedNodeId && graphStats.relationships > 0 ? (
+              <>
+                <strong>No links for this focus</strong>
+                <p>This item has no visible saved links in the current graph view. Reset focus to see the accepted relationship map.</p>
+                <button type="button" onClick={resetGraphFocus}>Show full graph</button>
+              </>
+            ) : (
+              <>
+                <strong>No saved relationships yet</strong>
+                <p>
+                  AI may have suggestions waiting, but the graph only shows relationships after you accept them. Review the Inbox first; accepted links will appear here.
+                </p>
+                <Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>Review Inbox</Link>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -755,13 +824,12 @@ function numberOrUndefined(input: string): number | undefined {
 }
 
 function graphRelationshipModeFromSearchParam(input: string | null): GraphRelationshipMode | undefined {
-  return input === "ai-reviewed" || input === "ai-review" || input === "deterministic" ? input : undefined;
+  return input === "ai-reviewed" || input === "deterministic" ? input : undefined;
 }
 
 function graphRelationshipModeLabel(mode: GraphRelationshipMode): string {
-  if (mode === "ai-review") return "AI review links";
-  if (mode === "ai-reviewed") return "AI reviewed links";
-  return "Basic links";
+  if (mode === "ai-reviewed") return "Saved relationships";
+  return "Metadata links";
 }
 
 function durableSemanticEdgeId(input?: string): string | undefined {

@@ -160,7 +160,11 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
           </div>
           <pre className="markdown-preview">{detail.workstream.body}</pre>
           <h3>Related Sessions</h3>
-          <DataTable columns={["updated", "status", "agent", "taskTitle"]} rows={detail.sessions || []} />
+          <DataTable
+            columns={["updated", "status", "agent", "taskTitle"]}
+            columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", taskTitle: "Task" }}
+            rows={detail.sessions || []}
+          />
           <h3>Related Docs</h3>
           <DataTable columns={["updated", "status", "visibility", "type", "title"]} rows={detail.documents || []} />
         </Panel>

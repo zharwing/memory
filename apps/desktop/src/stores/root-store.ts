@@ -1,7 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { AimemClient } from "@aimem/api-client";
 
-export type GraphRelationshipMode = "deterministic" | "ai-reviewed" | "ai-review";
+export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
 
 const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
 
@@ -64,12 +64,17 @@ export class RootStore {
     };
   }
 
-  async loadProjects() {
+  async loadProjects(preferredProjectId?: string) {
     await this.run(async () => {
       const projects = (await this.client.call("memory.list_projects")) as any[];
       runInAction(() => {
         this.projects = projects;
-        if (!this.selectedProjectId && projects[0]) this.selectedProjectId = projects[0].id;
+        const preferred = preferredProjectId
+          ? projects.find((project) => project.id === preferredProjectId)
+          : undefined;
+        const selectedStillExists = projects.some((project) => project.id === this.selectedProjectId);
+        if (preferred) this.selectedProjectId = preferred.id;
+        else if ((!this.selectedProjectId || !selectedStillExists) && projects[0]) this.selectedProjectId = projects[0].id;
       });
     });
   }
@@ -759,7 +764,31 @@ export class RootStore {
       await this.client.call("memory.close_session", {
         projectId: this.selectedProjectId,
         sessionId,
-        summary: summary.trim() || undefined
+        summary: summary.trim() || undefined,
+        autoSummarize: true
+      });
+      await this.refreshProject();
+    });
+  }
+
+  async generateSessionSummary(sessionId: string, force = true) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      await this.client.call("memory.generate_session_summary", {
+        projectId: this.selectedProjectId,
+        sessionId,
+        force
+      });
+      await this.refreshProject();
+    });
+  }
+
+  async generateSessionSummaries(mode: "missing" | "all" = "missing") {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      await this.client.call("memory.generate_session_summaries", {
+        projectId: this.selectedProjectId,
+        mode
       });
       await this.refreshProject();
     });
@@ -823,12 +852,6 @@ export class RootStore {
 }
 
 function graphRelationshipParams(mode: GraphRelationshipMode): Record<string, unknown> {
-  if (mode === "ai-review") {
-    return {
-      includeSemantic: "all",
-      includeSemanticProposals: true
-    };
-  }
   if (mode === "ai-reviewed") {
     return {
       includeSemantic: "accepted",
@@ -842,17 +865,17 @@ function graphRelationshipParams(mode: GraphRelationshipMode): Record<string, un
 }
 
 function normalizeGraphRelationshipMode(input: unknown): GraphRelationshipMode {
-  return input === "ai-reviewed" || input === "ai-review" || input === "deterministic"
+  return input === "ai-reviewed" || input === "deterministic"
     ? input
-    : "deterministic";
+    : "ai-reviewed";
 }
 
 function readStoredGraphRelationshipMode(): GraphRelationshipMode {
   try {
-    if (typeof window === "undefined") return "deterministic";
+    if (typeof window === "undefined") return "ai-reviewed";
     return normalizeGraphRelationshipMode(window.localStorage.getItem(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
   } catch {
-    return "deterministic";
+    return "ai-reviewed";
   }
 }
 

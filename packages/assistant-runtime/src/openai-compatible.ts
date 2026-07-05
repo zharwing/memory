@@ -39,12 +39,16 @@ export interface ProviderCheckResult {
 
 interface OpenAiChatCompletionResponse {
   model?: string;
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
+  choices?: OpenAiChatChoice[];
   usage?: unknown;
+}
+
+interface OpenAiChatChoice {
+  text?: string;
+  message?: {
+    content?: string | Array<string | { text?: string; type?: string }>;
+    reasoning_content?: string;
+  };
 }
 
 export async function callOpenAiCompatibleJson<T = unknown>(
@@ -204,9 +208,10 @@ async function callOpenAiCompatibleText(
     }
 
     const payload = JSON.parse(raw) as OpenAiChatCompletionResponse;
-    const rawText = payload.choices?.[0]?.message?.content || "";
+    const firstChoice = payload.choices?.[0];
+    const rawText = textFromChoice(firstChoice);
     if (!rawText.trim()) {
-      throw new Error("Provider response did not include message content.");
+      throw new Error(`Provider response did not include message content. First choice: ${JSON.stringify(firstChoice || {}).slice(0, 500)}`);
     }
     return {
       rawText,
@@ -222,6 +227,20 @@ async function callOpenAiCompatibleText(
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abort);
   }
+}
+
+function textFromChoice(choice: OpenAiChatChoice | undefined): string {
+  const content = choice?.message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        return part.text || "";
+      })
+      .join("");
+  }
+  return choice?.message?.reasoning_content || choice?.text || "";
 }
 
 function extractBalancedJson(input: string): string | undefined {

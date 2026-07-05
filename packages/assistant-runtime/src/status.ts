@@ -15,7 +15,7 @@ export function getAssistantStatus(project: Project): AssistantStatus {
       state: "off",
       runtimeType: "disabled",
       message: "Memory Assistant is disabled. Core memory features still work.",
-      jobsAvailable: ["deterministic-session-summary", "deterministic-return-summary", "document-classification"]
+      jobsAvailable: ["deterministic-session-tldr", "deterministic-return-summary", "document-classification"]
     };
   }
 
@@ -25,7 +25,7 @@ export function getAssistantStatus(project: Project): AssistantStatus {
       runtimeType: project.assistantPolicy.runtimeType,
       modelName: project.assistantPolicy.modelName,
       message: "App-managed local model is enabled but no model path is configured.",
-      jobsAvailable: ["deterministic-session-summary", "deterministic-return-summary", "document-classification"]
+      jobsAvailable: ["deterministic-session-tldr", "deterministic-return-summary", "document-classification"]
     };
   }
 
@@ -35,7 +35,7 @@ export function getAssistantStatus(project: Project): AssistantStatus {
     modelName: project.assistantPolicy.modelName,
     modelPath: project.assistantPolicy.modelPath,
     message: "Memory Assistant runtime is configured.",
-    jobsAvailable: ["session-summary", "return-summary", "document-classification", "memory-update-extraction"]
+    jobsAvailable: ["session-tldr", "bulk-session-tldr", "return-summary", "document-classification", "memory-update-extraction"]
   };
 }
 

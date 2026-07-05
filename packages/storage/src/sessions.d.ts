@@ -29,5 +29,21 @@ export declare function closeSession(args: {
     sessionId: SessionId;
     summary?: string;
     nextSteps?: string[];
+    topics?: string[];
+    summaryGeneratedAt?: string;
+    summarySource?: Session["summarySource"];
+    summaryModel?: string;
+}): Promise<Session>;
+export declare function updateSessionSummary(args: {
+    project: Project;
+    sessionId: SessionId;
+    summary: string;
+    topics?: string[];
+    nextSteps?: string[];
+    blockers?: string[];
+    touchedFiles?: string[];
+    summaryGeneratedAt?: string;
+    summarySource?: Session["summarySource"];
+    summaryModel?: string;
 }): Promise<Session>;
 export declare function readSession(filePath: string): Promise<Session>;

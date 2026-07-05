@@ -41,6 +41,9 @@ importers:
       '@aimem/graph':
         specifier: workspace:*
         version: link:../../packages/graph
+      '@aimem/privacy':
+        specifier: workspace:*
+        version: link:../../packages/privacy
       '@aimem/search':
         specifier: workspace:*
         version: link:../../packages/search

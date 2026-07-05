@@ -102,6 +102,20 @@ async function assistant(): Promise<void> {
         projectId: requireProjectId(),
         sessionId: requireSessionId()
       }));
+    case "generate-session-summary":
+      return printJson(await client.call("memory.generate_session_summary", {
+        projectId: requireProjectId(),
+        sessionId: requireSessionId(),
+        force: !flagBool(args.flags, "skip-existing"),
+        ...assistantProviderParams()
+      }));
+    case "generate-session-summaries":
+      return printJson(await client.call("memory.generate_session_summaries", {
+        projectId: requireProjectId(),
+        mode: flagBool(args.flags, "all") ? "all" : "missing",
+        limit: numericFlag("limit"),
+        ...assistantProviderParams()
+      }));
     case "return-summary":
       return printJson(await client.call("memory.prepare_return_summary", { projectId: requireProjectId() }));
     case "classify-doc":
@@ -168,7 +182,8 @@ async function semanticGraphAnalyze(): Promise<void> {
     maxCandidates: numericFlag("max-candidates"),
     maxCandidatesPerDocument: numericFlag("per-doc"),
     timeoutMs: numericFlag("timeout-ms"),
-    maxOutputTokens: numericFlag("max-output-tokens")
+    maxOutputTokens: numericFlag("max-output-tokens"),
+    jsonMode: flagBool(args.flags, "no-json-mode") ? false : undefined
   }) as Record<string, any>;
   if (flagBool(args.flags, "json")) return printJson(result);
   printSemanticGraphRunResult(result);
@@ -382,7 +397,8 @@ async function close(): Promise<void> {
     projectId: requireProjectId(),
     sessionId: requireSessionId(),
     summary: args.positional.join(" ") || undefined,
-    nextSteps: listFlag("next")
+    nextSteps: listFlag("next"),
+    autoSummarize: !flagBool(args.flags, "no-auto-summary")
   });
   printJson(result);
 }
@@ -487,6 +503,17 @@ function numericFlag(name: string): number | undefined {
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function assistantProviderParams(): Record<string, unknown> {
+  return {
+    endpoint: flagString(args.flags, "endpoint"),
+    model: flagString(args.flags, "model"),
+    apiKey: flagString(args.flags, "api-key"),
+    timeoutMs: numericFlag("timeout-ms"),
+    maxOutputTokens: numericFlag("max-output-tokens"),
+    jsonMode: flagBool(args.flags, "json-mode") ? true : flagBool(args.flags, "no-json-mode") ? false : undefined
+  };
 }
 
 function semanticGraphScope(): Record<string, unknown> {

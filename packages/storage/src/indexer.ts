@@ -63,6 +63,9 @@ function sessionIndex(session: Session) {
     status: session.status,
     updated: session.updated,
     path: session.filePath,
+    summary: session.summary,
+    topics: session.topics,
+    summaryGeneratedAt: session.summaryGeneratedAt,
     touchedFiles: session.touchedFiles
   };
 }

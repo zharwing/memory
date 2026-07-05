@@ -97,6 +97,10 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.saveCheckpoint(params as never);
     case "memory.close_session":
       return service.closeSession(params as never);
+    case "memory.generate_session_summary":
+      return service.generateSessionSummary(params as never);
+    case "memory.generate_session_summaries":
+      return service.generateSessionSummaries(params as never);
     case "memory.delete_session":
       return service.deleteSession(params as never);
     case "memory.search":

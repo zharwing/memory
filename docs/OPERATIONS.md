@@ -2,14 +2,26 @@
 
 ## Runtime Assumptions
 
-Dependencies have been installed in the current checkout. Workspace TypeScript
-build-mode validation and the desktop Vite production build have passed. The CLI
-dev entrypoint and MCP stdio initialization have been smoke tested. The daemon
-and browser UI Vite dev server have been launched successfully.
+The normal non-AI runtime should work without a model provider. Daemon startup,
+CLI commands, MCP startup, sessions, docs, context preview, import, inbox,
+backup, trash, search, and the saved Graph context map do not require LM Studio,
+Ollama, llama.cpp, or a remote provider.
+
+Current automated validation covers workspace TypeScript build-mode validation
+and a deterministic test spine for privacy gates, Markdown storage round-trips,
+context privacy integration, daemon lifecycle, graph overlays, semantic graph
+policy, and fake-provider semantic graph analysis. Broad desktop end-to-end
+coverage and automated tests against real AI provider processes are not yet
+present.
+
+The Vite production build uses native Rollup/esbuild optional packages. A
+checkout shared between Windows and WSL must install dependencies in the same
+operating system that will run the build; otherwise Vite can fail with a missing
+or wrong-platform native package.
 
 Native Tauri/Rust validation depends on a local Rust toolchain. Windows
-`cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` has passed from
-this checkout. A packaged desktop build has not been run.
+`cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` has passed in
+prior validation. A packaged desktop build has not been run.
 
 ## Environment Variables
 
@@ -153,7 +165,9 @@ Current assistant behavior:
 - status reporting
 - recommended model metadata
 - runtime install preview
-- deterministic session summary proposal
+- automatic close-session TLDR generation
+- manual one-session TLDR generation
+- bulk missing/all session TLDR generation
 - deterministic return summary proposal
 - deterministic document classification proposal
 
@@ -164,14 +178,36 @@ Not implemented yet:
 - starting llama-server
 - GPU acceleration
 - prompt logs
-- external local endpoint adapters
+- remote session TLDR approval flow
+
+## AI Provider Smoke Testing
+
+Start LM Studio or another local OpenAI-compatible provider when testing
+model-backed session TLDR generation, semantic graph relationship review, or
+provider connectivity. It is not needed for normal validation or Graph context
+map viewing.
+
+Use [Testing With AI Providers](AI_TESTING.md) for the full runbook. The short
+version is:
+
+1. Start the daemon.
+2. Start the provider and load a JSON-capable local model.
+3. Configure the endpoint and model in **Settings -> Assistant**.
+4. Run **Test provider** or `memory.check_semantic_graph_provider`.
+5. Close a session or use **Work -> Sessions -> Generate TLDR** to test session
+   summarization.
+6. Open **Graph -> Details** and click **Run review**.
+7. Inspect the Inbox proposal before accepting edges.
+
+Dry-run mode, provider overrides, and document/candidate limits are available
+under Graph Details **Advanced**.
 
 ## Validation Checklist For Future Runtime Work
 
 1. Install dependencies.
 2. Run `corepack pnpm typecheck`.
-3. Run `corepack pnpm build`.
-4. Run `corepack pnpm test`.
+3. Run `corepack pnpm test`.
+4. Run `corepack pnpm build` after dependencies are installed for the current OS.
 5. Start daemon.
 6. Initialize a temporary project.
 7. Start a session.
@@ -183,16 +219,21 @@ Not implemented yet:
 13. Create backup snapshot.
 14. Open desktop app.
 15. Connect MCP adapter to a client.
+16. If testing AI features, run the provider smoke checklist in
+    [Testing With AI Providers](AI_TESTING.md).
 
 ## Known Constraints
 
 - JSON index is a placeholder for SQLite/FTS5.
 - MCP adapter is dependency-free and does not use the official SDK yet.
 - Desktop UI uses hand-authored components instead of shadcn scaffolding.
-- Runtime validation currently covers workspace TypeScript build-mode validation,
-  desktop Vite build, CLI help, MCP initialization, the daemon health endpoint,
-  and the React/Vite server.
-- The root test command runs, but there are no meaningful unit/integration tests
-  yet.
+- Runtime validation currently covers workspace TypeScript build-mode
+  validation, privacy gates, Markdown storage round-trips, context privacy,
+  daemon lifecycle, graph overlays, semantic graph policy, and fake-provider
+  semantic graph analysis.
+- The root test command runs a meaningful deterministic spine, but coverage
+  remains narrow relative to the full testing plan.
+- Real AI-provider tests are manual smoke tests; they are not part of the
+  default automated test command.
 - Native Tauri `cargo check` has passed through the Windows toolchain, but full Tauri dev smoke testing and packaging have not been completed.
 - A packaged Windows desktop build has not been produced yet.

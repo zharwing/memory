@@ -156,6 +156,7 @@ export interface SemanticEdgePolicyResult {
 export interface SemanticGraphProposalPatch {
   kind: "semantic-graph-edges";
   runId: string;
+  summary?: SemanticGraphProposalSummary;
   edges: Array<{
     from: string;
     to: string;
@@ -164,6 +165,13 @@ export interface SemanticGraphProposalPatch {
     reason: string;
     evidence: SemanticGraphEvidence[];
   }>;
+}
+
+export interface SemanticGraphProposalSummary {
+  title: string;
+  summary: string;
+  keyRelationships: string[];
+  reviewNotes: string[];
 }
 
 export interface SemanticJudgementPromptInput {
@@ -362,10 +370,7 @@ export function buildSemanticCandidateIndex(input: BuildSemanticCandidateIndexIn
       });
     }
 
-    const sorted = [...candidates.values()]
-      .filter((candidate) => candidate.score >= MIN_REASON_SCORE)
-      .sort((a, b) => b.score - a.score || a.targetLabel.localeCompare(b.targetLabel))
-      .slice(0, maxCandidatesPerDocument)
+    const sorted = selectSemanticRelationshipCandidates([...candidates.values()], maxCandidatesPerDocument)
       .map((candidate) => finalizeCandidate(candidate));
 
     documentSets.push({
@@ -451,25 +456,37 @@ export function applySemanticEdgePolicy(input: ApplySemanticEdgePolicyInput): Se
     }
   }
 
+  const dedupedAcceptedEdges = dedupeSemanticEdges(acceptedEdges);
+  const dedupedProposedEdges = dedupeSemanticEdges(proposedEdges);
+  const dedupedDryRunEdges = dedupeSemanticEdges(dryRunEdges);
+  const dedupedEdgeCount =
+    acceptedEdges.length + proposedEdges.length + dryRunEdges.length
+    - dedupedAcceptedEdges.length - dedupedProposedEdges.length - dedupedDryRunEdges.length;
+
   return {
-    acceptedEdges,
-    proposedEdges,
-    dryRunEdges,
+    acceptedEdges: dedupedAcceptedEdges,
+    proposedEdges: dedupedProposedEdges,
+    dryRunEdges: dedupedDryRunEdges,
     discardedDecisions,
     counts: {
       judged: input.decisions.length,
-      accepted: acceptedEdges.length,
-      proposed: proposedEdges.length + dryRunEdges.length,
+      accepted: dedupedAcceptedEdges.length,
+      proposed: dedupedProposedEdges.length + dedupedDryRunEdges.length,
       rejected: 0,
-      discarded: discardedDecisions.length
+      discarded: discardedDecisions.length + dedupedEdgeCount
     }
   };
 }
 
-export function semanticEdgesProposalPatch(runId: string, edges: SemanticGraphEdge[]): string {
+export function semanticEdgesProposalPatch(
+  runId: string,
+  edges: SemanticGraphEdge[],
+  summary?: SemanticGraphProposalSummary
+): string {
   const patch: SemanticGraphProposalPatch = {
     kind: "semantic-graph-edges",
     runId,
+    ...(summary ? { summary } : {}),
     edges: edges.map((edge) => ({
       from: edge.from,
       to: edge.to,
@@ -501,11 +518,91 @@ export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined
     return {
       kind: "semantic-graph-edges",
       runId: String(parsed.runId || "external-semantic-run"),
+      summary: normalizeProposalSummary(parsed.summary),
       edges
     };
   } catch {
     return undefined;
   }
+}
+
+export function semanticProposalSummaryMessages(input: {
+  graph?: ProjectGraph;
+  edges: SemanticGraphEdge[];
+}): SemanticPromptMessage[] {
+  const nodesById = new Map((input.graph?.nodes || []).map((node) => [node.id, node]));
+  const relationships = input.edges.map((edge) => ({
+    from: semanticProposalNodeLabel(edge.from, nodesById),
+    to: semanticProposalNodeLabel(edge.to, nodesById),
+    relationship: edge.type,
+    confidence: edge.confidence,
+    reason: edge.reason,
+    evidence: edge.evidence.map((item) => item.quote).filter(Boolean).slice(0, 3)
+  }));
+  return [
+    {
+      role: "system",
+      content: [
+        "Write a short reviewer-facing summary for proposed AI Memory graph relationships.",
+        "Return only JSON.",
+        "Use only the supplied relationships, reasons, and evidence.",
+        "Do not invent facts, files, dependencies, or conclusions.",
+        "Do not mention internal ids, run ids, JSON, patches, prompts, or implementation details."
+      ].join(" ")
+    },
+    {
+      role: "user",
+      content: [
+        "Return this JSON object:",
+        "{",
+        '  "title": "short title",',
+        '  "summary": "2-4 sentences explaining what the model thinks belongs together and why",',
+        '  "keyRelationships": ["plain-language important relationship"],',
+        '  "reviewNotes": ["anything a human should double-check; empty if none"]',
+        "}",
+        "",
+        "Proposed relationships:",
+        JSON.stringify(relationships, null, 2)
+      ].join("\n")
+    }
+  ];
+}
+
+export function semanticProposalSummaryFromProviderJson(input: unknown): SemanticGraphProposalSummary {
+  const value = record(input);
+  const summary = stringValue(value.summary).slice(0, 1200).trim();
+  if (!summary) {
+    throw new Error("Provider did not return a semantic proposal summary.");
+  }
+  return {
+    title: stringValue(value.title).slice(0, 120).trim() || "AI relationship review",
+    summary,
+    keyRelationships: arrayValue(value.keyRelationships ?? value.key_relationships)
+      .map(stringValue)
+      .filter(Boolean)
+      .slice(0, 8),
+    reviewNotes: arrayValue(value.reviewNotes ?? value.review_notes)
+      .map(stringValue)
+      .filter(Boolean)
+      .slice(0, 6)
+  };
+}
+
+function normalizeProposalSummary(input: unknown): SemanticGraphProposalSummary | undefined {
+  try {
+    return semanticProposalSummaryFromProviderJson(input);
+  } catch {
+    return undefined;
+  }
+}
+
+function semanticProposalNodeLabel(nodeId: string, nodesById: Map<string, GraphNode>): string {
+  const node = nodesById.get(nodeId);
+  if (node?.label) return node.label;
+  const [kind, ...rest] = nodeId.split(":");
+  const value = rest.join(":") || nodeId;
+  if (kind === "doc") return value.replace(/^doc-/, "").replace(/[-_]+/g, " ");
+  return value;
 }
 
 export function semanticExtractionMessagesForItem(item: SemanticExtractionPlanItem): SemanticPromptMessage[] {
@@ -589,8 +686,10 @@ export function semanticJudgementMessages(input: SemanticJudgementPromptInput): 
       role: "system",
       content: [
         "Judge whether a real project-memory relationship exists.",
+        "Judge relationships between memory graph nodes, not only matching metadata.",
         "Return only JSON.",
         "Use relationship none when evidence is weak.",
+        "Use relationship none when evidence only repeats generic topics or related file metadata.",
         "Do not infer beyond the supplied summaries, hints, and deterministic signals."
       ].join(" ")
     },
@@ -598,6 +697,8 @@ export function semanticJudgementMessages(input: SemanticJudgementPromptInput): 
       role: "user",
       content: [
         "Allowed relationship values: explains, supports, mentions, uses, depends-on, duplicates, contradicts, supersedes, related, none.",
+        "For doc-to-doc candidates, prefer related unless one document explicitly depends on, uses, supersedes, duplicates, or contradicts the other as a knowledge artifact.",
+        "Reserve uses and depends-on for explicit dependency direction from source to target; do not use them only because the source mentions a component described by the target.",
         "Return this JSON object:",
         "{",
         '  "relationship": "explains|supports|mentions|uses|depends-on|duplicates|contradicts|supersedes|related|none",',
@@ -1022,8 +1123,69 @@ function finalizeCandidate(candidate: SemanticRelationshipCandidateDraft): Seman
   };
 }
 
+function selectSemanticRelationshipCandidates(
+  candidates: SemanticRelationshipCandidateDraft[],
+  maxCandidates: number
+): SemanticRelationshipCandidateDraft[] {
+  const eligible = candidates
+    .filter((candidate) => candidate.score >= MIN_REASON_SCORE)
+    .sort(compareSemanticCandidateDrafts);
+  const relationshipCandidates = eligible.filter((candidate) => !isMetadataOnlyTarget(candidate.targetType));
+  const metadataCandidates = eligible.filter((candidate) => isMetadataOnlyTarget(candidate.targetType));
+
+  if (relationshipCandidates.length === 0) {
+    return metadataCandidates.slice(0, maxCandidates);
+  }
+
+  const metadataLimit = Math.min(1, Math.max(0, maxCandidates - relationshipCandidates.length));
+  return [
+    ...relationshipCandidates.slice(0, maxCandidates),
+    ...metadataCandidates.slice(0, metadataLimit)
+  ].slice(0, maxCandidates);
+}
+
+function compareSemanticCandidateDrafts(
+  left: SemanticRelationshipCandidateDraft,
+  right: SemanticRelationshipCandidateDraft
+): number {
+  return candidateTargetPriority(right.targetType) - candidateTargetPriority(left.targetType)
+    || right.score - left.score
+    || left.targetLabel.localeCompare(right.targetLabel);
+}
+
+function candidateTargetPriority(type: GraphNodeType): number {
+  if (type === "doc" || type === "service" || type === "package" || type === "code-area") return 4;
+  if (type === "workstream" || type === "decision" || type === "session" || type === "diagram") return 3;
+  if (type === "diagram-group" || type === "external-reference" || type === "gotcha" || type === "command") return 2;
+  if (type === "file" || type === "topic" || type === "repo") return 1;
+  return 0;
+}
+
+function isMetadataOnlyTarget(type: GraphNodeType): boolean {
+  return type === "file" || type === "topic";
+}
+
 function createCandidateId(candidate: Pick<SemanticRelationshipCandidateDraft, "sourceNodeId" | "targetNodeId">): string {
   return `sem-candidate:${stableHash(`${candidate.sourceNodeId}->${candidate.targetNodeId}`).slice(0, 16)}`;
+}
+
+function dedupeSemanticEdges(edges: SemanticGraphEdge[]): SemanticGraphEdge[] {
+  const byKey = new Map<string, SemanticGraphEdge>();
+  for (const edge of edges) {
+    const key = semanticEdgeDedupeKey(edge);
+    const existing = byKey.get(key);
+    if (!existing || edge.confidence > existing.confidence || edge.evidence.length > existing.evidence.length) {
+      byKey.set(key, edge);
+    }
+  }
+  return [...byKey.values()];
+}
+
+function semanticEdgeDedupeKey(edge: Pick<SemanticGraphEdge, "from" | "to" | "type">): string {
+  if (edge.type === "related" && edge.from.startsWith("doc:") && edge.to.startsWith("doc:")) {
+    return `related:${[edge.from, edge.to].sort().join("<->")}`;
+  }
+  return `${edge.type}:${edge.from}->${edge.to}`;
 }
 
 function deterministicEdgesByDocument(edges: GraphEdge[]): Map<string, GraphEdge[]> {

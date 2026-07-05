@@ -39,18 +39,23 @@ Implemented:
 
 Validated in the current workspace:
 
-- Dependencies installed with pnpm via Corepack.
-- Workspace TypeScript build-mode validation passed.
-- Desktop Vite production build passed.
-- Focused semantic graph policy and graph-overlay tests passed.
-- CLI dev entrypoint launched successfully.
-- MCP stdio adapter initialized and listed tools successfully.
-- Daemon and browser UI Vite dev server launched successfully.
-- Native Tauri `cargo check` passed from the Windows toolchain.
+- Workspace TypeScript build-mode validation passes.
+- The root test command passes a deterministic spine covering privacy gates,
+  Markdown session/document round-trips, context privacy integration, daemon
+  lifecycle, graph overlays, semantic graph policy, and a fake
+  OpenAI-compatible semantic graph provider flow.
+- The daemon, CLI, MCP adapter, browser UI, and desktop UI are implemented.
+- Optional semantic graph analysis is implemented for local OpenAI-compatible
+  providers and can be smoke-tested manually.
+- Graph context map, context, session, docs, import, inbox, backup, and trash
+  workflows do not require an AI provider.
 
 Not yet performed:
 
 - Broad end-to-end test coverage across all desktop workflows.
+- Automated tests against real local or remote AI provider processes.
+- Fresh production build validation in shared Windows/WSL checkouts where
+  native dependencies may have been installed for the other operating system.
 - Windows packaged `.exe` build.
 
 ## Product Principles
@@ -100,6 +105,7 @@ docs/
   USER_FLOWS.md     Human and agent workflows
   DIAGRAMS.md       Mermaid UML, ERD, sequence, state, flow diagrams
   OPERATIONS.md     Setup, runtime, backup, validation notes
+  AI_TESTING.md     Manual AI-provider and semantic graph smoke tests
 
 templates/
   bootstrap/        Generic AGENTS.md and CLAUDE.md templates for linked repos
@@ -196,9 +202,15 @@ service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
 and AI/MCP workflow.
 
 For AI-assisted relationship cleanup, use the optional semantic graph workflow.
-Basic graph mode works without a model; AI review modes require a configured
-provider and human approval before relationships become durable. See
+Graph works without a model and shows trusted saved relationships. AI review
+creates Inbox proposals; accepted relationships then appear in Graph. See
 [Semantic Graph Analysis](docs/SEMANTIC_GRAPH.md).
+
+LM Studio or another local OpenAI-compatible provider is needed only for
+provider checks, model-backed session TLDR generation, and model-backed semantic
+graph analysis. It is not required for normal validation, daemon startup,
+context preview, or Graph viewing. See
+[Testing With AI Providers](docs/AI_TESTING.md).
 
 Never commit the memory store. It contains project sessions, docs, imports,
 context bundles, Memory Inbox proposals, and backups.
@@ -335,6 +347,9 @@ Assistant proposal examples:
 ```text
 aimem assistant status --project my-app
 aimem assistant summarize-session --project my-app --session session-id
+aimem assistant generate-session-summary --project my-app --session session-id
+aimem assistant generate-session-summaries --project my-app
+aimem assistant generate-session-summaries --project my-app --all
 aimem assistant return-summary --project my-app
 aimem assistant classify-doc --project my-app --doc doc-id
 ```
@@ -412,11 +427,14 @@ Start here:
 - [Graph Rules](docs/GRAPH_RULES.md)
 - [Diagrams](docs/DIAGRAMS.md)
 - [Operations](docs/OPERATIONS.md)
+- [Testing With AI Providers](docs/AI_TESTING.md)
 - [MVP Walkthrough](docs/MVP_WALKTHROUGH.md)
 
 ## Implementation Notes
 
-- Dependencies have been installed in this checkout.
+- Install dependencies in the same operating system that will run Vite/build
+  commands; shared Windows/WSL checkouts can otherwise keep the wrong native
+  Vite/Rollup/esbuild optional package.
 - Mermaid diagrams are stored as Markdown and are intended to render in Mermaid-capable viewers.
-- The assistant runtime currently provides deterministic jobs and model/runtime install previews. It does not download or run a model.
+- The assistant runtime can generate searchable session TLDR metadata through a configured local OpenAI-compatible endpoint, with deterministic fallback. It does not download or run a model.
 - The JSON index is a rebuildable placeholder for SQLite/FTS5 once native dependencies are allowed.

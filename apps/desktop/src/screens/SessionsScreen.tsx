@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
-import { Empty, Panel, Screen } from "../components/layout.js";
+import { Empty, KeyValue, Panel, Screen } from "../components/layout.js";
 import { WorkTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
@@ -13,7 +13,11 @@ export const SessionsScreen = observer(function SessionsScreen() {
   return (
     <Screen title="Sessions for this project">
       <WorkTabs />
-      <DataTable columns={["updated", "status", "agent", "branch", "taskTitle"]} rows={store.sessions} />
+      <DataTable
+        columns={["updated", "status", "agent", "branch", "taskTitle"]}
+        columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", branch: "Branch", taskTitle: "Task" }}
+        rows={store.sessions}
+      />
       {selectedSession ? (
         <Panel title="Session Markdown">
           <div className="inline-form compact">
@@ -31,6 +35,45 @@ export const SessionsScreen = observer(function SessionsScreen() {
               label="Move to Trash"
               onConfirm={() => store.deleteSession(selectedSession.id)}
             />
+          </div>
+          <div className="session-summary-panel">
+            <div className="semantic-graph-mini-stats">
+              <KeyValue label="TLDR source" value={selectedSession.summarySource || "Not generated"} />
+              <KeyValue label="Generated" value={selectedSession.summaryGeneratedAt || "Never"} />
+              <KeyValue label="Topics" value={selectedSession.topics?.join(", ") || "None"} />
+            </div>
+            <p>{selectedSession.summary || "No searchable session TLDR has been generated yet."}</p>
+            <div className="button-row">
+              <button
+                type="button"
+                className="icon-text-button"
+                disabled={store.loading}
+                onClick={() => void store.generateSessionSummary(selectedSession.id, true)}
+              >
+                Generate TLDR
+              </button>
+              <button
+                type="button"
+                className="icon-text-button"
+                disabled={store.loading}
+                onClick={() => void store.generateSessionSummaries("missing")}
+              >
+                Summarize missing
+              </button>
+              <details className="advanced-fields session-summary-advanced">
+                <summary>Advanced</summary>
+                <div className="advanced-fields-body">
+                  <button
+                    type="button"
+                    className="danger-button"
+                    disabled={store.loading}
+                    onClick={() => void store.generateSessionSummaries("all")}
+                  >
+                    Regenerate all summaries
+                  </button>
+                </div>
+              </details>
+            </div>
           </div>
           <pre className="markdown-preview">{selectedSession.body || "No session body recorded."}</pre>
         </Panel>

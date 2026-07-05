@@ -304,12 +304,16 @@ export function selectGraphEdgesForView(edges: any[], nodes: any[], viewMode: Gr
   const contextEdges = edges.filter((sourceEdge: any) => isContextGraphEdge(sourceEdge));
   if (focusedNodeId) {
     const nodeIds = trimFocusedGraphNodeIds(nodes, graphNeighborhoodNodeIds(contextEdges, focusedNodeId, graphFocusedNeighborhoodDistance(nodes, focusedNodeId)), focusedNodeId);
-    const selectedEdges = contextEdges.filter((sourceEdge: any) =>
+    const candidateEdges = contextEdges.filter((sourceEdge: any) =>
       nodeIds.has(sourceEdge.from) &&
-      nodeIds.has(sourceEdge.to) &&
-      shouldShowFocusedGraphEdge(sourceEdge, focusedNodeId)
+      nodeIds.has(sourceEdge.to)
     );
-    return { edges: selectedEdges, nodeIds };
+    const connectedNodeIds = graphNeighborhoodNodeIds(candidateEdges, focusedNodeId, Number.MAX_SAFE_INTEGER);
+    const selectedEdges = candidateEdges.filter((sourceEdge: any) =>
+      connectedNodeIds.has(sourceEdge.from) &&
+      connectedNodeIds.has(sourceEdge.to)
+    );
+    return { edges: selectedEdges, nodeIds: connectedNodeIds };
   }
 
   const nodeIds = selectOverviewGraphNodeIds(nodes, contextEdges);
@@ -352,12 +356,23 @@ function selectOverviewGraphNodeIds(nodes: any[], contextEdges: any[]): Set<stri
     }
   }
 
+  for (const sourceEdge of contextEdges) {
+    if (!isSemanticGraphEdge(sourceEdge)) continue;
+    if (nodeById.has(sourceEdge.from)) nodeIds.add(sourceEdge.from);
+    if (nodeById.has(sourceEdge.to)) nodeIds.add(sourceEdge.to);
+  }
+
   return nodeIds;
 }
 
 function isOverviewRootNode(node: any): boolean {
   const type = String(node?.type || "");
   return type === "project" || type === "repo" || type === "workstream";
+}
+
+function isSemanticGraphEdge(edge: any): boolean {
+  const sourceKind = String(edge?.sourceKind || "");
+  return sourceKind.includes("semantic") || Boolean(edge?.semanticEdgeId || edge?.semanticStatus);
 }
 
 function isOverviewContextEntity(node: any): boolean {
@@ -399,12 +414,6 @@ function trimFocusedGraphNodeIds(nodes: any[], nodeIds: Set<string>, focusedNode
     });
 
   return new Set([...focusedAnchor, ...relatedAnchors.slice(0, anchorLimit), ...leaves.slice(0, leafLimit)]);
-}
-
-function shouldShowFocusedGraphEdge(edge: any, focusedNodeId: string): boolean {
-  const edgeType = String(edge?.type || "");
-  if (edgeType === "contains" || edgeType === "belongs-to") return true;
-  return edge.from === focusedNodeId || edge.to === focusedNodeId;
 }
 
 function isBroadGraphTopicNode(node: any): boolean {
@@ -518,7 +527,6 @@ function isGraphFocusableNode(node: any): boolean {
 
 export function isGraphFocusableNodeId(id: string): boolean {
   return [
-    "project:",
     "repo:",
     "workstream:",
     "topic:",
@@ -526,7 +534,8 @@ export function isGraphFocusableNodeId(id: string): boolean {
     "package:",
     "diagram-group:",
     "code-area:",
-    "task:"
+    "task:",
+    "file:"
   ].some((prefix) => id.startsWith(prefix));
 }
 
@@ -559,8 +568,9 @@ function graphFocusTypeRank(type: string): number {
     repo: 4,
     workstream: 5,
     task: 6,
-    session: 7,
-    doc: 8
+    file: 7,
+    session: 8,
+    doc: 9
   };
   return ranks[type] ?? 20;
 }

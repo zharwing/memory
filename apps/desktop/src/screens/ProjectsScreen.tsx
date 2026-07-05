@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
+import { projectPath } from "../utils/routes.js";
 
 export const ProjectsScreen = observer(function ProjectsScreen() {
   const store = useStore();
@@ -10,7 +11,7 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
 
   async function openProject(projectId: string) {
     await store.selectProject(projectId);
-    if (!store.error) navigate("/dashboard");
+    if (!store.error) navigate(projectPath(projectId, "/dashboard"));
   }
 
   return (

@@ -4,6 +4,31 @@ Goal: protect the two places where a silent regression actually hurts — the
 privacy gate (data leaks into AI context) and Markdown storage round-trips
 (memory loss or corruption) — then grow outward to the daemon API surface.
 
+## Current Automated Test Status
+
+The current source tree has a small deterministic test spine for:
+
+- privacy gate exclusions, secret blocking, and redaction
+- Markdown session/document storage round-trips
+- context bundle privacy integration
+- daemon project/session/document/context/inbox lifecycle behavior
+- graph service behavior
+- semantic graph policy behavior
+- semantic graph analysis through a fake OpenAI-compatible provider
+
+`corepack pnpm test` discovers compiled `dist/**/*.test.js` files and should
+pass after TypeScript build output is current. Coverage is useful but still
+narrow compared with this plan. Import, backup, trash, HTTP RPC, broader search
+and graph cases, desktop pure logic, and desktop end-to-end workflows still need
+the broader test phases below.
+
+AI-provider integration exists for model-backed semantic graph relationship
+building. The default automated suite covers that path with a deterministic fake
+OpenAI-compatible provider. Tests against real LM Studio, Ollama, llama.cpp, or
+remote provider processes remain manual smoke tests because they depend on a
+local model server, model quality, response latency, and JSON-following
+behavior. See [Testing With AI Providers](AI_TESTING.md).
+
 ## Principles
 
 1. **No new dependencies.** Tests use `node:test` and `node:assert/strict`.
@@ -13,7 +38,7 @@ privacy gate (data leaks into AI context) and Markdown storage round-trips
    - `corepack pnpm test` (`scripts/run-tests.mjs`) discovers every
      `dist/**/*.test.js` and runs `node --test`.
    This works identically on Windows and WSL because plain Node needs no
-   platform-specific binaries (unlike Vite/esbuild in this checkout).
+   platform-specific binaries, unlike Vite/Rollup/esbuild.
 2. **Test through public APIs.** Storage tests call `startSession`,
    `saveCheckpoint`, `commitImportPlan` etc. against a real temp directory —
    no mocking of `node:fs`. Fixtures are built by the same creation APIs the
@@ -243,7 +268,8 @@ today. Two options, in preference order:
    (`packages/graph-display`) — it has no React dependency — and test it like
    Phase 4.
 2. Otherwise adopt Vitest for the desktop workspace only (new dev dependency;
-   must run from Windows in this checkout because of platform-native esbuild).
+   run it in an environment whose native Vite/Rollup/esbuild dependencies were
+   installed for that same operating system).
 
 Component/UI tests (Testing Library) are explicitly out of scope until the
 pure-logic layers above are covered.
@@ -272,9 +298,12 @@ on Linux.
 - Always `t.after(() => fs.rm(tempRoot, { recursive: true, force: true }))`.
 - Never assert exact timestamps or generated ids — assert shape
   (`assert.match(value, /^\d{4}-\d{2}-\d{2}T/)`).
-- Run everything from the repo root: `corepack pnpm build && corepack pnpm test`
-  (the per-package `dist/**/*.test.js` glob is shell-dependent; the root
-  runner is not).
+- Run everything from the repo root. For the fast local loop:
+  `corepack pnpm typecheck` then `corepack pnpm test`.
+- Run `corepack pnpm build` when dependencies are installed for the current OS;
+  the Vite build uses native Rollup/esbuild optional packages.
+- The per-package `dist/**/*.test.js` glob is shell-dependent; the root runner
+  is not.
 
 ## Suggested implementation order and effort
 

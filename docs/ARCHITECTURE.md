@@ -220,13 +220,24 @@ Default behavior is project-scoped everywhere:
 
 All-project search should remain an explicit advanced mode.
 
-## Dependency Constraint
+## Current Validation Boundary
 
-This implementation was authored without installing dependencies, running tests, running typecheck, building, or starting the app. Package manifests declare intended dependencies, but runtime validation is pending.
+The TypeScript workspace typechecks and the root test command runs a
+deterministic spine covering privacy gates, Markdown storage round-trips,
+context privacy integration, daemon lifecycle, graph overlays, semantic graph
+policy, and fake-provider semantic graph analysis. Runtime validation is still
+narrower than the product surface: broad desktop end-to-end coverage, automated
+tests against real AI provider processes, and packaged desktop builds are not
+yet complete.
+
+Vite build validation depends on native Rollup/esbuild optional packages being
+installed for the operating system running the command. Shared Windows/WSL
+checkouts should reinstall dependencies in the active environment before
+treating build failures as product regressions.
 
 ## Important Follow-Up Work
 
-When dependency work is allowed:
+Important follow-up work:
 
 1. Install dependencies.
 2. Run typecheck.

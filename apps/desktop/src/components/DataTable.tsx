@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 
 export function DataTable({
   columns,
+  columnLabels,
   rows,
   selectedRowId,
   onRowClick,
   rowActions
 }: {
   columns: string[];
+  columnLabels?: Record<string, string>;
   rows: any[];
   selectedRowId?: string;
   onRowClick?: (row: any) => void;
@@ -18,7 +20,7 @@ export function DataTable({
       <table>
         <thead>
           <tr>
-            {columns.map((column) => <th key={column}>{column}</th>)}
+            {columns.map((column) => <th key={column}>{columnLabels?.[column] || column}</th>)}
             {rowActions ? <th aria-label="Actions">actions</th> : null}
           </tr>
         </thead>
