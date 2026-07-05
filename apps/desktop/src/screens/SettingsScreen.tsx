@@ -86,9 +86,9 @@ export const SettingsScreen = observer(function SettingsScreen() {
           </label>
         </div>
       </Panel>
-      <Panel title="Semantic Graph">
+      <Panel title="Advanced AI Graph">
         <div className="dashboard-grid tight semantic-status-grid">
-          <KeyValue label="State" value={semanticDraft.enabled ? "Enabled" : "Disabled"} />
+          <KeyValue label="AI analysis" value={semanticDraft.enabled ? "Enabled" : "Disabled"} />
           <KeyValue label="Mode" value={semanticDraft.mode || "review"} />
           <KeyValue label="Accepted edges" value={(edgeCounts.accepted || 0) + (edgeCounts["auto-accepted"] || 0)} />
           <KeyValue label="Proposed edges" value={edgeCounts.proposed || 0} />
@@ -121,7 +121,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
                 disabled={!store.selectedProjectId}
                 onChange={(event) => updateSemanticDraft({ enabled: event.target.checked })}
               />
-              <span>Enable semantic graph overlay</span>
+              <span>Enable AI relationship analysis</span>
             </label>
             <label>
               <span>Mode</span>

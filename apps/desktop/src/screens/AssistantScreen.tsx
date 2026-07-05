@@ -76,7 +76,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
           <KeyValue label="Endpoint" value={draft.endpoint || "Not set"} />
           <KeyValue label="Model" value={draft.modelName || "Not set"} />
           <KeyValue label="Availability" value={status?.available ? "Available" : "Not checked"} />
-          <KeyValue label="Semantic graph" value={store.semanticGraphSettings?.enabled ? "Enabled" : "Disabled"} />
+          <KeyValue label="AI graph" value={store.semanticGraphSettings?.enabled ? "Enabled" : "Disabled"} />
         </div>
         <form
           className="stacked-form assistant-settings-form"
