@@ -33,12 +33,16 @@ Implemented:
 - Configurable project graph rules for mapping imported folder layouts to
   topics, services, packages, diagram groups, and code areas without hardcoded
   project names.
+- Optional semantic graph analysis for LLM-assisted relationship proposals,
+  review/approval, accepted AI-reviewed graph overlays, and local
+  OpenAI-compatible providers.
 
 Validated in the current workspace:
 
 - Dependencies installed with pnpm via Corepack.
 - Workspace TypeScript build-mode validation passed.
 - Desktop Vite production build passed.
+- Focused semantic graph policy and graph-overlay tests passed.
 - CLI dev entrypoint launched successfully.
 - MCP stdio adapter initialized and listed tools successfully.
 - Daemon and browser UI Vite dev server launched successfully.
@@ -46,8 +50,7 @@ Validated in the current workspace:
 
 Not yet performed:
 
-- Meaningful unit/integration test coverage. The current root test command runs,
-  but no compiled test files exist yet.
+- Broad end-to-end test coverage across all desktop workflows.
 - Windows packaged `.exe` build.
 
 ## Product Principles
@@ -191,6 +194,11 @@ rules against imported relative paths and derives context graph nodes from them.
 Use Graph for memory relationships; use Diagrams for runtime architecture and
 service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
 and AI/MCP workflow.
+
+For AI-assisted relationship cleanup, use the optional semantic graph workflow.
+Basic graph mode works without a model; AI review modes require a configured
+provider and human approval before relationships become durable. See
+[Semantic Graph Analysis](docs/SEMANTIC_GRAPH.md).
 
 Never commit the memory store. It contains project sessions, docs, imports,
 context bundles, Memory Inbox proposals, and backups.

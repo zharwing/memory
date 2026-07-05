@@ -413,6 +413,43 @@ edgeType: supports
 topic: frontend
 ```
 
+## Semantic Graph Model
+
+Semantic graph analysis is optional. It stores reviewed AI-assisted
+relationships as structured project metadata while Markdown docs remain the
+human-readable source of truth.
+
+Durable semantic graph files:
+
+```text
+semantic-graph/settings.json
+semantic-graph/edges.json
+```
+
+Generated, rebuildable semantic graph files:
+
+```text
+generated/semantic/runs/<run-id>.json
+generated/semantic/doc-extractions/<doc-id>/<content-hash>.json
+generated/semantic/candidate-index.json
+```
+
+Semantic edge fields:
+
+- `from`
+- `to`
+- `type`
+- `status`: `proposed`, `accepted`, `rejected`, or `auto-accepted`
+- `confidence`
+- `reason`
+- `evidence`
+- `source`
+
+Pending review edges are stored as Memory Inbox `graph-update` proposals until
+the user accepts them. Accepted and auto-accepted semantic edges can be overlaid
+onto the derived graph with AI reviewed mode. Rejected edges stay in durable
+metadata so a user decision is not lost on rebuild.
+
 ## Index Model
 
 The current implementation writes a dependency-free JSON index:

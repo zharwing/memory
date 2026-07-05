@@ -46,6 +46,9 @@ This folder contains product and engineering documentation for the AI Memory imp
 - [Graph Rules](GRAPH_RULES.md)
   Manual and AI/MCP workflows for mapping imported folder layouts into useful context graph nodes.
 
+- [Semantic Graph Analysis](SEMANTIC_GRAPH.md)
+  Optional LLM-assisted relationship analysis, review modes, local provider setup, approval flow, and storage.
+
 - [MVP Walkthrough](MVP_WALKTHROUGH.md)
   Quick command-oriented walkthrough of the core MVP loop.
 
@@ -63,7 +66,8 @@ This folder contains product and engineering documentation for the AI Memory imp
 10. Use [Workstreams](WORKSTREAMS.md) when grouping multi-day topics.
 11. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
 12. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
-13. Use [Operations](OPERATIONS.md) when running or packaging the app.
+13. Use [Semantic Graph Analysis](SEMANTIC_GRAPH.md) when enabling AI-reviewed relationships.
+14. Use [Operations](OPERATIONS.md) when running or packaging the app.
 
 ## Documentation Policy
 

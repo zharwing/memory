@@ -57,7 +57,7 @@ export class GraphService {
   }
 }
 
-function semanticEdgesFromInboxProposals(
+export function semanticEdgesFromInboxProposals(
   projectId: string,
   proposals: ProposedMemoryUpdate[]
 ): SemanticGraphEdge[] {
@@ -91,7 +91,7 @@ function semanticEdgesFromInboxProposals(
   return edges;
 }
 
-function mergeSemanticEdgesIntoGraph(args: {
+export function mergeSemanticEdgesIntoGraph(args: {
   graph: ProjectGraph;
   semanticEdges: SemanticGraphEdge[];
   includeSemantic: SemanticGraphIncludeMode;
