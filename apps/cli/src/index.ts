@@ -65,6 +65,8 @@ async function run(): Promise<void> {
       return printJson(await client.call("memory.list_inbox", { projectId: requireProjectId() }));
     case "graph":
       return printJson(await client.call("memory.get_graph", { projectId: requireProjectId() }));
+    case "semantic-graph":
+      return semanticGraph();
     case "backup":
       return printJson(await client.call("memory.backup_project", { projectId: requireProjectId() }));
     case "validate":
@@ -110,6 +112,102 @@ async function assistant(): Promise<void> {
     default:
       throw new Error(`Unknown assistant command: ${subcommand}`);
   }
+}
+
+async function semanticGraph(): Promise<void> {
+  const subcommand = args.positional[0] || "status";
+  switch (subcommand) {
+    case "status":
+      return semanticGraphStatus();
+    case "analyze":
+      return semanticGraphAnalyze();
+    case "runs":
+      return semanticGraphRuns();
+    case "edges":
+      return semanticGraphEdges();
+    default:
+      throw new Error(`Unknown semantic-graph command: ${subcommand}`);
+  }
+}
+
+async function semanticGraphStatus(): Promise<void> {
+  const projectId = requireProjectId();
+  const [settings, status] = await Promise.all([
+    client.call("memory.get_semantic_graph_settings", { projectId }) as Promise<Record<string, unknown>>,
+    client.call("memory.get_semantic_graph_status", { projectId }) as Promise<Record<string, any>>
+  ]);
+  if (flagBool(args.flags, "json")) return printJson({ settings, status });
+
+  const edgeCounts = status.edgeCounts || {};
+  const runCounts = status.runCounts || {};
+  const latest = runCounts.latest || {};
+  printTable([
+    {
+      enabled: settings.enabled ? "yes" : "no",
+      mode: settings.mode || "review",
+      accepted: Number(edgeCounts.accepted || 0) + Number(edgeCounts["auto-accepted"] || 0),
+      proposed: edgeCounts.proposed || 0,
+      rejected: edgeCounts.rejected || 0,
+      runs: runCounts.total || 0,
+      latest: latest.started || ""
+    }
+  ], ["enabled", "mode", "accepted", "proposed", "rejected", "runs", "latest"]);
+}
+
+async function semanticGraphAnalyze(): Promise<void> {
+  const mode = flagString(args.flags, "mode") || (flagBool(args.flags, "review") ? "review" : flagBool(args.flags, "auto") ? "auto" : "dry-run");
+  const result = await client.call("memory.analyze_semantic_graph", {
+    projectId: requireProjectId(),
+    scope: semanticGraphScope(),
+    mode,
+    dryRun: mode === "dry-run" || flagBool(args.flags, "dry-run"),
+    endpoint: flagString(args.flags, "endpoint"),
+    model: flagString(args.flags, "model"),
+    apiKey: flagString(args.flags, "api-key"),
+    maxDocuments: numericFlag("max-docs"),
+    maxCandidates: numericFlag("max-candidates"),
+    maxCandidatesPerDocument: numericFlag("per-doc"),
+    timeoutMs: numericFlag("timeout-ms"),
+    maxOutputTokens: numericFlag("max-output-tokens")
+  }) as Record<string, any>;
+  if (flagBool(args.flags, "json")) return printJson(result);
+  printSemanticGraphRunResult(result);
+}
+
+async function semanticGraphRuns(): Promise<void> {
+  const result = (await client.call("memory.list_semantic_graph_runs", {
+    projectId: requireProjectId()
+  })) as Array<Record<string, any>>;
+  if (flagBool(args.flags, "json")) return printJson(result);
+  printTable(result.map((run) => ({
+    id: run.id,
+    status: run.status,
+    mode: run.mode,
+    started: run.started,
+    finished: run.finished || "",
+    docs: run.counts?.documentsAnalyzed || 0,
+    judged: run.counts?.judged || 0,
+    accepted: run.counts?.accepted || 0,
+    proposed: run.counts?.proposed || 0
+  })), ["id", "status", "mode", "started", "finished", "docs", "judged", "accepted", "proposed"]);
+}
+
+async function semanticGraphEdges(): Promise<void> {
+  const status = flagString(args.flags, "status");
+  const result = (await client.call("memory.list_semantic_edges", {
+    projectId: requireProjectId(),
+    status: status ? status.split(",").map((item) => item.trim()).filter(Boolean) : undefined
+  })) as Array<Record<string, any>>;
+  if (flagBool(args.flags, "json")) return printJson(result);
+  printTable(result.map((edge) => ({
+    id: edge.id,
+    status: edge.status,
+    type: edge.type,
+    confidence: typeof edge.confidence === "number" ? `${Math.round(edge.confidence * 100)}%` : "",
+    from: compactValue(edge.from),
+    to: compactValue(edge.to),
+    reason: compactValue(edge.reason, 64)
+  })), ["id", "status", "type", "confidence", "from", "to", "reason"]);
 }
 
 async function projects(): Promise<void> {
@@ -389,6 +487,41 @@ function numericFlag(name: string): number | undefined {
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function semanticGraphScope(): Record<string, unknown> {
+  const docs = listFlag("doc");
+  if (docs.length > 0) return { kind: "selected-docs", documentIds: docs };
+
+  const nodeId = flagString(args.flags, "node") || flagString(args.flags, "focus");
+  if (nodeId) return { kind: "focused-graph-node", nodeId };
+
+  const workstreamId = flagString(args.flags, "workstream");
+  if (workstreamId) return { kind: "workstream", workstreamId };
+
+  const repoPath = flagString(args.flags, "repo");
+  if (repoPath) return { kind: "repo", repoPath: resolveInputPath(repoPath) };
+
+  if (flagBool(args.flags, "changed")) return { kind: "changed-docs" };
+  return { kind: "all-docs" };
+}
+
+function printSemanticGraphRunResult(result: Record<string, any>): void {
+  const run = result.run || {};
+  const counts = run.counts || {};
+  process.stdout.write(`Semantic graph run: ${run.id || "unknown"}\n`);
+  process.stdout.write(`Status: ${run.status || "unknown"}\n`);
+  process.stdout.write(`Mode: ${run.mode || "unknown"}\n`);
+  process.stdout.write(`Documents: ${counts.documentsAnalyzed || 0} analyzed, ${counts.extractionsReused || 0} cached\n`);
+  process.stdout.write(`Relationships: ${counts.judged || 0} judged, ${counts.accepted || 0} accepted, ${counts.proposed || 0} proposed, ${counts.discarded || 0} discarded\n`);
+  if (result.proposal?.id) {
+    process.stdout.write(`Proposal: ${result.proposal.id}\n`);
+  }
+}
+
+function compactValue(input: unknown, maxLength = 44): string {
+  const value = String(input || "");
+  return value.length > maxLength ? `${value.slice(0, Math.max(0, maxLength - 3))}...` : value;
 }
 
 function bootstrapFiles(): string[] {
