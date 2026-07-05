@@ -271,7 +271,7 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     projectId: { type: "string" },
     proposalId: { type: "string" }
   }, ["projectId", "proposalId"]),
-  tool("memory.get_graph", "Get derived graph for the current project.", {
+  tool("memory.get_graph", "Get derived deterministic graph for the current project, optionally overlaid with reviewed semantic AI relationships.", {
     projectId: { type: "string" },
     includeSemantic: { type: "string", enum: ["none", "accepted", "all"] },
     includeSemanticProposals: { type: "boolean" }

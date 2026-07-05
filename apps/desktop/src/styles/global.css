@@ -1517,6 +1517,14 @@ tr.selected-row td {
   flex: 0 0 auto;
 }
 
+.graph-relationship-control {
+  flex: 0 0 auto;
+}
+
+.graph-relationship-control button {
+  white-space: nowrap;
+}
+
 .graph-focus-control {
   align-items: center;
   color: var(--muted);

@@ -3,6 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useSearchParams } from "react-router-dom";
 import { CircleHelp, FlaskConical, Play, RotateCcw, X } from "lucide-react";
 import { useStore } from "../../stores/store-context.js";
+import type { GraphRelationshipMode } from "../../stores/root-store.js";
 import { KeyValue, Screen } from "../../components/layout.js";
 import { LibraryTabs } from "../../components/SectionTabs.js";
 import { DocumentEditorModal } from "../../components/DocumentEditorModal.js";
@@ -41,6 +42,7 @@ export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialGraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
+  const initialRelationshipMode = graphRelationshipModeFromSearchParam(searchParams.get("relationships")) || "deterministic";
   const graph = useMemo(() => enhanceGraphForDisplay(store.graph, store.docs), [store.graph, store.docs]);
   const [graphViewMode, setGraphViewMode] = useState<GraphViewMode>(initialGraphViewMode);
   const [focusedNodeId, setFocusedNodeId] = useState(initialGraphViewMode === "all" ? "" : searchParams.get("focus") || "");
@@ -71,7 +73,9 @@ export const GraphScreen = observer(function GraphScreen() {
   );
   const graphProjectId = store.selectedProjectId || String(graph?.projectId || "project");
   const graphNodeIds = useMemo(() => new Set((Array.isArray(graph?.nodes) ? graph.nodes : []).map((node: any) => String(node.id || ""))), [graph]);
-  const graphPositionKey = `${GRAPH_POSITION_STORAGE_PREFIX}:${graphProjectId}:${graphViewMode}:${focusedNodeId || "overview"}`;
+  const graphRelationshipMode = store.graphRelationshipMode;
+  const graphRelationshipLabel = graphRelationshipModeLabel(graphRelationshipMode);
+  const graphPositionKey = `${GRAPH_POSITION_STORAGE_PREFIX}:${graphProjectId}:${graphViewMode}:${graphRelationshipMode}:${focusedNodeId || "overview"}`;
   const isRawGraph = graphViewMode === "all";
   const editingDoc = store.docs.find((doc) => doc.id === editingDocId);
   const graphScopeLabel = isRawGraph ? "Import audit" : focusedNodeId ? `Focused: ${graphElements.focusLabel || "selected node"}` : "Context map";
@@ -86,15 +90,25 @@ export const GraphScreen = observer(function GraphScreen() {
 
   useEffect(() => {
     const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
+    const nextGraphRelationshipMode = graphRelationshipModeFromSearchParam(searchParams.get("relationships")) || "deterministic";
     const nextFocusedNodeId = nextGraphViewMode === "all" ? "" : searchParams.get("focus") || "";
     const nextEditingDocId = searchParams.get("doc") || "";
     const nextSelectedGraphEdgeId = searchParams.get("edge") || "";
 
+    if (nextGraphRelationshipMode !== store.graphRelationshipMode) {
+      void store.setGraphRelationshipMode(nextGraphRelationshipMode);
+    }
     setGraphViewMode((current) => current === nextGraphViewMode ? current : nextGraphViewMode);
     setFocusedNodeId((current) => current === nextFocusedNodeId ? current : nextFocusedNodeId);
     setEditingDocId((current) => current === nextEditingDocId ? current : nextEditingDocId);
     setSelectedGraphEdgeId((current) => current === nextSelectedGraphEdgeId ? current : nextSelectedGraphEdgeId);
   }, [searchParams]);
+
+  useEffect(() => {
+    if (initialRelationshipMode !== store.graphRelationshipMode) {
+      void store.setGraphRelationshipMode(initialRelationshipMode);
+    }
+  }, []);
 
   useEffect(() => {
     if (focusedNodeId && graphNodeIds.size > 0 && !graphNodeIds.has(focusedNodeId)) {
@@ -134,6 +148,7 @@ export const GraphScreen = observer(function GraphScreen() {
 
   function updateGraphSearchParams(nextState: {
     viewMode?: GraphViewMode;
+    relationshipMode?: GraphRelationshipMode;
     focus?: string | null;
     doc?: string | null;
     edge?: string | null;
@@ -144,6 +159,11 @@ export const GraphScreen = observer(function GraphScreen() {
       if (nextState.viewMode) {
         if (nextState.viewMode === "all") nextParams.set("view", "all");
         else nextParams.delete("view");
+      }
+
+      if (nextState.relationshipMode) {
+        if (nextState.relationshipMode === "deterministic") nextParams.delete("relationships");
+        else nextParams.set("relationships", nextState.relationshipMode);
       }
 
       if (nextState.focus !== undefined) {
@@ -163,6 +183,11 @@ export const GraphScreen = observer(function GraphScreen() {
 
       return nextParams;
     }, { replace });
+  }
+
+  function setGraphRelationshipMode(nextMode: GraphRelationshipMode) {
+    void store.setGraphRelationshipMode(nextMode);
+    updateGraphSearchParams({ relationshipMode: nextMode });
   }
 
   function resetGraphFocus() {
@@ -328,6 +353,29 @@ export const GraphScreen = observer(function GraphScreen() {
             Import audit
           </button>
         </div>
+        <div className="segmented-control compact graph-relationship-control" role="group" aria-label="Relationship mode">
+          <button
+            type="button"
+            className={graphRelationshipMode === "deterministic" ? "selected" : ""}
+            onClick={() => setGraphRelationshipMode("deterministic")}
+          >
+            Basic
+          </button>
+          <button
+            type="button"
+            className={graphRelationshipMode === "ai-reviewed" ? "selected" : ""}
+            onClick={() => setGraphRelationshipMode("ai-reviewed")}
+          >
+            AI reviewed
+          </button>
+          <button
+            type="button"
+            className={graphRelationshipMode === "ai-review" ? "selected" : ""}
+            onClick={() => setGraphRelationshipMode("ai-review")}
+          >
+            AI review
+          </button>
+        </div>
         <label className="graph-focus-control">
           <span>Focus</span>
           <select
@@ -378,6 +426,7 @@ export const GraphScreen = observer(function GraphScreen() {
         <strong>{graphScopeLabel}</strong>
         <span>{graphNodeCount} {isRawGraph ? "stored nodes" : "visible nodes"}</span>
         <span>{graphLinkCount} {isRawGraph ? "context links" : "visible links"}</span>
+        <span>{graphRelationshipLabel}</span>
         <span>{graphHiddenCount} {isRawGraph ? "ownership links" : "hidden"}</span>
         {graphGeneratedLabel ? <span>{graphGeneratedLabel}</span> : null}
       </div>
@@ -385,7 +434,7 @@ export const GraphScreen = observer(function GraphScreen() {
         <div className="notice graph-explainer compact">
           <strong>Context graph, not storage inventory</strong>
           <p>
-            Context map keeps high-signal hubs visible first. Import audit shows the noisier storage inventory for checking imports and derived links.
+            Context map keeps high-signal hubs visible first. Basic uses deterministic naming and import signals; AI reviewed overlays accepted model relationships; AI review also shows proposed edges.
           </p>
         </div>
       ) : null}
@@ -408,11 +457,11 @@ export const GraphScreen = observer(function GraphScreen() {
                   </>
                 ) : focusedNodeId ? (
                   <>
-                    <strong>Focused neighborhood:</strong> nearby relationships around {graphElements.focusLabel || "the selected node"}.
+                    <strong>Focused neighborhood:</strong> nearby {graphRelationshipLabel.toLowerCase()} relationships around {graphElements.focusLabel || "the selected node"}.
                   </>
                 ) : (
                   <>
-                    <strong>Context map:</strong> high-signal hubs first, with leaf docs hidden until a node is focused.
+                    <strong>Context map:</strong> high-signal hubs first, with {graphRelationshipLabel.toLowerCase()} relationships and leaf docs hidden until a node is focused.
                   </>
                 )}
               </div>
@@ -491,7 +540,7 @@ export const GraphScreen = observer(function GraphScreen() {
               {!isRawGraph ? (
                 <div className="semantic-analysis-panel">
                   <div className="semantic-analysis-header">
-                    <strong>Semantic analysis</strong>
+                    <strong>Advanced AI analysis</strong>
                     <span>{semanticLatestRun?.status || "No runs"}</span>
                   </div>
                   <div className="semantic-graph-mini-stats">
@@ -674,4 +723,14 @@ function graphScreenDebugLog(eventName: string, details: Record<string, unknown>
 function numberOrUndefined(input: string): number | undefined {
   const value = Number(input);
   return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function graphRelationshipModeFromSearchParam(input: string | null): GraphRelationshipMode | undefined {
+  return input === "ai-reviewed" || input === "ai-review" || input === "deterministic" ? input : undefined;
+}
+
+function graphRelationshipModeLabel(mode: GraphRelationshipMode): string {
+  if (mode === "ai-review") return "AI review links";
+  if (mode === "ai-reviewed") return "AI reviewed links";
+  return "Basic links";
 }

@@ -1,6 +1,10 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { AimemClient } from "@aimem/api-client";
 
+export type GraphRelationshipMode = "deterministic" | "ai-reviewed" | "ai-review";
+
+const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
+
 export class RootStore {
   client = new AimemClient();
   projects: any[] = [];
@@ -16,6 +20,7 @@ export class RootStore {
   repoLinks: any[] = [];
   inbox: any[] = [];
   graph: any = undefined;
+  graphRelationshipMode: GraphRelationshipMode = readStoredGraphRelationshipMode();
   semanticGraphSettings: any = undefined;
   semanticGraphStatus: any = undefined;
   semanticEdges: any[] = [];
@@ -94,7 +99,10 @@ export class RootStore {
         this.client.call("memory.list_docs", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_workstreams", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_inbox", { projectId: this.selectedProjectId }),
-        this.client.call("memory.get_graph", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_graph", {
+          projectId: this.selectedProjectId,
+          ...graphRelationshipParams(this.graphRelationshipMode)
+        }),
         this.client.call("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
         this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
         this.client.call("memory.assistant_status", { projectId: this.selectedProjectId }),
@@ -238,6 +246,27 @@ export class RootStore {
     return result;
   }
 
+  async setGraphRelationshipMode(mode: GraphRelationshipMode) {
+    const nextMode = normalizeGraphRelationshipMode(mode);
+    if (this.graphRelationshipMode === nextMode) return;
+    this.graphRelationshipMode = nextMode;
+    writeStoredGraphRelationshipMode(nextMode);
+    await this.loadGraph();
+  }
+
+  async loadGraph() {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      const graph = await this.client.call("memory.get_graph", {
+        projectId: this.selectedProjectId,
+        ...graphRelationshipParams(this.graphRelationshipMode)
+      });
+      runInAction(() => {
+        this.graph = graph;
+      });
+    });
+  }
+
   async updateGraphRules(graphRules: any[]) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
@@ -315,7 +344,10 @@ export class RootStore {
         this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_semantic_graph_runs", { projectId: this.selectedProjectId }),
         this.client.call("memory.list_inbox", { projectId: this.selectedProjectId }),
-        this.client.call("memory.get_graph", { projectId: this.selectedProjectId })
+        this.client.call("memory.get_graph", {
+          projectId: this.selectedProjectId,
+          ...graphRelationshipParams(this.graphRelationshipMode)
+        })
       ]);
       runInAction(() => {
         this.semanticAnalysisResult = result;
@@ -762,5 +794,49 @@ export class RootStore {
         this.loading = false;
       });
     }
+  }
+}
+
+function graphRelationshipParams(mode: GraphRelationshipMode): Record<string, unknown> {
+  if (mode === "ai-review") {
+    return {
+      includeSemantic: "all",
+      includeSemanticProposals: true
+    };
+  }
+  if (mode === "ai-reviewed") {
+    return {
+      includeSemantic: "accepted",
+      includeSemanticProposals: false
+    };
+  }
+  return {
+    includeSemantic: "none",
+    includeSemanticProposals: false
+  };
+}
+
+function normalizeGraphRelationshipMode(input: unknown): GraphRelationshipMode {
+  return input === "ai-reviewed" || input === "ai-review" || input === "deterministic"
+    ? input
+    : "deterministic";
+}
+
+function readStoredGraphRelationshipMode(): GraphRelationshipMode {
+  try {
+    if (typeof window === "undefined") return "deterministic";
+    return normalizeGraphRelationshipMode(window.localStorage.getItem(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
+  } catch {
+    return "deterministic";
+  }
+}
+
+function writeStoredGraphRelationshipMode(mode: GraphRelationshipMode): void {
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY, mode);
+    }
+  } catch {
+    // Local storage can be unavailable in hardened browser contexts.
   }
 }

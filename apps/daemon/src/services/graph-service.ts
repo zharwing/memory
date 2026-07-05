@@ -38,7 +38,7 @@ export class GraphService {
       documents
     });
 
-    const includeSemantic = params.includeSemantic || "accepted";
+    const includeSemantic = params.includeSemantic || "none";
     if (includeSemantic === "none" && !params.includeSemanticProposals) return graph;
 
     return mergeSemanticEdgesIntoGraph({
