@@ -71,6 +71,7 @@ interface D3GraphLink extends SimulationLinkDatum<D3GraphNode> {
   semanticStatus?: string;
   confidence?: number;
   evidence?: Array<{ quote?: string; documentId?: string; location?: string; sourcePath?: string }>;
+  graphEdge: GraphMapEdge;
 }
 
 interface D3GraphModel {
@@ -87,6 +88,7 @@ interface GraphMapProps {
   layoutVersion: number;
   onOpenDocument: (documentId: string) => void;
   onFocusNode: (nodeId: string) => void;
+  onSelectEdge: (edge: GraphMapEdge) => void;
 }
 
 interface GraphApi {
@@ -101,12 +103,14 @@ export function GraphMap({
   storageKey,
   layoutVersion,
   onOpenDocument,
-  onFocusNode
+  onFocusNode,
+  onSelectEdge
 }: GraphMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphApiRef = useRef<GraphApi | null>(null);
   const onOpenDocumentRef = useRef(onOpenDocument);
   const onFocusNodeRef = useRef(onFocusNode);
+  const onSelectEdgeRef = useRef(onSelectEdge);
 
   useEffect(() => {
     onOpenDocumentRef.current = onOpenDocument;
@@ -115,6 +119,10 @@ export function GraphMap({
   useEffect(() => {
     onFocusNodeRef.current = onFocusNode;
   }, [onFocusNode]);
+
+  useEffect(() => {
+    onSelectEdgeRef.current = onSelectEdge;
+  }, [onSelectEdge]);
 
   const graphModel = useMemo(
     () => buildD3GraphModel(nodes, edges, focusedNodeId, storageKey),
@@ -175,14 +183,28 @@ export function GraphMap({
       .enter()
       .append("path")
       .attr("class", (link) => `graph-map-link graph-map-link-${safeGraphClassName(link.type)}`)
+      .attr("tabindex", 0)
+      .attr("role", "button")
+      .attr("aria-label", (link) => graphLinkAccessibleLabel(link).replace(/\n/g, ", "))
       .attr("fill", "none")
       .attr("stroke", (link) => link.color || "#b87333")
       .attr("stroke-width", (link) => link.sourceKind.includes("semantic") ? 3.1 : link.type === "contains" ? 3 : 2.1)
       .attr("stroke-opacity", (link) => link.sourceKind.includes("semantic") ? 0.86 : link.type === "contains" ? 0.78 : 0.64)
       .attr("stroke-dasharray", (link) => link.semanticStatus === "proposed" ? "10 7" : null)
+      .style("cursor", "pointer")
+      .style("pointer-events", "stroke")
       .attr("marker-end", (link) => {
         const markerId = graphModel.markerIdByColor.get(link.color || "#b87333");
         return markerId ? `url(#${markerId})` : null;
+      })
+      .on("click", (event, link) => {
+        event.stopPropagation();
+        onSelectEdgeRef.current(link.graphEdge);
+      })
+      .on("keydown", (event, link) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelectEdgeRef.current(link.graphEdge);
       });
 
     linkSelection.append("title")
@@ -487,7 +509,8 @@ function buildD3GraphModel(
       sourceKind: edge.sourceKind || "",
       semanticStatus: edge.semanticStatus,
       confidence: edge.confidence,
-      evidence: edge.evidence
+      evidence: edge.evidence,
+      graphEdge: edge
     }));
 
   if (!storedPositions) {

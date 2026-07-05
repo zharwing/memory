@@ -15,7 +15,7 @@ import {
   graphEdgeLabel,
 } from "./graph-display.js";
 import { GraphMap, graphNodeVisualStyle, removeStoredGraphNodePositions } from "./GraphMap.js";
-import { buildGraphFlowElements, RawStorageAudit } from "./graph-flow.js";
+import { buildGraphFlowElements, type GraphMapEdge, RawStorageAudit } from "./graph-flow.js";
 
 const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.d3.v2";
 const GRAPH_LEGEND_ITEMS = [
@@ -46,6 +46,7 @@ export const GraphScreen = observer(function GraphScreen() {
   const [focusedNodeId, setFocusedNodeId] = useState(initialGraphViewMode === "all" ? "" : searchParams.get("focus") || "");
   const [focusHistory, setFocusHistory] = useState<string[]>([]);
   const [editingDocId, setEditingDocId] = useState(searchParams.get("doc") || "");
+  const [selectedGraphEdgeId, setSelectedGraphEdgeId] = useState(searchParams.get("edge") || "");
   const [showGraphHelp, setShowGraphHelp] = useState(false);
   const [showGraphDetails, setShowGraphDetails] = useState(false);
   const [semanticRunDraft, setSemanticRunDraft] = useState({
@@ -62,6 +63,12 @@ export const GraphScreen = observer(function GraphScreen() {
   const graphStats = useMemo(() => getGraphStats(graph), [graph]);
   const focusOptions = useMemo(() => getGraphFocusOptions(graph), [graph]);
   const graphElements = useMemo(() => buildGraphFlowElements(graph, graphViewMode, focusedNodeId), [graph, graphViewMode, focusedNodeId]);
+  const graphElementNodeById = useMemo(() => new Map(graphElements.nodes.map((node) => [node.id, node])), [graphElements.nodes]);
+  const graphElementEdgeIds = useMemo(() => new Set(graphElements.edges.map((edge) => edge.id)), [graphElements.edges]);
+  const selectedGraphEdge = useMemo(
+    () => graphElements.edges.find((edge) => edge.id === selectedGraphEdgeId),
+    [graphElements.edges, selectedGraphEdgeId]
+  );
   const graphProjectId = store.selectedProjectId || String(graph?.projectId || "project");
   const graphNodeIds = useMemo(() => new Set((Array.isArray(graph?.nodes) ? graph.nodes : []).map((node: any) => String(node.id || ""))), [graph]);
   const graphPositionKey = `${GRAPH_POSITION_STORAGE_PREFIX}:${graphProjectId}:${graphViewMode}:${focusedNodeId || "overview"}`;
@@ -80,10 +87,12 @@ export const GraphScreen = observer(function GraphScreen() {
     const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
     const nextFocusedNodeId = nextGraphViewMode === "all" ? "" : searchParams.get("focus") || "";
     const nextEditingDocId = searchParams.get("doc") || "";
+    const nextSelectedGraphEdgeId = searchParams.get("edge") || "";
 
     setGraphViewMode((current) => current === nextGraphViewMode ? current : nextGraphViewMode);
     setFocusedNodeId((current) => current === nextFocusedNodeId ? current : nextFocusedNodeId);
     setEditingDocId((current) => current === nextEditingDocId ? current : nextEditingDocId);
+    setSelectedGraphEdgeId((current) => current === nextSelectedGraphEdgeId ? current : nextSelectedGraphEdgeId);
   }, [searchParams]);
 
   useEffect(() => {
@@ -102,6 +111,13 @@ export const GraphScreen = observer(function GraphScreen() {
   }, [editingDocId, store.docs]);
 
   useEffect(() => {
+    if (selectedGraphEdgeId && graphElementEdgeIds.size > 0 && !graphElementEdgeIds.has(selectedGraphEdgeId)) {
+      setSelectedGraphEdgeId("");
+      updateGraphSearchParams({ edge: null }, true);
+    }
+  }, [selectedGraphEdgeId, graphElementEdgeIds]);
+
+  useEffect(() => {
     setSemanticRunDraft((current) => ({
       ...current,
       model: current.model || store.semanticGraphSettings?.model || ""
@@ -118,6 +134,7 @@ export const GraphScreen = observer(function GraphScreen() {
     viewMode?: GraphViewMode;
     focus?: string | null;
     doc?: string | null;
+    edge?: string | null;
   }, replace = false) {
     setSearchParams((current) => {
       const nextParams = new URLSearchParams(current);
@@ -135,6 +152,11 @@ export const GraphScreen = observer(function GraphScreen() {
       if (nextState.doc !== undefined) {
         if (nextState.doc) nextParams.set("doc", nextState.doc);
         else nextParams.delete("doc");
+      }
+
+      if (nextState.edge !== undefined) {
+        if (nextState.edge) nextParams.set("edge", nextState.edge);
+        else nextParams.delete("edge");
       }
 
       return nextParams;
@@ -227,6 +249,17 @@ export const GraphScreen = observer(function GraphScreen() {
     });
     setEditingDocId("");
     updateGraphSearchParams({ doc: null });
+  }
+
+  function selectGraphEdge(edge: GraphMapEdge) {
+    setSelectedGraphEdgeId(edge.id);
+    setShowGraphDetails(true);
+    updateGraphSearchParams({ edge: edge.id });
+  }
+
+  function clearSelectedGraphEdge() {
+    setSelectedGraphEdgeId("");
+    updateGraphSearchParams({ edge: null });
   }
 
   const resetGraphLayout = useCallback(() => {
@@ -408,6 +441,51 @@ export const GraphScreen = observer(function GraphScreen() {
                   })}
                 </div>
               ) : null}
+              {selectedGraphEdge ? (
+                <div className="graph-edge-inspector">
+                  <div className="graph-edge-inspector-header">
+                    <strong>Selected relationship</strong>
+                    <button
+                      type="button"
+                      className="icon-button icon-only"
+                      onClick={clearSelectedGraphEdge}
+                      title="Clear selected relationship"
+                      aria-label="Clear selected relationship"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="semantic-graph-mini-stats">
+                    <KeyValue label="From" value={graphElementNodeById.get(selectedGraphEdge.source)?.label || selectedGraphEdge.source} />
+                    <KeyValue label="To" value={graphElementNodeById.get(selectedGraphEdge.target)?.label || selectedGraphEdge.target} />
+                    <KeyValue label="Type" value={graphEdgeLabel(selectedGraphEdge.type)} />
+                    <KeyValue label="Source" value={selectedGraphEdge.sourceKind?.includes("semantic") ? "Semantic" : "Deterministic"} />
+                    {selectedGraphEdge.semanticStatus ? <KeyValue label="Status" value={selectedGraphEdge.semanticStatus} /> : null}
+                    {typeof selectedGraphEdge.confidence === "number" ? (
+                      <KeyValue label="Confidence" value={`${Math.round(selectedGraphEdge.confidence * 100)}%`} />
+                    ) : null}
+                  </div>
+                  {selectedGraphEdge.reason ? (
+                    <div className="graph-edge-reason">
+                      <span>Reason</span>
+                      <p>{selectedGraphEdge.reason}</p>
+                    </div>
+                  ) : null}
+                  {selectedGraphEdge.evidence?.length ? (
+                    <div className="graph-edge-evidence">
+                      <span>Evidence</span>
+                      {selectedGraphEdge.evidence.slice(0, 3).map((item, index) => (
+                        <blockquote key={`${selectedGraphEdge.id}-evidence-${index}`}>
+                          {item.quote || "Evidence recorded without quote"}
+                          {item.sourcePath || item.documentId ? (
+                            <cite>{[item.sourcePath, item.documentId].filter(Boolean).join(" / ")}</cite>
+                          ) : null}
+                        </blockquote>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {!isRawGraph ? (
                 <div className="semantic-analysis-panel">
                   <div className="semantic-analysis-header">
@@ -558,6 +636,7 @@ export const GraphScreen = observer(function GraphScreen() {
             layoutVersion={layoutVersion}
             onOpenDocument={openGraphDocument}
             onFocusNode={navigateGraphFocus}
+            onSelectEdge={selectGraphEdge}
           />
         ) : (
           <div className="graph-empty-state">
