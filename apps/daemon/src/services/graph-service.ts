@@ -4,11 +4,14 @@ import {
   listProjectDocuments,
   listProjectSessions,
   listProjectWorkstreams,
+  listProposedUpdates,
   readSemanticEdges
 } from "@aimem/storage";
+import { semanticEdgesFromProposalPatch } from "@aimem/semantic-graph";
 import type {
   GraphEdge,
   ProjectGraph,
+  ProposedMemoryUpdate,
   SemanticGraphEdge,
   SemanticGraphEdgeStatus
 } from "@aimem/core";
@@ -25,11 +28,12 @@ export class GraphService {
     includeSemanticProposals?: boolean;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const [workstreams, sessions, documents, semanticEdges] = await Promise.all([
+    const [workstreams, sessions, documents, semanticEdges, proposals] = await Promise.all([
       listProjectWorkstreams(project),
       listProjectSessions(project),
       listProjectDocuments(project),
-      readSemanticEdges(project)
+      readSemanticEdges(project),
+      params.includeSemanticProposals ? listProposedUpdates(project) : Promise.resolve([])
     ]);
     const graph = buildProjectGraph({
       project,
@@ -43,11 +47,48 @@ export class GraphService {
 
     return mergeSemanticEdgesIntoGraph({
       graph,
-      semanticEdges: semanticEdges.edges,
+      semanticEdges: [
+        ...semanticEdgesFromInboxProposals(project.id, proposals),
+        ...semanticEdges.edges
+      ],
       includeSemantic,
       includeSemanticProposals: Boolean(params.includeSemanticProposals)
     });
   }
+}
+
+function semanticEdgesFromInboxProposals(
+  projectId: string,
+  proposals: ProposedMemoryUpdate[]
+): SemanticGraphEdge[] {
+  const now = new Date(0).toISOString();
+  const edges: SemanticGraphEdge[] = [];
+  for (const proposal of proposals) {
+    if (proposal.status !== "pending" && proposal.status !== "edited") continue;
+    const patch = semanticEdgesFromProposalPatch(proposal.proposedPatch);
+    if (!patch) continue;
+    patch.edges.forEach((edge, index) => {
+      edges.push({
+        id: `proposal:${proposal.id}:${index}`,
+        projectId,
+        from: edge.from,
+        to: edge.to,
+        type: edge.type,
+        status: "proposed",
+        confidence: edge.confidence,
+        reason: edge.reason,
+        evidence: edge.evidence,
+        source: {
+          kind: proposal.sourceKind === "memory-assistant" ? "llm" : proposal.sourceKind,
+          runId: patch.runId,
+          sourceAgent: proposal.sourceAgent
+        },
+        created: proposal.created || now,
+        updated: proposal.created || now
+      });
+    });
+  }
+  return edges;
 }
 
 function mergeSemanticEdgesIntoGraph(args: {
