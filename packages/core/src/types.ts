@@ -537,8 +537,15 @@ export interface GraphEdge {
     | "depends-on"
     | "blocked-by"
     | "belongs-to"
-    | "related";
+    | "related"
+    | "duplicates"
+    | "contradicts";
   reason: string;
+  sourceKind?: "deterministic" | "semantic" | "deterministic+semantic";
+  semanticEdgeId?: string;
+  semanticStatus?: "proposed" | "accepted" | "rejected" | "auto-accepted";
+  confidence?: number;
+  evidence?: SemanticGraphEvidence[];
 }
 
 export type GraphRuleNodeType =

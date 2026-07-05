@@ -246,7 +246,9 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     proposalId: { type: "string" }
   }, ["projectId", "proposalId"]),
   tool("memory.get_graph", "Get derived graph for the current project.", {
-    projectId: { type: "string" }
+    projectId: { type: "string" },
+    includeSemantic: { type: "string", enum: ["none", "accepted", "all"] },
+    includeSemanticProposals: { type: "boolean" }
   }, ["projectId"]),
   tool("memory.get_semantic_graph_settings", "Get semantic graph settings for a project.", {
     projectId: { type: "string" }
