@@ -427,7 +427,10 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
   tool("memory.accept_semantic_edges_proposal", "Accept a semantic graph Inbox proposal and write its edges to durable semantic graph storage.", {
     projectId: { type: "string" },
     proposalId: { type: "string" },
-    status: { type: "string", enum: ["accepted", "auto-accepted"] }
+    status: { type: "string", enum: ["accepted", "auto-accepted"] },
+    minConfidence: { type: "number" },
+    maxConfidence: { type: "number" },
+    edgeIndexes: { type: "array", items: { type: "number" } }
   }, ["projectId", "proposalId"]),
   tool("memory.backup_project", "Create a local snapshot backup for a project.", {
     projectId: { type: "string" }
