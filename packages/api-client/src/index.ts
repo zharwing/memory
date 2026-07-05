@@ -58,6 +58,10 @@ export class AimemClient {
     return this.call("memory.get_context_bundle", params);
   }
 
+  getGraph(params: Record<string, unknown>) {
+    return this.call("memory.get_graph", params);
+  }
+
   getSemanticGraphSettings(params: Record<string, unknown>) {
     return this.call("memory.get_semantic_graph_settings", params);
   }

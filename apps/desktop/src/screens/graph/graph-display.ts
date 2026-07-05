@@ -602,10 +602,14 @@ function graphFocusedNeighborhoodDistance(nodes: any[], focusedNodeId: string): 
   return 1;
 }
 
-export function graphEdgeColor(type: string): string {
+export function graphEdgeColor(type: string, edge?: any): string {
+  const sourceKind = String(edge?.sourceKind || "");
+  if (sourceKind.includes("semantic")) return edge?.semanticStatus === "proposed" ? "#8b5cf6" : "#7c3aed";
   if (type === "contains") return "#0f766e";
   if (["supports", "explains", "mentions", "uses"].includes(type)) return "#b87333";
   if (["works-on", "touched", "produced"].includes(type)) return "#c0702d";
+  if (type === "contradicts") return "#b91c1c";
+  if (type === "duplicates") return "#4f46e5";
   return "#8a8179";
 }
 
@@ -678,7 +682,9 @@ export function graphEdgeLabel(type: string): string {
     contains: "contains",
     "depends-on": "depends on",
     "blocked-by": "blocked by",
-    related: "related"
+    related: "related",
+    duplicates: "duplicates",
+    contradicts: "contradicts"
   };
   return labels[type] || type;
 }

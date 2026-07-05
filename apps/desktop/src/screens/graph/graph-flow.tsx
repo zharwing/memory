@@ -31,6 +31,10 @@ export interface GraphMapEdge {
   label?: string;
   color: string;
   reason: string;
+  sourceKind?: string;
+  semanticStatus?: string;
+  confidence?: number;
+  evidence?: Array<{ quote?: string; documentId?: string; location?: string; sourcePath?: string }>;
 }
 
 export interface GraphFlowElements {
@@ -86,8 +90,12 @@ export function buildGraphFlowElements(graph: any, viewMode: GraphViewMode, focu
         target: displayEdge.target,
         type: edgeType,
         label: displayEdge.label,
-        color: graphEdgeColor(edgeType),
-        reason: String(sourceEdge.reason || "")
+        color: graphEdgeColor(edgeType, sourceEdge),
+        reason: String(sourceEdge.reason || ""),
+        sourceKind: String(sourceEdge.sourceKind || ""),
+        semanticStatus: sourceEdge.semanticStatus ? String(sourceEdge.semanticStatus) : undefined,
+        confidence: typeof sourceEdge.confidence === "number" ? sourceEdge.confidence : undefined,
+        evidence: Array.isArray(sourceEdge.evidence) ? sourceEdge.evidence : undefined
       };
     });
 

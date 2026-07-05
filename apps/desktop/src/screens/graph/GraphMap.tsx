@@ -67,6 +67,10 @@ interface D3GraphLink extends SimulationLinkDatum<D3GraphNode> {
   color: string;
   label: string;
   reason: string;
+  sourceKind: string;
+  semanticStatus?: string;
+  confidence?: number;
+  evidence?: Array<{ quote?: string; documentId?: string; location?: string; sourcePath?: string }>;
 }
 
 interface D3GraphModel {
@@ -173,12 +177,16 @@ export function GraphMap({
       .attr("class", (link) => `graph-map-link graph-map-link-${safeGraphClassName(link.type)}`)
       .attr("fill", "none")
       .attr("stroke", (link) => link.color || "#b87333")
-      .attr("stroke-width", (link) => link.type === "contains" ? 3 : 2.1)
-      .attr("stroke-opacity", (link) => link.type === "contains" ? 0.78 : 0.64)
+      .attr("stroke-width", (link) => link.sourceKind.includes("semantic") ? 3.1 : link.type === "contains" ? 3 : 2.1)
+      .attr("stroke-opacity", (link) => link.sourceKind.includes("semantic") ? 0.86 : link.type === "contains" ? 0.78 : 0.64)
+      .attr("stroke-dasharray", (link) => link.semanticStatus === "proposed" ? "10 7" : null)
       .attr("marker-end", (link) => {
         const markerId = graphModel.markerIdByColor.get(link.color || "#b87333");
         return markerId ? `url(#${markerId})` : null;
       });
+
+    linkSelection.append("title")
+      .text((link) => graphLinkAccessibleLabel(link));
 
     const nodeSelection = nodeLayer
       .selectAll<SVGGElement, D3GraphNode>("g")
@@ -475,7 +483,11 @@ function buildD3GraphModel(
       type: edge.type,
       color: edge.color || "#b87333",
       label: edge.label || "",
-      reason: edge.reason
+      reason: edge.reason,
+      sourceKind: edge.sourceKind || "",
+      semanticStatus: edge.semanticStatus,
+      confidence: edge.confidence,
+      evidence: edge.evidence
     }));
 
   if (!storedPositions) {
@@ -857,6 +869,23 @@ function wrappedGraphLabelLines(node: D3GraphNode): string[] {
 
 function graphNodeAccessibleLabel(node: D3GraphNode): string {
   return [node.label.replace(/\n/g, " "), node.typeLabel, node.metadata].filter(Boolean).join(", ");
+}
+
+function graphLinkAccessibleLabel(link: D3GraphLink): string {
+  const confidence = typeof link.confidence === "number" ? `confidence ${Math.round(link.confidence * 100)}%` : "";
+  const evidence = (link.evidence || [])
+    .map((item) => item.quote || "")
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" ");
+  return [
+    link.label || link.type,
+    link.sourceKind.includes("semantic") ? "semantic" : "",
+    link.semanticStatus,
+    confidence,
+    link.reason,
+    evidence
+  ].filter(Boolean).join("\n");
 }
 
 function getGraphDegreeByNodeId(nodes: GraphMapNode[], edges: GraphMapEdge[]): Map<string, number> {
