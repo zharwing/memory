@@ -32,6 +32,7 @@ export interface GraphMapEdge {
   color: string;
   reason: string;
   sourceKind?: string;
+  semanticEdgeId?: string;
   semanticStatus?: string;
   confidence?: number;
   evidence?: Array<{ quote?: string; documentId?: string; location?: string; sourcePath?: string }>;
@@ -93,6 +94,7 @@ export function buildGraphFlowElements(graph: any, viewMode: GraphViewMode, focu
         color: graphEdgeColor(edgeType, sourceEdge),
         reason: String(sourceEdge.reason || ""),
         sourceKind: String(sourceEdge.sourceKind || ""),
+        semanticEdgeId: sourceEdge.semanticEdgeId ? String(sourceEdge.semanticEdgeId) : undefined,
         semanticStatus: sourceEdge.semanticStatus ? String(sourceEdge.semanticStatus) : undefined,
         confidence: typeof sourceEdge.confidence === "number" ? sourceEdge.confidence : undefined,
         evidence: Array.isArray(sourceEdge.evidence) ? sourceEdge.evidence : undefined

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CircleHelp, FlaskConical, Play, RotateCcw, X } from "lucide-react";
 import { useStore } from "../../stores/store-context.js";
 import type { GraphRelationshipMode } from "../../stores/root-store.js";
@@ -71,6 +71,18 @@ export const GraphScreen = observer(function GraphScreen() {
     () => graphElements.edges.find((edge) => edge.id === selectedGraphEdgeId),
     [graphElements.edges, selectedGraphEdgeId]
   );
+  const selectedProposedSemanticEdge = proposedSemanticEdgeTarget(selectedGraphEdge?.semanticEdgeId);
+  const selectedDurableSemanticEdgeId = durableSemanticEdgeId(selectedGraphEdge?.semanticEdgeId);
+  const selectedGraphEdgeIsSemantic = Boolean(selectedGraphEdge?.sourceKind?.includes("semantic"));
+  const canAcceptSelectedSemanticEdge = Boolean(
+    selectedProposedSemanticEdge ||
+    (
+      selectedDurableSemanticEdgeId &&
+      selectedGraphEdge?.semanticStatus !== "accepted" &&
+      selectedGraphEdge?.semanticStatus !== "auto-accepted"
+    )
+  );
+  const canHideSelectedSemanticEdge = Boolean(selectedDurableSemanticEdgeId);
   const graphProjectId = store.selectedProjectId || String(graph?.projectId || "project");
   const graphNodeIds = useMemo(() => new Set((Array.isArray(graph?.nodes) ? graph.nodes : []).map((node: any) => String(node.id || ""))), [graph]);
   const graphRelationshipMode = store.graphRelationshipMode;
@@ -294,6 +306,27 @@ export const GraphScreen = observer(function GraphScreen() {
     });
   }
 
+  async function acceptSelectedSemanticEdge() {
+    if (selectedProposedSemanticEdge) {
+      await store.acceptSemanticEdgesProposal(selectedProposedSemanticEdge.proposalId, {
+        edgeIndexes: [selectedProposedSemanticEdge.edgeIndex]
+      });
+      clearSelectedGraphEdge();
+      return;
+    }
+
+    if (selectedDurableSemanticEdgeId) {
+      await store.updateSemanticEdgeStatus([selectedDurableSemanticEdgeId], "accepted");
+      clearSelectedGraphEdge();
+    }
+  }
+
+  async function hideSelectedSemanticEdge() {
+    if (!selectedDurableSemanticEdgeId) return;
+    await store.updateSemanticEdgeStatus([selectedDurableSemanticEdgeId], "rejected");
+    clearSelectedGraphEdge();
+  }
+
   return (
     <Screen title="Graph">
       <LibraryTabs />
@@ -504,6 +537,37 @@ export const GraphScreen = observer(function GraphScreen() {
                       ))}
                     </div>
                   ) : null}
+                  {selectedGraphEdgeIsSemantic && selectedGraphEdge.semanticEdgeId ? (
+                    <div className="graph-edge-actions" aria-label="Selected semantic relationship actions">
+                      {canAcceptSelectedSemanticEdge ? (
+                        <button
+                          type="button"
+                          disabled={store.loading}
+                          onClick={() => void acceptSelectedSemanticEdge()}
+                        >
+                          Accept Edge
+                        </button>
+                      ) : null}
+                      {canHideSelectedSemanticEdge ? (
+                        <button
+                          type="button"
+                          className="danger-button"
+                          disabled={store.loading}
+                          onClick={() => void hideSelectedSemanticEdge()}
+                        >
+                          Hide Edge
+                        </button>
+                      ) : null}
+                      {selectedProposedSemanticEdge ? (
+                        <Link
+                          className="button-link"
+                          to={`/inbox?proposal=${encodeURIComponent(selectedProposedSemanticEdge.proposalId)}`}
+                        >
+                          Open Inbox
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               {!isRawGraph ? (
@@ -698,4 +762,21 @@ function graphRelationshipModeLabel(mode: GraphRelationshipMode): string {
   if (mode === "ai-review") return "AI review links";
   if (mode === "ai-reviewed") return "AI reviewed links";
   return "Basic links";
+}
+
+function durableSemanticEdgeId(input?: string): string | undefined {
+  if (!input || input.startsWith("proposal:")) return undefined;
+  return input;
+}
+
+function proposedSemanticEdgeTarget(input?: string): { proposalId: string; edgeIndex: number } | undefined {
+  if (!input?.startsWith("proposal:")) return undefined;
+  const payload = input.slice("proposal:".length);
+  const separatorIndex = payload.lastIndexOf(":");
+  if (separatorIndex <= 0) return undefined;
+
+  const proposalId = payload.slice(0, separatorIndex);
+  const edgeIndex = Number(payload.slice(separatorIndex + 1));
+  if (!proposalId || !Number.isInteger(edgeIndex) || edgeIndex < 0) return undefined;
+  return { proposalId, edgeIndex };
 }
