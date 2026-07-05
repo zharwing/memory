@@ -53,16 +53,91 @@ AI Memory breaks the task into smaller steps:
 
 - select eligible documents by scope
 - apply privacy and secret gates first
-- extract compact facts per document
-- cache those extractions by content hash
+- split large documents into bounded Markdown/line-aware chunks
+- extract compact facts per chunk
+- merge chunk facts into one document-level extraction
+- cache merged extractions by content hash
 - build a deterministic candidate list
 - ask the model to judge one candidate relationship at a time
 - require confidence, reason, and evidence
 - route reviewable edges through Inbox instead of silently mutating the graph
 
-Use a focused node, changed-docs scope, and low document/candidate limits when
-testing a 12 GB VRAM local model. Increase limits only after the model returns
-stable JSON and useful evidence.
+Chunk metadata keeps the chunk id, heading path, and line range so evidence can
+point back to the source area. Use a focused node, changed-docs scope, and low
+document/candidate limits when testing a 12 GB VRAM local model. Increase limits
+only after the model returns stable JSON and useful evidence.
+
+## Standalone Chunking
+
+llm-memory owns a built-in chunked extraction pipeline so semantic graph remains
+usable as a standalone open-source project:
+
+```text
+large document
+-> privacy gate and redaction
+-> Markdown/line-aware chunks
+-> model extracts compact facts per chunk
+-> llm-memory merges chunk facts into one document extraction
+-> deterministic candidate builder
+-> model judges candidate relationships
+-> Inbox proposal or durable semantic edge
+```
+
+The chunking path does not require a vector database or another companion
+service. It is intentionally simple: split by Markdown structure and line
+budget, keep source locations, merge duplicate entities/hints, and cache the
+document-level result.
+
+## Companion Context Adapter
+
+`small-contwxt-manager` can be integrated later as an optional evidence provider,
+but it should not be required for semantic graph. The clean boundary is:
+
+```text
+llm-memory owns project memory, graph schema, review workflow, and accepted edges
+small-contwxt-manager optionally supplies budgeted evidence packs
+```
+
+An adapter can ask `small-contwxt-manager` for evidence around a document,
+candidate target, or relationship query. llm-memory would still judge the
+relationship, write Inbox proposals, and store accepted/rejected edges. This
+proves the companion services work together without making standalone
+llm-memory depend on another local service.
+
+## Vector Store Decision
+
+AI Memory does not require a vector store for semantic graph relationships.
+The default candidate builder intentionally uses deterministic project signals
+first:
+
+- document topics
+- workstreams
+- related files
+- imported paths
+- graph rules
+- repo/package/service names
+- extracted mentions and entities
+- existing deterministic graph links
+
+This keeps relationship analysis explainable, cheap to run locally, and easier
+to review. The LLM judges likely relationships; it is not asked to compare the
+entire document corpus at once.
+
+A vector store can be added later as an optional candidate source, but it should
+not be part of the default workflow. It is useful only when deterministic
+signals are not enough, for example:
+
+- imported docs have poor or missing metadata
+- related docs use different names for the same concept
+- users have very large, messy corpora
+- the graph misses obvious conceptual relationships after graph rules and
+  extraction are tuned
+- the product needs a separate "find similar docs" feature
+
+For normal project memory, deterministic candidates plus LLM judging are the
+preferred approach. Vector search would add storage, dependency, privacy, and
+rebuild complexity without clear value for small and medium project-memory
+sets.
 
 ## llama.cpp Example
 
