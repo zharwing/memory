@@ -1326,6 +1326,32 @@ input[type="checkbox"] {
   width: 100%;
 }
 
+.mdx-rich-editor {
+  background: var(--surface);
+  color: var(--text);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mdx-rich-editor .mdxeditor-toolbar {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.mdx-rich-editor .mdxeditor-root-contenteditable {
+  min-height: 0;
+  overflow: auto;
+}
+
+.mdx-rich-editor .mdxeditor-root-contenteditable > div {
+  min-height: 100%;
+  padding: 22px;
+}
+
 .rendered-markdown {
   background: var(--surface);
   color: var(--text);
@@ -1340,20 +1366,6 @@ input[type="checkbox"] {
 
 .rendered-markdown.empty-preview {
   color: var(--muted);
-}
-
-.rich-markdown-editor {
-  caret-color: var(--accent);
-  outline: none;
-}
-
-.rich-markdown-editor:focus {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 42%, transparent);
-}
-
-.rich-markdown-editor.empty-preview:empty::before {
-  color: var(--muted);
-  content: attr(data-placeholder);
 }
 
 .rendered-markdown h1,

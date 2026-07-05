@@ -12,6 +12,7 @@
   "dependencies": {
     "@aimem/api-client": "workspace:*",
     "@aimem/theme": "workspace:*",
+    "@mdxeditor/editor": "^3.0.0",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "d3": "^7.9.0",

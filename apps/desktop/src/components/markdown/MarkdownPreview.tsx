@@ -1,45 +1,18 @@
-import type { FormEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { isLikelyMermaidSource, MermaidDiagramPreview } from "./MermaidDiagramPreview.js";
 
-export function MarkdownPreview({
-  body,
-  editable = false,
-  onInput,
-  ariaLabel
-}: {
-  body: string;
-  editable?: boolean;
-  onInput?: (event: FormEvent<HTMLDivElement>) => void;
-  ariaLabel?: string;
-}) {
-  const editorProps = editable
-    ? {
-        contentEditable: true,
-        suppressContentEditableWarning: true,
-        onInput,
-        role: "textbox",
-        "aria-multiline": true,
-        "aria-label": ariaLabel || "Rendered markdown editor",
-        tabIndex: 0
-      }
-    : {};
-  const className = `rendered-markdown${editable ? " rich-markdown-editor" : ""}${!body.trim() ? " empty-preview" : ""}`;
-
+export function MarkdownPreview({ body }: { body: string }) {
   if (!body.trim()) {
-    return (
-      <div className={className} data-placeholder="Start writing..." {...editorProps}>
-        {editable ? null : "No document body recorded."}
-      </div>
-    );
+    return <div className="rendered-markdown empty-preview">No document body recorded.</div>;
   }
   if (isLikelyMermaidSource(body.trim())) {
     return (
-      <div className={className} {...editorProps}>
+      <div className="rendered-markdown">
         <MermaidDiagramPreview source={body.trim()} />
       </div>
     );
   }
-  return <div className={className} {...editorProps}>{renderMarkdownBlocks(body)}</div>;
+  return <div className="rendered-markdown">{renderMarkdownBlocks(body)}</div>;
 }
 
 function renderMarkdownBlocks(markdown: string): ReactNode[] {
@@ -168,7 +141,7 @@ function renderMarkdownBlocks(markdown: string): ReactNode[] {
 
 function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(`[^`]+`|\*\*[^*]+?\*\*|\[[^\]]+?\]\([^)]+?\))/g;
+  const pattern = /(`[^`]+`|\*\*[^*]+?\*\*|\*[^*\n]+?\*|\[[^\]]+?\]\([^)]+?\))/g;
   let lastIndex = 0;
   let matchIndex = 0;
 
@@ -182,6 +155,8 @@ function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
       nodes.push(<code key={key}>{token.slice(1, -1)}</code>);
     } else if (token.startsWith("**")) {
       nodes.push(<strong key={key}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("*")) {
+      nodes.push(<em key={key}>{token.slice(1, -1)}</em>);
     } else {
       const link = /^\[([^\]]+?)\]\(([^)]+?)\)$/.exec(token);
       const href = link?.[2] || "";
