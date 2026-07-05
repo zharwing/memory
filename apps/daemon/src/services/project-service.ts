@@ -1,7 +1,10 @@
 import path from "node:path";
 import {
+  DEFAULT_ASSISTANT_POLICY,
   DEFAULT_MEMORY_WRITE_POLICY,
   nowIso,
+  type AssistantPolicy,
+  type AssistantRuntimeType,
   type MemoryReviewMode,
   type Project,
   type ProjectCreationPreview,
@@ -168,6 +171,45 @@ export class ProjectService {
     return nextPolicy;
   }
 
+  async updateAssistantPolicy(params: {
+    projectId: string;
+    enabled?: boolean;
+    runtimeType?: AssistantRuntimeType;
+    modelName?: string;
+    modelPath?: string;
+    endpoint?: string;
+    autoAcceptLowRiskMetadata?: boolean;
+    policy?: Partial<AssistantPolicy>;
+  }) {
+    const project = await this.getProject(params.projectId);
+    const patch = params.policy || params;
+    const current = {
+      ...DEFAULT_ASSISTANT_POLICY,
+      ...(project.assistantPolicy || {})
+    };
+    const nextPolicy: AssistantPolicy = {
+      ...current,
+      enabled: Boolean(patch.enabled ?? current.enabled),
+      runtimeType: normalizeAssistantRuntimeType(patch.runtimeType, current.runtimeType),
+      modelName: normalizeOptionalString(patch.modelName ?? current.modelName),
+      modelPath: normalizeOptionalString(patch.modelPath ?? current.modelPath),
+      endpoint: normalizeOptionalString(patch.endpoint ?? current.endpoint),
+      autoAcceptLowRiskMetadata: Boolean(patch.autoAcceptLowRiskMetadata ?? current.autoAcceptLowRiskMetadata)
+    };
+    if (nextPolicy.runtimeType === "disabled") {
+      nextPolicy.enabled = false;
+    }
+
+    const nextProject = {
+      ...project,
+      assistantPolicy: nextPolicy,
+      updated: nowIso()
+    };
+    await writeProjectFile(nextProject);
+    await this.registry.register(nextProject);
+    return nextPolicy;
+  }
+
   async updateGraphRules(params: {
     projectId: string;
     graphRules?: unknown[];
@@ -312,4 +354,19 @@ function normalizeRepoRole(input?: string): RepoLink["role"] {
 
 function normalizeMemoryReviewMode(input: unknown, fallback: MemoryReviewMode): MemoryReviewMode {
   return input === "off" || input === "risky-only" || input === "all" ? input : fallback;
+}
+
+function normalizeAssistantRuntimeType(input: unknown, fallback: AssistantRuntimeType): AssistantRuntimeType {
+  return input === "app-managed-llamacpp" ||
+    input === "ollama" ||
+    input === "lm-studio" ||
+    input === "custom-openai-compatible" ||
+    input === "disabled"
+    ? input
+    : fallback;
+}
+
+function normalizeOptionalString(input: unknown): string | undefined {
+  const value = String(input || "").trim();
+  return value || undefined;
 }

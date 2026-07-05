@@ -39,6 +39,32 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     allowAgentDirectWrites: { type: "boolean" },
     reviewMode: { type: "string", enum: ["off", "risky-only", "all"] }
   }, ["projectId"]),
+  tool("memory.update_assistant_policy", "Update the project's local assistant provider settings.", {
+    projectId: { type: "string" },
+    enabled: { type: "boolean" },
+    runtimeType: {
+      type: "string",
+      enum: ["disabled", "app-managed-llamacpp", "ollama", "lm-studio", "custom-openai-compatible"]
+    },
+    modelName: { type: "string" },
+    modelPath: { type: "string" },
+    endpoint: { type: "string" },
+    autoAcceptLowRiskMetadata: { type: "boolean" },
+    policy: {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean" },
+        runtimeType: {
+          type: "string",
+          enum: ["disabled", "app-managed-llamacpp", "ollama", "lm-studio", "custom-openai-compatible"]
+        },
+        modelName: { type: "string" },
+        modelPath: { type: "string" },
+        endpoint: { type: "string" },
+        autoAcceptLowRiskMetadata: { type: "boolean" }
+      }
+    }
+  }, ["projectId"]),
   tool("memory.update_graph_rules", "Replace the project's deterministic graph extraction rules.", {
     projectId: { type: "string" },
     graphRules: {

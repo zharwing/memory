@@ -445,6 +445,45 @@ input[type="checkbox"] {
   width: 100%;
 }
 
+.assistant-status-grid {
+  margin-bottom: 14px;
+}
+
+.assistant-settings-form .button-row {
+  justify-content: flex-end;
+}
+
+.assistant-provider-check {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.assistant-provider-check.clean {
+  border-color: rgba(72, 133, 93, 0.35);
+}
+
+.assistant-provider-check.blocked {
+  border-color: rgba(176, 68, 68, 0.35);
+}
+
+.assistant-provider-check-title {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.assistant-provider-check.clean .assistant-provider-check-title {
+  color: var(--success);
+}
+
+.assistant-provider-check.blocked .assistant-provider-check-title {
+  color: var(--danger);
+}
+
 .semantic-preview {
   border: 1px solid var(--border);
   border-radius: 8px;
