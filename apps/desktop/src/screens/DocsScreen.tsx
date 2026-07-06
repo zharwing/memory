@@ -52,8 +52,15 @@ export const DocsScreen = observer(function DocsScreen() {
     return total + (semanticEdgesFromProposalPatch(item.proposedPatch)?.edges.length || 0);
   }, 0);
   const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
+  const assistantRuntimeType = String(assistantPolicy.runtimeType || "disabled");
   const relationshipProviderEndpoint = relationshipRunDraft.endpoint.trim() || assistantPolicy.endpoint || "";
   const relationshipProviderModel = relationshipRunDraft.model.trim() || store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
+  const relationshipProviderName = providerLabel(assistantRuntimeType);
+  const relationshipProviderModelDisplayName = modelDisplayNameForLinkDiscovery({
+    assistantPolicy,
+    providerCheck: store.assistantProviderCheck,
+    modelId: relationshipProviderModel
+  });
   const relationshipProviderReady = Boolean(relationshipProviderEndpoint && relationshipProviderModel);
   const semanticEdgeCounts = store.semanticGraphEdgeCounts;
   const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
@@ -277,8 +284,9 @@ export const DocsScreen = observer(function DocsScreen() {
               <>
                 <div className="link-discovery-provider-ready">
                   <span>Provider</span>
-                  <strong>{relationshipProviderModel}</strong>
+                  <strong>{relationshipProviderName}</strong>
                   <small>{relationshipProviderEndpoint}</small>
+                  <small>{relationshipProviderModelDisplayName ? `Model: ${relationshipProviderModelDisplayName}` : "Model configured"}</small>
                 </div>
                 <div className="docs-ai-relationship-actions">
                   <button
@@ -449,4 +457,33 @@ export const DocsScreen = observer(function DocsScreen() {
 function numberOrUndefined(input: string): number | undefined {
   const value = Number(input);
   return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function providerLabel(runtimeType: string): string {
+  if (runtimeType === "lm-studio") return "LM Studio";
+  if (runtimeType === "ollama") return "Ollama";
+  if (runtimeType === "llama-cpp") return "llama.cpp server";
+  if (runtimeType === "openai") return "OpenAI API";
+  if (runtimeType === "anthropic") return "Claude API";
+  if (runtimeType === "custom-openai-compatible") return "OpenAI-compatible API";
+  if (runtimeType === "app-managed-llamacpp") return "App-managed local model";
+  return "AI provider";
+}
+
+function modelDisplayNameForLinkDiscovery(args: {
+  assistantPolicy: any;
+  providerCheck: any;
+  modelId: string;
+}): string {
+  if (
+    args.providerCheck?.ok &&
+    args.providerCheck?.modelDisplayName &&
+    (!args.modelId || args.providerCheck.model === args.modelId)
+  ) {
+    return String(args.providerCheck.modelDisplayName);
+  }
+  if (args.assistantPolicy?.modelDisplayName && args.assistantPolicy?.modelName === args.modelId) {
+    return String(args.assistantPolicy.modelDisplayName);
+  }
+  return "";
 }

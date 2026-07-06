@@ -47,6 +47,7 @@ export interface AssistantPolicy {
     enabled: boolean;
     runtimeType: AssistantRuntimeType;
     modelName?: string;
+    modelDisplayName?: string;
     modelPath?: string;
     endpoint?: string;
     autoAcceptLowRiskMetadata: boolean;

@@ -176,6 +176,7 @@ export class ProjectService {
     enabled?: boolean;
     runtimeType?: AssistantRuntimeType;
     modelName?: string;
+    modelDisplayName?: string;
     modelPath?: string;
     endpoint?: string;
     autoAcceptLowRiskMetadata?: boolean;
@@ -192,6 +193,7 @@ export class ProjectService {
       enabled: Boolean(patch.enabled ?? current.enabled),
       runtimeType: normalizeAssistantRuntimeType(patch.runtimeType, current.runtimeType),
       modelName: normalizeOptionalString(patch.modelName ?? current.modelName),
+      modelDisplayName: normalizeOptionalString(patch.modelDisplayName ?? current.modelDisplayName),
       modelPath: normalizeOptionalString(patch.modelPath ?? current.modelPath),
       endpoint: normalizeOptionalString(patch.endpoint ?? current.endpoint),
       autoAcceptLowRiskMetadata: Boolean(patch.autoAcceptLowRiskMetadata ?? current.autoAcceptLowRiskMetadata)
