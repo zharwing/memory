@@ -1342,6 +1342,14 @@ input[type="checkbox"] {
   border-bottom: 1px solid var(--border);
 }
 
+.mdx-block-toggle-label {
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  justify-content: center;
+  min-width: 22px;
+}
+
 .mdx-rich-editor .mdxeditor-root-contenteditable {
   min-height: 0;
   overflow: auto;

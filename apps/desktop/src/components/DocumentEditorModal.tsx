@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  BlockTypeSelect,
   BoldItalicUnderlineToggles,
   CreateLink,
   InsertCodeBlock,
@@ -8,9 +7,13 @@ import {
   InsertThematicBreak,
   ListsToggle,
   MDXEditor,
+  Separator,
+  SingleChoiceToggleGroup,
   UndoRedo,
   codeBlockPlugin,
   codeMirrorPlugin,
+  convertSelectionToNode$,
+  currentBlockType$,
   headingsPlugin,
   linkDialogPlugin,
   linkPlugin,
@@ -19,8 +22,12 @@ import {
   quotePlugin,
   tablePlugin,
   thematicBreakPlugin,
-  toolbarPlugin
+  toolbarPlugin,
+  useCellValue,
+  usePublisher
 } from "@mdxeditor/editor";
+import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
+import { $createParagraphNode } from "lexical";
 import "@mdxeditor/editor/style.css";
 import { KeyValue } from "./layout.js";
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton.js";
@@ -43,7 +50,9 @@ export function DocumentEditorModal({
   const [body, setBody] = useState(doc.body || "");
   const [savedTitle, setSavedTitle] = useState(doc.title || "");
   const [savedBody, setSavedBody] = useState(doc.body || "");
-  const dirty = title !== savedTitle || body !== savedBody;
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [editorRevision, setEditorRevision] = useState(0);
+  const dirty = title !== savedTitle || normalizeDocumentBody(body) !== normalizeDocumentBody(savedBody);
 
   useEffect(() => {
     setMode("preview");
@@ -51,11 +60,39 @@ export function DocumentEditorModal({
     setBody(doc.body || "");
     setSavedTitle(doc.title || "");
     setSavedBody(doc.body || "");
+    setShowDiscardDialog(false);
+    setEditorRevision((revision) => revision + 1);
   }, [doc.id]);
 
-  async function requestClose() {
-    if (dirty && !window.confirm("Discard unsaved document changes?")) return;
+  function discardLocalChanges() {
+    setMode("preview");
+    setTitle(savedTitle);
+    setBody(savedBody);
+    setShowDiscardDialog(false);
+    setEditorRevision((revision) => revision + 1);
+  }
+
+  function requestClose() {
+    if (dirty) {
+      setShowDiscardDialog(true);
+      return;
+    }
     onClose();
+  }
+
+  function confirmDiscardAndClose() {
+    discardLocalChanges();
+    onClose();
+  }
+
+  function updateBodyFromRichEditor(nextBody: string, initialMarkdownNormalize: boolean) {
+    const bodyWasClean = normalizeDocumentBody(body) === normalizeDocumentBody(savedBody);
+    if (initialMarkdownNormalize && title === savedTitle && bodyWasClean) {
+      setBody(nextBody);
+      setSavedBody(nextBody);
+      return;
+    }
+    setBody(nextBody);
   }
 
   async function saveDocument() {
@@ -68,6 +105,8 @@ export function DocumentEditorModal({
     setBody(nextBody);
     setSavedTitle(nextTitle);
     setSavedBody(nextBody);
+    setShowDiscardDialog(false);
+    setEditorRevision((revision) => revision + 1);
   }
 
   useEffect(() => {
@@ -75,6 +114,10 @@ export function DocumentEditorModal({
       if (event.key === "Escape") {
         if (event.defaultPrevented) return;
         event.preventDefault();
+        if (showDiscardDialog) {
+          setShowDiscardDialog(false);
+          return;
+        }
         void requestClose();
       }
     }
@@ -141,10 +184,10 @@ export function DocumentEditorModal({
         <div className="document-editor-body">
           {mode === "preview" ? (
             <MDXEditor
-              key={`${doc.id}-rich-editor`}
+              key={`${doc.id}-${editorRevision}-rich-editor`}
               className="mdx-rich-editor"
               markdown={body}
-              onChange={setBody}
+              onChange={updateBodyFromRichEditor}
               plugins={markdownEditorPlugins}
             />
           ) : (
@@ -157,9 +200,35 @@ export function DocumentEditorModal({
             />
           )}
         </div>
+        {showDiscardDialog ? (
+          <div
+            className="dialog-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setShowDiscardDialog(false);
+            }}
+          >
+            <div className="confirm-dialog" role="dialog" aria-modal="true" aria-label="Discard document changes">
+              <h3>Discard Unsaved Changes?</h3>
+              <p>
+                You have unsaved changes in <strong>{title || doc.title}</strong>. Discard them and close this document?
+              </p>
+              <div className="button-row">
+                <button type="button" onClick={() => setShowDiscardDialog(false)}>Keep Editing</button>
+                <button type="button" className="danger-button" onClick={confirmDiscardAndClose}>
+                  Discard Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );
+}
+
+function normalizeDocumentBody(value: string) {
+  return value.replace(/\r\n/g, "\n").trimEnd();
 }
 
 const markdownEditorPlugins = [
@@ -188,7 +257,8 @@ const markdownEditorPlugins = [
     toolbarContents: () => (
       <>
         <UndoRedo />
-        <BlockTypeSelect />
+        <BlockTypeToggles />
+        <Separator />
         <BoldItalicUnderlineToggles />
         <ListsToggle />
         <CreateLink />
@@ -199,3 +269,50 @@ const markdownEditorPlugins = [
     )
   })
 ];
+
+type ToolbarBlockType = "paragraph" | "h1" | "h2" | "h3" | "quote";
+
+const blockTypeItems: Array<{ title: string; value: ToolbarBlockType; contents: string }> = [
+  { title: "Paragraph", value: "paragraph", contents: "P" },
+  { title: "Heading 1", value: "h1", contents: "H1" },
+  { title: "Heading 2", value: "h2", contents: "H2" },
+  { title: "Heading 3", value: "h3", contents: "H3" },
+  { title: "Quote", value: "quote", contents: "Q" }
+];
+
+function BlockTypeToggles() {
+  const currentBlockType = useCellValue(currentBlockType$);
+  const convertSelectionToNode = usePublisher(convertSelectionToNode$);
+  const selectedBlockType = blockTypeItems.some((item) => item.value === currentBlockType)
+    ? (currentBlockType as ToolbarBlockType)
+    : "";
+
+  function applyBlockType(blockType: ToolbarBlockType | "") {
+    switch (blockType) {
+      case "paragraph":
+        convertSelectionToNode(() => $createParagraphNode());
+        break;
+      case "quote":
+        convertSelectionToNode(() => $createQuoteNode());
+        break;
+      case "h1":
+      case "h2":
+      case "h3":
+        convertSelectionToNode(() => $createHeadingNode(blockType));
+        break;
+      case "":
+        break;
+    }
+  }
+
+  return (
+    <SingleChoiceToggleGroup
+      value={selectedBlockType}
+      onChange={applyBlockType}
+      items={blockTypeItems.map((item) => ({
+        ...item,
+        contents: <span className="mdx-block-toggle-label">{item.contents}</span>
+      }))}
+    />
+  );
+}
