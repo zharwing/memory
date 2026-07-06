@@ -24,6 +24,7 @@ const DEFAULT_ASSISTANT_DRAFT = {
   runtimeType: "disabled",
   endpoint: "",
   modelName: "",
+  modelDisplayName: "",
   modelPath: "",
   autoAcceptLowRiskMetadata: false
 };
@@ -46,6 +47,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
       ...policy,
       endpoint: policy.endpoint || "",
       modelName,
+      modelDisplayName: policy.modelDisplayName || "",
       modelPath: policy.modelPath || ""
     });
     setTestApiKey("");
@@ -55,6 +57,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
     policy.runtimeType,
     policy.endpoint,
     policy.modelName,
+    policy.modelDisplayName,
     policy.modelPath,
     policy.autoAcceptLowRiskMetadata
   ]);
@@ -73,6 +76,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
       runtimeType,
       endpoint: nextDraft.endpoint.trim(),
       modelName: nextDraft.modelName.trim(),
+      modelDisplayName: nextDraft.modelDisplayName.trim(),
       modelPath: nextDraft.modelPath.trim(),
       autoAcceptLowRiskMetadata: Boolean(nextDraft.autoAcceptLowRiskMetadata)
     };
@@ -95,8 +99,9 @@ export const AssistantScreen = observer(function AssistantScreen() {
         jsonMode: false
       });
       if (result?.ok && result.model) {
-        updateDraft({ modelName: result.model });
-        await store.updateAssistantPolicy(assistantPolicyPayload({ modelName: result.model }));
+        const modelDisplayName = typeof result.modelDisplayName === "string" ? result.modelDisplayName : "";
+        updateDraft({ modelName: result.model, modelDisplayName });
+        await store.updateAssistantPolicy(assistantPolicyPayload({ modelName: result.model, modelDisplayName }));
         return;
       }
       await store.updateAssistantPolicy(assistantPolicyPayload());
@@ -119,7 +124,12 @@ export const AssistantScreen = observer(function AssistantScreen() {
         maxOutputTokens: 768,
         jsonMode: false
       });
-      if (result?.ok && result.model) updateDraft({ modelName: result.model });
+      if (result?.ok && result.model) {
+        updateDraft({
+          modelName: result.model,
+          modelDisplayName: typeof result.modelDisplayName === "string" ? result.modelDisplayName : ""
+        });
+      }
     } catch {
       // The store already exposes the failed check result for the UI.
     } finally {
@@ -141,7 +151,8 @@ export const AssistantScreen = observer(function AssistantScreen() {
       ...current,
       runtimeType,
       endpoint: endpointForProviderSelection(runtimeType, current.endpoint),
-      modelName: modelCanBeDetected(runtimeType) && current.modelName === LEGACY_LM_STUDIO_MODEL ? "" : current.modelName
+      modelName: modelCanBeDetected(runtimeType) && current.modelName === LEGACY_LM_STUDIO_MODEL ? "" : current.modelName,
+      modelDisplayName: runtimeType === current.runtimeType ? current.modelDisplayName : ""
     }));
   }
 
@@ -156,11 +167,14 @@ export const AssistantScreen = observer(function AssistantScreen() {
     ? checkOk ? "Connected" : "Connection failed"
     : status?.available ? "Available" : "Not tested";
   const selectedProvider = draft.runtimeType === "disabled" ? "lm-studio" : draft.runtimeType;
+  const autoDetectsModel = modelCanBeDetected(selectedProvider);
   const activeModel = checkOk && providerCheck?.model ? String(providerCheck.model) : draft.modelName.trim();
-  const activeModelDisplayName = checkOk && providerCheck?.modelDisplayName ? String(providerCheck.modelDisplayName) : "";
+  const activeModelDisplayName = checkOk && providerCheck?.modelDisplayName
+    ? String(providerCheck.modelDisplayName)
+    : draft.modelDisplayName.trim();
   const modelLabel = activeModelDisplayName
     ? `Active model: ${activeModelDisplayName}`
-    : activeModel && !(selectedProvider === "lm-studio" && activeModel === LEGACY_LM_STUDIO_MODEL)
+    : activeModel && !autoDetectsModel
       ? `Active model: ${activeModel}`
     : "Model will be detected";
   const testingSaveAndConnection = connectionAction === "save-test";
@@ -227,19 +241,30 @@ export const AssistantScreen = observer(function AssistantScreen() {
                   <input
                     value={draft.endpoint}
                     disabled={!store.selectedProjectId || store.loading}
-                    onChange={(event) => updateDraft({ endpoint: event.target.value })}
+                    onChange={(event) => updateDraft({ endpoint: event.target.value, modelDisplayName: "" })}
                     placeholder={defaultEndpointForProvider(selectedProvider)}
                   />
                 </label>
-                <label>
-                  <span>{modelCanBeDetected(selectedProvider) ? "Model ID (optional)" : "Model"}</span>
-                  <input
-                    value={draft.modelName}
-                    disabled={!store.selectedProjectId || store.loading}
-                    onChange={(event) => updateDraft({ modelName: event.target.value })}
-                    placeholder={modelCanBeDetected(selectedProvider) ? "Auto-detect loaded model" : "Model name"}
-                  />
-                </label>
+                {autoDetectsModel ? (
+                  <label>
+                    <span>Model</span>
+                    <input
+                      value={activeModelDisplayName}
+                      readOnly
+                      placeholder="Detected when you test"
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    <span>Model</span>
+                    <input
+                      value={draft.modelName}
+                      disabled={!store.selectedProjectId || store.loading}
+                      onChange={(event) => updateDraft({ modelName: event.target.value, modelDisplayName: "" })}
+                      placeholder="Model name"
+                    />
+                  </label>
+                )}
                 {providerMayUseApiKey(selectedProvider) ? (
                   <label>
                     <span>API key for test</span>
@@ -254,16 +279,16 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 ) : null}
               </div>
               {selectedProvider === "lm-studio" ? (
-                <p className="assistant-provider-hint">In LM Studio, start the OpenAI-compatible local server. Leave Model ID blank to use the active loaded model reported by LM Studio.</p>
+                <p className="assistant-provider-hint">In LM Studio, start the OpenAI-compatible local server. AI Memory detects the active loaded model when you test the connection.</p>
               ) : null}
               {activeModelDisplayName && activeModel ? (
-                <p className="assistant-provider-hint">Detected model: {activeModelDisplayName}. API model ID: <code>{activeModel}</code>.</p>
+                <p className="assistant-provider-hint">Detected model: {activeModelDisplayName}.</p>
               ) : null}
               {selectedProvider === "ollama" ? (
-                <p className="assistant-provider-hint">Start Ollama locally. Leave Model ID blank to use the first model returned by Ollama.</p>
+                <p className="assistant-provider-hint">Start Ollama locally. AI Memory detects the first available model when you test the connection.</p>
               ) : null}
               {selectedProvider === "llama-cpp" ? (
-                <p className="assistant-provider-hint">Start the llama.cpp server with OpenAI-compatible endpoints. Leave Model ID blank if the server lists a loaded model.</p>
+                <p className="assistant-provider-hint">Start the llama.cpp server with OpenAI-compatible endpoints. AI Memory detects the loaded model when the server lists one.</p>
               ) : null}
               {selectedProvider === "openai" ? (
                 <p className="assistant-provider-hint">Enter an OpenAI API key for the connection test. The key is not saved in project settings.</p>
@@ -315,6 +340,17 @@ export const AssistantScreen = observer(function AssistantScreen() {
           <details className="advanced-fields assistant-advanced-fields">
             <summary>Advanced settings</summary>
             <div className="advanced-fields-body">
+              {autoDetectsModel ? (
+                <label>
+                  <span>Model ID override</span>
+                  <input
+                    value={draft.modelName}
+                    disabled={!store.selectedProjectId || store.loading}
+                    onChange={(event) => updateDraft({ modelName: event.target.value, modelDisplayName: "" })}
+                    placeholder="Leave blank to auto-detect"
+                  />
+                </label>
+              ) : null}
               <label>
                 <span>Model path</span>
                 <input
