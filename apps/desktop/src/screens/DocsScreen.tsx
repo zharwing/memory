@@ -12,6 +12,19 @@ import { projectPath } from "../utils/routes.js";
 import { semanticEdgesFromProposalPatch } from "../utils/semantic-proposals.js";
 import { pendingInboxItems } from "../utils/inbox.js";
 
+const defaultRelationshipRunDraft = {
+  mode: "review",
+  endpoint: "",
+  model: "",
+  apiKey: "",
+  maxDocuments: "",
+  maxCandidates: "",
+  maxCandidatesPerDocument: "8",
+  timeoutSeconds: "120",
+  maxOutputTokens: "1024",
+  jsonMode: false
+};
+
 export const DocsScreen = observer(function DocsScreen() {
   const store = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -21,18 +34,7 @@ export const DocsScreen = observer(function DocsScreen() {
   const [showStarterDocsHelp, setShowStarterDocsHelp] = useState(false);
   const [showLinkDiscoveryDialog, setShowLinkDiscoveryDialog] = useState(false);
   const [showRelationshipAdvanced, setShowRelationshipAdvanced] = useState(false);
-  const [relationshipRunDraft, setRelationshipRunDraft] = useState({
-    mode: "review",
-    endpoint: "",
-    model: "",
-    apiKey: "",
-    maxDocuments: "",
-    maxCandidates: "",
-    maxCandidatesPerDocument: "8",
-    timeoutMs: "120000",
-    maxOutputTokens: "1024",
-    jsonMode: false
-  });
+  const [relationshipRunDraft, setRelationshipRunDraft] = useState(() => ({ ...defaultRelationshipRunDraft }));
   const [page, setPage] = useState(0);
   const pageSize = 25;
   const docs = store.docs.filter((doc) => doc.type !== "diagram");
@@ -53,15 +55,21 @@ export const DocsScreen = observer(function DocsScreen() {
   }, 0);
   const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
   const assistantRuntimeType = String(assistantPolicy.runtimeType || "disabled");
-  const relationshipProviderEndpoint = relationshipRunDraft.endpoint.trim() || assistantPolicy.endpoint || "";
-  const relationshipProviderModel = relationshipRunDraft.model.trim() || store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
+  const relationshipProviderEndpoint = assistantPolicy.endpoint || "";
+  const relationshipProviderModel = store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
   const relationshipProviderName = providerLabel(assistantRuntimeType);
   const relationshipProviderModelDisplayName = modelDisplayNameForLinkDiscovery({
     assistantPolicy,
     providerCheck: store.assistantProviderCheck,
     modelId: relationshipProviderModel
   });
-  const relationshipProviderReady = Boolean(relationshipProviderEndpoint && relationshipProviderModel);
+  const relationshipProviderConnected = Boolean(store.assistantProviderCheck?.ok);
+  const relationshipProviderReady = Boolean(
+    assistantPolicy.enabled &&
+    assistantRuntimeType !== "disabled" &&
+    relationshipProviderEndpoint &&
+    relationshipProviderModel
+  );
   const semanticEdgeCounts = store.semanticGraphEdgeCounts;
   const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
   const semanticResult = store.semanticAnalysisResult;
@@ -72,14 +80,6 @@ export const DocsScreen = observer(function DocsScreen() {
     setEditingDocId((current) => current === urlDocId ? current : urlDocId);
     setSelectedDocId((current) => current === urlDocId ? current : urlDocId);
   }, [searchParams]);
-
-  useEffect(() => {
-    setRelationshipRunDraft((current) => ({
-      ...current,
-      endpoint: current.endpoint || assistantPolicy.endpoint || "",
-      model: current.model || store.semanticGraphSettings?.model || assistantPolicy.modelName || ""
-    }));
-  }, [store.selectedProjectId, store.semanticGraphSettings?.model, assistantPolicy.endpoint, assistantPolicy.modelName]);
 
   useEffect(() => {
     if (editingDocId && store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId)) {
@@ -118,6 +118,18 @@ export const DocsScreen = observer(function DocsScreen() {
     setRelationshipRunDraft((current) => ({ ...current, ...patch }));
   }
 
+  function openLinkDiscoveryDialog() {
+    setShowRelationshipAdvanced(false);
+    setRelationshipRunDraft({ ...defaultRelationshipRunDraft });
+    setShowLinkDiscoveryDialog(true);
+  }
+
+  function closeLinkDiscoveryDialog() {
+    setShowRelationshipAdvanced(false);
+    setRelationshipRunDraft({ ...defaultRelationshipRunDraft });
+    setShowLinkDiscoveryDialog(false);
+  }
+
   function runRelationshipReview() {
     const mode = relationshipRunDraft.mode || "review";
     void store.analyzeSemanticGraph({
@@ -130,7 +142,7 @@ export const DocsScreen = observer(function DocsScreen() {
       maxDocuments: numberOrUndefined(relationshipRunDraft.maxDocuments),
       maxCandidates: numberOrUndefined(relationshipRunDraft.maxCandidates),
       maxCandidatesPerDocument: numberOrUndefined(relationshipRunDraft.maxCandidatesPerDocument),
-      timeoutMs: numberOrUndefined(relationshipRunDraft.timeoutMs),
+      timeoutMs: secondsToMilliseconds(relationshipRunDraft.timeoutSeconds),
       maxOutputTokens: numberOrUndefined(relationshipRunDraft.maxOutputTokens),
       jsonMode: Boolean(relationshipRunDraft.jsonMode)
     });
@@ -198,7 +210,7 @@ export const DocsScreen = observer(function DocsScreen() {
           <button
             type="button"
             className="icon-text-button"
-            onClick={() => setShowLinkDiscoveryDialog(true)}
+            onClick={openLinkDiscoveryDialog}
           >
             <Sparkles size={14} />
             Suggest graph links
@@ -242,19 +254,19 @@ export const DocsScreen = observer(function DocsScreen() {
           className="dialog-backdrop link-discovery-backdrop"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowLinkDiscoveryDialog(false);
+            if (event.target === event.currentTarget) closeLinkDiscoveryDialog();
           }}
         >
-          <section className="link-discovery-dialog" role="dialog" aria-modal="true" aria-label="Find document links">
+          <section className="link-discovery-dialog" role="dialog" aria-modal="true" aria-label="Suggest graph links">
             <header className="link-discovery-header">
               <div>
-                <span className="section-kicker">AI link discovery</span>
-                <h3>Find document links</h3>
+                <span className="section-kicker">Graph link suggestions</span>
+                <h3>Suggest graph links</h3>
               </div>
               <button
                 type="button"
                 className="icon-button icon-only"
-                onClick={() => setShowLinkDiscoveryDialog(false)}
+                onClick={closeLinkDiscoveryDialog}
                 title="Close"
                 aria-label="Close"
               >
@@ -262,32 +274,43 @@ export const DocsScreen = observer(function DocsScreen() {
               </button>
             </header>
             <p className="link-discovery-copy">
-              AI scans eligible docs and suggests connections. Review suggestions in Inbox; approved links appear in Graph.
+              AI will scan eligible documents and create link suggestions for review. Approved suggestions appear in Graph.
             </p>
             <div className="link-discovery-metrics" aria-label="Link discovery metrics">
               <span><strong>{aiEligibleDocs.length}</strong> eligible docs</span>
-              <span><strong>{savedLinkCount}</strong> saved links</span>
-              <span><strong>{pendingRelationshipSuggestions}</strong> pending suggestions</span>
+              <span><strong>{pendingRelationshipSuggestions}</strong> in Inbox</span>
+              <span><strong>{savedLinkCount}</strong> approved links</span>
             </div>
             {!relationshipProviderReady ? (
               <div className="link-discovery-provider-required">
                 <AlertCircle size={18} aria-hidden="true" />
                 <div>
-                  <strong>AI provider required</strong>
-                  <p>Connect an AI provider to suggest graph links for this project.</p>
+                  <strong>AI provider not connected</strong>
+                  <p>Connect an AI provider before creating graph-link suggestions.</p>
                 </div>
                 <Link className="button-link primary" to={projectPath(store.selectedProjectId, "/assistant")}>
-                  Configure AI provider
+                  Open AI Assistant settings
                 </Link>
               </div>
             ) : (
               <>
                 <div className="link-discovery-provider-ready">
-                  <span>Provider</span>
-                  <strong>{relationshipProviderName}</strong>
+                  <span>Using {relationshipProviderName}</span>
+                  <strong>{relationshipProviderConnected ? "Connected" : "Configured"} · {relationshipProviderModelDisplayName ? "Model configured" : "Model ready"}</strong>
                   <small>{relationshipProviderEndpoint}</small>
-                  <small>{relationshipProviderModelDisplayName ? `Model: ${relationshipProviderModelDisplayName}` : "Model configured"}</small>
+                  {relationshipProviderModelDisplayName ? <small>Model: {relationshipProviderModelDisplayName}</small> : null}
                 </div>
+                <p className="link-discovery-assurance">
+                  Suggestions will be sent to Inbox for approval. Nothing will be added to Graph until you approve it.
+                </p>
+                {pendingRelationshipSuggestions > 0 ? (
+                  <div className="link-discovery-pending-note">
+                    <strong>{pendingRelationshipSuggestions} suggestions already waiting in Inbox.</strong>
+                    <Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>
+                      Review Inbox
+                    </Link>
+                  </div>
+                ) : null}
                 <div className="docs-ai-relationship-actions">
                   <button
                     type="button"
@@ -296,9 +319,17 @@ export const DocsScreen = observer(function DocsScreen() {
                     onClick={runRelationshipReview}
                   >
                     <Play size={14} />
-                    Find links
+                    {store.loading ? "Creating suggestions..." : "Create suggestions"}
                   </button>
-                  {pendingRelationshipCount > 0 || semanticResult?.proposal ? (
+                  <button
+                    type="button"
+                    className="icon-text-button"
+                    disabled={store.loading}
+                    onClick={closeLinkDiscoveryDialog}
+                  >
+                    Cancel
+                  </button>
+                  {(pendingRelationshipCount > 0 || semanticResult?.proposal) && pendingRelationshipSuggestions === 0 ? (
                     <Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>
                       Review Inbox
                     </Link>
@@ -311,109 +342,128 @@ export const DocsScreen = observer(function DocsScreen() {
                     aria-expanded={showRelationshipAdvanced}
                   >
                     <Settings2 size={14} />
-                    Advanced
+                    Advanced settings
                   </button>
                 </div>
                 {showRelationshipAdvanced ? (
                   <div className="semantic-run-advanced">
-                    <div className="semantic-run-form">
-                      <label>
-                        <span>Mode</span>
-                        <select
-                          value={relationshipRunDraft.mode}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ mode: event.target.value })}
-                        >
-                          <option value="review">Review</option>
-                          <option value="dry-run">Dry run</option>
-                          <option value="auto">Auto</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Endpoint override</span>
-                        <input
-                          value={relationshipRunDraft.endpoint}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ endpoint: event.target.value })}
-                          placeholder={assistantPolicy.endpoint || "http://127.0.0.1:1234/v1"}
-                        />
-                      </label>
-                      <label>
-                        <span>Model override</span>
-                        <input
-                          value={relationshipRunDraft.model}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ model: event.target.value })}
-                          placeholder={store.semanticGraphSettings?.model || assistantPolicy.modelName || "local model"}
-                        />
-                      </label>
-                      <label>
-                        <span>API key</span>
-                        <input
-                          type="password"
-                          value={relationshipRunDraft.apiKey}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ apiKey: event.target.value })}
-                          placeholder="optional"
-                        />
-                      </label>
-                      <label>
-                        <span>Max docs</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={relationshipRunDraft.maxDocuments}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ maxDocuments: event.target.value })}
-                          placeholder="all"
-                        />
-                      </label>
-                      <label>
-                        <span>Max candidates</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={relationshipRunDraft.maxCandidates}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ maxCandidates: event.target.value })}
-                          placeholder="all"
-                        />
-                      </label>
-                      <label>
-                        <span>Per doc</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={relationshipRunDraft.maxCandidatesPerDocument}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ maxCandidatesPerDocument: event.target.value })}
-                        />
-                      </label>
-                      <label>
-                        <span>Timeout ms</span>
-                        <input
-                          type="number"
-                          min="1000"
-                          step="1000"
-                          value={relationshipRunDraft.timeoutMs}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ timeoutMs: event.target.value })}
-                        />
-                      </label>
-                      <label>
-                        <span>Output tokens</span>
-                        <input
-                          type="number"
-                          min="128"
-                          step="128"
-                          value={relationshipRunDraft.maxOutputTokens}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ maxOutputTokens: event.target.value })}
-                        />
-                      </label>
+                    <p className="semantic-run-advanced-note">
+                      Advanced settings are optional. Defaults are recommended for most runs.
+                    </p>
+                    <div className="semantic-run-advanced-section">
+                      <h4>Review behavior</h4>
+                      <div className="semantic-run-form semantic-run-form-basic">
+                        <label>
+                          <span>Review behavior</span>
+                          <select
+                            value={relationshipRunDraft.mode}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ mode: event.target.value })}
+                          >
+                            <option value="review">Send to Inbox for approval</option>
+                            <option value="dry-run">Preview only</option>
+                            <option value="auto">Auto-approve links</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="semantic-run-advanced-section">
+                      <h4>Run limits</h4>
+                      <div className="semantic-run-form">
+                        <label>
+                          <span>Documents to scan</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={relationshipRunDraft.maxDocuments}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ maxDocuments: event.target.value })}
+                            placeholder="All"
+                          />
+                        </label>
+                        <label>
+                          <span>Total link candidates</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={relationshipRunDraft.maxCandidates}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ maxCandidates: event.target.value })}
+                            placeholder="All"
+                          />
+                        </label>
+                        <label>
+                          <span>Candidates per document</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={relationshipRunDraft.maxCandidatesPerDocument}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ maxCandidatesPerDocument: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div className="semantic-run-advanced-section">
+                      <h4>AI request</h4>
+                      <div className="semantic-run-form">
+                        <label className="semantic-run-wide">
+                          <span>Endpoint for this run</span>
+                          <input
+                            value={relationshipRunDraft.endpoint}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ endpoint: event.target.value })}
+                            placeholder="Use provider default"
+                          />
+                        </label>
+                        <label className="semantic-run-wide">
+                          <span>Model for this run</span>
+                          <input
+                            value={relationshipRunDraft.model}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ model: event.target.value })}
+                            placeholder="Use provider default"
+                          />
+                        </label>
+                        <label>
+                          <span>API key for this run</span>
+                          <input
+                            type="password"
+                            value={relationshipRunDraft.apiKey}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ apiKey: event.target.value })}
+                            placeholder="Optional"
+                          />
+                        </label>
+                        <label>
+                          <span>Max response size</span>
+                          <input
+                            type="number"
+                            min="128"
+                            step="128"
+                            value={relationshipRunDraft.maxOutputTokens}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ maxOutputTokens: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          <span>Request timeout (sec)</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={relationshipRunDraft.timeoutSeconds}
+                            disabled={store.loading}
+                            onChange={(event) => updateRelationshipRunDraft({ timeoutSeconds: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div className="semantic-run-advanced-section">
+                      <h4>Compatibility</h4>
                       <label className="checkbox-row semantic-json-mode">
                         <input
                           type="checkbox"
@@ -421,7 +471,7 @@ export const DocsScreen = observer(function DocsScreen() {
                           disabled={store.loading}
                           onChange={(event) => updateRelationshipRunDraft({ jsonMode: event.target.checked })}
                         />
-                        <span>Provider JSON mode</span>
+                        <span>Require strict JSON output</span>
                       </label>
                     </div>
                   </div>
@@ -457,6 +507,11 @@ export const DocsScreen = observer(function DocsScreen() {
 function numberOrUndefined(input: string): number | undefined {
   const value = Number(input);
   return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function secondsToMilliseconds(input: string): number | undefined {
+  const seconds = numberOrUndefined(input);
+  return seconds ? seconds * 1000 : undefined;
 }
 
 function providerLabel(runtimeType: string): string {

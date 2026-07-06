@@ -2256,7 +2256,7 @@ tr.selected-row td {
 .semantic-run-form {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(4, minmax(128px, 1fr));
+  grid-template-columns: repeat(3, minmax(128px, 1fr));
 }
 
 .semantic-run-form-basic {
@@ -2266,6 +2266,12 @@ tr.selected-row td {
 .semantic-run-form label {
   display: grid;
   gap: 5px;
+}
+
+.semantic-run-form label small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .semantic-run-form label > span {
@@ -2279,9 +2285,7 @@ tr.selected-row td {
   width: 100%;
 }
 
-.semantic-run-form label:nth-child(3),
-.semantic-run-form label:nth-child(4),
-.semantic-run-form label:nth-child(5) {
+.semantic-run-wide {
   grid-column: span 2;
 }
 
@@ -2299,13 +2303,41 @@ tr.selected-row td {
 .semantic-run-advanced {
   border-top: 1px solid var(--border);
   display: grid;
-  gap: 10px;
+  gap: 14px;
   padding-top: 10px;
 }
 
+.semantic-run-advanced-note {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.semantic-run-advanced-section {
+  display: grid;
+  gap: 8px;
+}
+
+.semantic-run-advanced-section h4 {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.2;
+  margin: 0;
+}
+
 .semantic-json-mode {
-  align-self: end;
+  align-items: center;
+  display: flex;
+  grid-column: 1 / -1;
   min-height: 38px;
+  width: fit-content;
+}
+
+.semantic-json-mode span {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  text-transform: none;
 }
 
 .semantic-run-result {
@@ -2650,7 +2682,7 @@ tr.selected-row td {
 }
 
 .link-discovery-backdrop {
-  align-items: flex-start;
+  align-items: center;
   overflow: auto;
 }
 
@@ -2663,10 +2695,10 @@ tr.selected-row td {
   gap: 14px;
   margin: auto 0;
   max-height: calc(100vh - 48px);
-  max-width: 760px;
+  max-width: 660px;
   overflow: auto;
   padding: 18px;
-  width: min(100%, 760px);
+  width: min(100%, 660px);
 }
 
 .link-discovery-header {
@@ -2737,7 +2769,7 @@ tr.selected-row td {
 }
 
 .link-discovery-provider-ready {
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--surface-2) 86%, white 14%);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;
@@ -2759,6 +2791,32 @@ tr.selected-row td {
 
 .link-discovery-provider-ready strong {
   overflow-wrap: anywhere;
+}
+
+.link-discovery-assurance {
+  background: rgba(15, 118, 110, 0.08);
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 8px;
+  color: var(--text);
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px;
+}
+
+.link-discovery-pending-note {
+  align-items: center;
+  background: rgba(166, 106, 31, 0.08);
+  border: 1px solid rgba(166, 106, 31, 0.24);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px;
+}
+
+.link-discovery-pending-note strong {
+  color: var(--text);
+  font-size: 13px;
 }
 
 .sr-only {
@@ -2916,9 +2974,7 @@ tr.selected-row td {
   }
 
   .semantic-run-form,
-  .semantic-run-form label:nth-child(3),
-  .semantic-run-form label:nth-child(4),
-  .semantic-run-form label:nth-child(5) {
+  .semantic-run-wide {
     grid-column: auto;
     grid-template-columns: 1fr;
   }
