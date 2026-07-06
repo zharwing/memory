@@ -39,6 +39,7 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
   const appPath = appPathFromPathname(location.pathname);
   const selectedProjectId = project?.id || store.selectedProjectId;
   const pendingInboxCount = pendingInboxItems(store.inbox).length;
+  const linkedRepoCount = store.repoLinks.length || project?.repos?.length || 0;
 
   return (
     <div className="app-shell">
@@ -78,9 +79,9 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
             <span>Project</span>
             <strong>{project?.name || "No project selected"}</strong>
           </Link>
-          <div className="topbar-meta">
-            <span><GitFork size={15} /> {project?.repos?.length || 0} repos linked</span>
-            <span>{store.loading ? "Updating" : "Ready"}</span>
+          <div className="topbar-meta" aria-busy={store.loading}>
+            <span className="topbar-meta-pill repo-count"><GitFork size={15} /> {linkedRepoCount} repos linked</span>
+            <span className="topbar-meta-pill app-ready">Ready</span>
           </div>
         </header>
         {store.error ? <div className="notice danger">{store.error}</div> : null}

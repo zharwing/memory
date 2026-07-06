@@ -44,7 +44,7 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     enabled: { type: "boolean" },
     runtimeType: {
       type: "string",
-      enum: ["disabled", "app-managed-llamacpp", "ollama", "lm-studio", "custom-openai-compatible"]
+      enum: ["disabled", "app-managed-llamacpp", "llama-cpp", "ollama", "lm-studio", "openai", "anthropic", "custom-openai-compatible"]
     },
     modelName: { type: "string" },
     modelPath: { type: "string" },
@@ -56,7 +56,7 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
         enabled: { type: "boolean" },
         runtimeType: {
           type: "string",
-          enum: ["disabled", "app-managed-llamacpp", "ollama", "lm-studio", "custom-openai-compatible"]
+          enum: ["disabled", "app-managed-llamacpp", "llama-cpp", "ollama", "lm-studio", "openai", "anthropic", "custom-openai-compatible"]
         },
         modelName: { type: "string" },
         modelPath: { type: "string" },

@@ -52,7 +52,9 @@ export function DocumentEditorModal({
   const [savedBody, setSavedBody] = useState(doc.body || "");
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [editorRevision, setEditorRevision] = useState(0);
+  const [localSaving, setLocalSaving] = useState(false);
   const dirty = title !== savedTitle || normalizeDocumentBody(body) !== normalizeDocumentBody(savedBody);
+  const saveInProgress = saving || localSaving;
 
   useEffect(() => {
     setMode("preview");
@@ -61,6 +63,7 @@ export function DocumentEditorModal({
     setSavedTitle(doc.title || "");
     setSavedBody(doc.body || "");
     setShowDiscardDialog(false);
+    setLocalSaving(false);
     setEditorRevision((revision) => revision + 1);
   }, [doc.id]);
 
@@ -96,17 +99,25 @@ export function DocumentEditorModal({
   }
 
   async function saveDocument() {
-    if (!title.trim()) return;
-    const updated = await onSave({ title: title.trim(), body });
-    if (!updated) return;
-    const nextTitle = updated.title || title.trim();
-    const nextBody = typeof updated.body === "string" ? updated.body : body;
-    setTitle(nextTitle);
-    setBody(nextBody);
-    setSavedTitle(nextTitle);
-    setSavedBody(nextBody);
-    setShowDiscardDialog(false);
-    setEditorRevision((revision) => revision + 1);
+    if (!title.trim() || saveInProgress) return;
+    setLocalSaving(true);
+    try {
+      const updated = await onSave({ title: title.trim(), body });
+      if (!updated) return;
+      const nextTitle = updated.title || title.trim();
+      const nextBody = typeof updated.body === "string" ? updated.body : body;
+      const shouldResetEditor = nextBody !== body;
+      setTitle(nextTitle);
+      setBody(nextBody);
+      setSavedTitle(nextTitle);
+      setSavedBody(nextBody);
+      setShowDiscardDialog(false);
+      if (shouldResetEditor) {
+        setEditorRevision((revision) => revision + 1);
+      }
+    } finally {
+      setLocalSaving(false);
+    }
   }
 
   useEffect(() => {
@@ -160,7 +171,7 @@ export function DocumentEditorModal({
               onConfirm={onDelete}
             />
             <button type="button" onClick={() => void requestClose()}>Close</button>
-            <button type="button" disabled={!dirty || saving || !title.trim()} onClick={() => void saveDocument()}>
+            <button type="button" disabled={!dirty || saveInProgress || !title.trim()} onClick={() => void saveDocument()}>
               Save
             </button>
           </div>
