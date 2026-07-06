@@ -732,7 +732,7 @@ export const GraphScreen = observer(function GraphScreen() {
                             disabled={store.loading}
                             onChange={(event) => updateSemanticRunDraft({ jsonMode: event.target.checked })}
                           />
-                          <span>Provider JSON mode</span>
+                          <span>Use strict JSON responses when supported.</span>
                         </label>
                       </div>
                       <div className="semantic-run-actions">
