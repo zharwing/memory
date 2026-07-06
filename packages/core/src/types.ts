@@ -34,8 +34,11 @@ export type StartupMode =
 
 export type AssistantRuntimeType =
   | "app-managed-llamacpp"
+  | "llama-cpp"
   | "ollama"
   | "lm-studio"
+  | "openai"
+  | "anthropic"
   | "custom-openai-compatible"
   | "disabled";
 

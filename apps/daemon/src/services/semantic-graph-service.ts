@@ -22,9 +22,9 @@ import {
 } from "@aimem/storage";
 import { buildProjectGraph } from "@aimem/graph";
 import {
-  callOpenAiCompatibleJson,
-  checkOpenAiCompatibleProvider,
-  type OpenAiCompatibleProviderConfig
+  callAiProviderJson,
+  checkAiProvider,
+  type AiProviderConfig
 } from "@aimem/assistant-runtime";
 import {
   applySemanticEdgePolicy,
@@ -254,18 +254,19 @@ export class SemanticGraphService {
     endpoint?: string;
     model?: string;
     apiKey?: string;
+    providerKind?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     const settings = await readSemanticGraphSettings(project);
-    const config = semanticProviderConfig(project, settings, {
+    const config = semanticProviderCheckConfig(project, settings, {
       ...params,
       timeoutMs: params.timeoutMs || 30000,
       maxOutputTokens: params.maxOutputTokens || 128
     });
-    return checkOpenAiCompatibleProvider(config);
+    return checkAiProvider(config);
   }
 
   async analyze(params: {
@@ -347,7 +348,7 @@ export class SemanticGraphService {
       mode,
       settings,
       providerId: params.providerId || settings.providerId,
-      providerKind: params.providerKind || settings.providerKind || "openai-compatible",
+      providerKind: provider.providerKind || params.providerKind || settings.providerKind || "openai-compatible",
       model: provider.model,
       counts: {
         documentsTotal: scopedDocuments.length,
@@ -361,7 +362,7 @@ export class SemanticGraphService {
         const chunkExtractions: SemanticDocumentExtraction[] = [];
         let model = provider.model;
         for (const chunk of item.chunks) {
-          const result = await callOpenAiCompatibleJson(
+          const result = await callAiProviderJson(
             provider,
             item.chunks.length === 1
               ? semanticExtractionMessagesForItem(item)
@@ -419,7 +420,7 @@ export class SemanticGraphService {
         const source = extractionByDocument.get(candidate.sourceDocumentId);
         if (!source) continue;
         const targetSummary = targetExtractionSummary(candidate, extractionByDocument);
-        const result = await callOpenAiCompatibleJson(
+        const result = await callAiProviderJson(
           provider,
           semanticJudgementMessages({ source, candidate, targetSummary }),
           { schemaName: "semantic relationship decision", retryOnInvalidJson: true }
@@ -457,7 +458,7 @@ export class SemanticGraphService {
         ? await mergeAcceptedSemanticEdges(project, acceptedPolicyEdges)
         : [];
       const proposalSummary = proposedPolicyEdges.length > 0
-        ? semanticProposalSummaryFromProviderJson((await callOpenAiCompatibleJson(
+        ? semanticProposalSummaryFromProviderJson((await callAiProviderJson(
             provider,
             semanticProposalSummaryMessages({
               graph,
@@ -729,15 +730,17 @@ function semanticProviderConfig(
     endpoint?: string;
     model?: string;
     apiKey?: string;
+    providerKind?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
   }
-): OpenAiCompatibleProviderConfig {
-  const endpoint = params.endpoint || project.assistantPolicy.endpoint;
+): AiProviderConfig & { model: string } {
+  const providerKind = semanticProviderKind(project, settings, params.providerKind);
+  const endpoint = params.endpoint || project.assistantPolicy.endpoint || defaultEndpointForProviderKind(providerKind);
   const model = params.model || settings.model || project.assistantPolicy.modelName;
   if (!endpoint) {
-    throw new Error("No OpenAI-compatible endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
+    throw new Error("No AI provider endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
   }
   if (!model) {
     throw new Error("No model configured. Set semantic graph model, assistantPolicy.modelName, or pass model.");
@@ -747,6 +750,7 @@ function semanticProviderConfig(
   }
 
   return {
+    providerKind,
     endpoint,
     model,
     apiKey: params.apiKey,
@@ -755,6 +759,65 @@ function semanticProviderConfig(
     temperature: 0,
     jsonMode: params.jsonMode
   };
+}
+
+function semanticProviderCheckConfig(
+  project: Project,
+  settings: SemanticGraphSettings,
+  params: {
+    endpoint?: string;
+    model?: string;
+    apiKey?: string;
+    providerKind?: string;
+    timeoutMs?: number;
+    maxOutputTokens?: number;
+    jsonMode?: boolean;
+  }
+): AiProviderConfig {
+  const providerKind = semanticProviderKind(project, settings, params.providerKind);
+  const endpoint = params.endpoint || project.assistantPolicy.endpoint || defaultEndpointForProviderKind(providerKind);
+  const model = params.model || settings.model || project.assistantPolicy.modelName;
+  if (!endpoint) {
+    throw new Error("No AI provider endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
+  }
+
+  return {
+    providerKind,
+    endpoint,
+    model,
+    apiKey: params.apiKey,
+    timeoutMs: params.timeoutMs || 30000,
+    maxOutputTokens: params.maxOutputTokens || 128,
+    temperature: 0,
+    jsonMode: params.jsonMode
+  };
+}
+
+function semanticProviderKind(
+  project: Project,
+  settings: SemanticGraphSettings,
+  providerKind?: string
+): string {
+  return providerKind || settings.providerKind || providerKindFromAssistantRuntime(project.assistantPolicy.runtimeType) || "openai-compatible";
+}
+
+function providerKindFromAssistantRuntime(runtimeType?: string): string | undefined {
+  if (runtimeType === "lm-studio") return "lm-studio";
+  if (runtimeType === "ollama") return "ollama";
+  if (runtimeType === "llama-cpp" || runtimeType === "app-managed-llamacpp") return "llama-cpp";
+  if (runtimeType === "openai") return "openai";
+  if (runtimeType === "anthropic") return "anthropic";
+  if (runtimeType === "custom-openai-compatible") return "openai-compatible";
+  return undefined;
+}
+
+function defaultEndpointForProviderKind(providerKind?: string): string | undefined {
+  if (providerKind === "lm-studio") return "http://127.0.0.1:1234/v1";
+  if (providerKind === "ollama") return "http://127.0.0.1:11434";
+  if (providerKind === "llama-cpp" || providerKind === "llama.cpp") return "http://127.0.0.1:8080/v1";
+  if (providerKind === "openai") return "https://api.openai.com/v1";
+  if (providerKind === "anthropic" || providerKind === "claude") return "https://api.anthropic.com";
+  return undefined;
 }
 
 function isLocalProviderEndpoint(endpoint: string): boolean {

@@ -358,8 +358,11 @@ function normalizeMemoryReviewMode(input: unknown, fallback: MemoryReviewMode): 
 
 function normalizeAssistantRuntimeType(input: unknown, fallback: AssistantRuntimeType): AssistantRuntimeType {
   return input === "app-managed-llamacpp" ||
+    input === "llama-cpp" ||
     input === "ollama" ||
     input === "lm-studio" ||
+    input === "openai" ||
+    input === "anthropic" ||
     input === "custom-openai-compatible" ||
     input === "disabled"
     ? input

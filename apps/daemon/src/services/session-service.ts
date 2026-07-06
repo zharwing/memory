@@ -11,11 +11,11 @@ import {
   updateSessionSummary
 } from "@aimem/storage";
 import {
-  callOpenAiCompatibleJson,
+  callAiProviderJson,
   sessionSummaryFromProviderJson,
   sessionSummaryMessages,
   summarizeSessionMetadataDeterministically,
-  type OpenAiCompatibleProviderConfig,
+  type AiProviderConfig,
   type SessionSummaryDraft
 } from "@aimem/assistant-runtime";
 import { applyPrivacyGate } from "@aimem/privacy";
@@ -243,7 +243,7 @@ async function summarizeSessionForStorage(
 
   if (provider && privacy.allowed) {
     try {
-      const result = await callOpenAiCompatibleJson(
+      const result = await callAiProviderJson(
         provider,
         sessionSummaryMessages(session, privacy.content),
         { schemaName: "session summary", retryOnInvalidJson: true }
@@ -275,12 +275,13 @@ function assistantProviderConfig(
     maxOutputTokens?: number;
     jsonMode?: boolean;
   }
-): OpenAiCompatibleProviderConfig | undefined {
+): AiProviderConfig | undefined {
   const endpoint = params.endpoint || project.assistantPolicy.endpoint;
   const model = params.model || project.assistantPolicy.modelName;
   if (!project.assistantPolicy.enabled || project.assistantPolicy.runtimeType === "disabled") return undefined;
   if (!endpoint || !model || !isLocalProviderEndpoint(endpoint)) return undefined;
   return {
+    providerKind: providerKindFromAssistantRuntime(project.assistantPolicy.runtimeType),
     endpoint,
     model,
     apiKey: params.apiKey,
@@ -289,6 +290,14 @@ function assistantProviderConfig(
     temperature: 0,
     jsonMode: params.jsonMode ?? false
   };
+}
+
+function providerKindFromAssistantRuntime(runtimeType?: string): string {
+  if (runtimeType === "lm-studio") return "lm-studio";
+  if (runtimeType === "ollama") return "ollama";
+  if (runtimeType === "llama-cpp" || runtimeType === "app-managed-llamacpp") return "llama-cpp";
+  if (runtimeType === "custom-openai-compatible") return "openai-compatible";
+  return "openai-compatible";
 }
 
 function isLocalProviderEndpoint(endpoint: string): boolean {
