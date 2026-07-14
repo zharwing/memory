@@ -12,13 +12,27 @@ export function pendingInboxItems(items: any[]): any[] {
   return currentInboxItems(items).filter(isActionableInboxItem);
 }
 
+export function pendingInboxReviewCount(items: any[]): number {
+  return pendingInboxItems(items).reduce((total, item) => total + inboxReviewUnitCount(item), 0);
+}
+
 export function isAiRelationshipProposal(item: any): boolean {
-  return item?.type === "graph-update" && Boolean(semanticEdgesFromProposalPatch(item.proposedPatch));
+  return Boolean(aiRelationshipProposalPatch(item));
 }
 
 function currentAiRelationshipProposalId(items: any[]): string | undefined {
   const semanticItems = items.filter(isAiRelationshipProposal);
   return newestByCreated(semanticItems)?.id;
+}
+
+function inboxReviewUnitCount(item: any): number {
+  return aiRelationshipProposalPatch(item)?.edges.length || 1;
+}
+
+function aiRelationshipProposalPatch(item: any) {
+  return item?.type === "graph-update"
+    ? semanticEdgesFromProposalPatch(item.proposedPatch)
+    : undefined;
 }
 
 function isActionableInboxItem(item: any): boolean {

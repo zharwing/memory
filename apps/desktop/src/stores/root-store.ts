@@ -27,6 +27,8 @@ export class RootStore {
   semanticGraphRuns: any[] = [];
   semanticAnalysisPreview: any = undefined;
   semanticAnalysisResult: any = undefined;
+  semanticAnalysisProgressRun: any = undefined;
+  semanticAnalysisRunning = false;
   assistantStatus: any = undefined;
   assistantProviderCheck: any = undefined;
   contextBundle: any = undefined;
@@ -38,9 +40,12 @@ export class RootStore {
   trashItems: any[] = [];
   loading = false;
   error = "";
+  semanticAnalysisPollHandle: ReturnType<typeof setInterval> | undefined = undefined;
 
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, {
+      semanticAnalysisPollHandle: false
+    });
   }
 
   get selectedProject() {
@@ -91,6 +96,9 @@ export class RootStore {
   async selectProject(projectId: string) {
     this.selectedProjectId = projectId;
     this.semanticAnalysisResult = undefined;
+    this.semanticAnalysisProgressRun = undefined;
+    this.semanticAnalysisRunning = false;
+    this.stopSemanticAnalysisPolling();
     this.assistantProviderCheck = undefined;
     await this.refreshProject();
   }
@@ -124,10 +132,13 @@ export class RootStore {
         this.graph = graph;
         this.semanticGraphSettings = semanticGraphSettings;
         this.semanticGraphStatus = semanticGraphStatus;
+        this.semanticAnalysisProgressRun = (semanticGraphStatus as any)?.runCounts?.latest || this.semanticAnalysisProgressRun;
+        this.semanticAnalysisRunning = isSemanticAnalysisRunActive(this.semanticAnalysisProgressRun);
         this.assistantStatus = assistantStatus;
         this.contextBundle = contextBundle;
       });
     });
+    this.syncSemanticAnalysisPolling();
     if (this.selectedWorkstreamId) await this.loadWorkstreamDetail(this.selectedWorkstreamId);
   }
 
@@ -186,6 +197,9 @@ export class RootStore {
           this.semanticGraphRuns = [];
           this.semanticAnalysisPreview = undefined;
           this.semanticAnalysisResult = undefined;
+          this.semanticAnalysisProgressRun = undefined;
+          this.semanticAnalysisRunning = false;
+          this.stopSemanticAnalysisPolling();
           this.assistantStatus = undefined;
           this.assistantProviderCheck = undefined;
         }
@@ -298,8 +312,11 @@ export class RootStore {
         this.semanticGraphStatus = status;
         this.semanticEdges = edges as any[];
         this.semanticGraphRuns = runs as any[];
+        this.semanticAnalysisProgressRun = (runs as any[])[0] || (status as any)?.runCounts?.latest || this.semanticAnalysisProgressRun;
+        this.semanticAnalysisRunning = isSemanticAnalysisRunActive(this.semanticAnalysisProgressRun);
       });
     });
+    this.syncSemanticAnalysisPolling();
   }
 
   async updateSemanticGraphSettings(settings: Record<string, unknown>) {
@@ -321,6 +338,7 @@ export class RootStore {
 
   async previewSemanticGraphAnalysis(scope: Record<string, unknown> = { kind: "all-docs" }) {
     if (!this.selectedProjectId) return;
+    let previewResult: any = undefined;
     await this.run(async () => {
       const preview = await this.client.call("memory.preview_semantic_graph_analysis", {
         projectId: this.selectedProjectId,
@@ -334,35 +352,103 @@ export class RootStore {
         this.semanticAnalysisPreview = preview;
         this.semanticGraphStatus = status;
       });
+      previewResult = preview;
     });
+    return previewResult;
   }
 
   async analyzeSemanticGraph(args: Record<string, unknown>) {
     if (!this.selectedProjectId) return;
+    const projectId = this.selectedProjectId;
+    runInAction(() => {
+      this.semanticAnalysisRunning = true;
+      this.semanticAnalysisProgressRun = createPendingSemanticAnalysisRun(projectId, args);
+      this.semanticAnalysisResult = undefined;
+    });
+    this.startSemanticAnalysisPolling(projectId);
     await this.run(async () => {
       const result = await this.client.call("memory.analyze_semantic_graph", {
-        projectId: this.selectedProjectId,
+        projectId,
         ...args
       });
       const [status, edges, runs, inbox, graph] = await Promise.all([
-        this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_semantic_graph_runs", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_inbox", { projectId: this.selectedProjectId }),
+        this.client.call("memory.get_semantic_graph_status", { projectId }),
+        this.client.call("memory.list_semantic_edges", { projectId }),
+        this.client.call("memory.list_semantic_graph_runs", { projectId }),
+        this.client.call("memory.list_inbox", { projectId }),
         this.client.call("memory.get_graph", {
-          projectId: this.selectedProjectId,
+          projectId,
           ...graphRelationshipParams(this.graphRelationshipMode)
         })
       ]);
       runInAction(() => {
+        if (projectId !== this.selectedProjectId) return;
         this.semanticAnalysisResult = result;
         this.semanticGraphStatus = status;
         this.semanticEdges = edges as any[];
         this.semanticGraphRuns = runs as any[];
         this.inbox = inbox as any[];
         this.graph = graph;
+        this.semanticAnalysisProgressRun = (result as any)?.run || (runs as any[])[0];
       });
     });
+    this.stopSemanticAnalysisPolling();
+    await this.refreshSemanticAnalysisProgress(projectId, true);
+    runInAction(() => {
+      if (projectId === this.selectedProjectId) this.semanticAnalysisRunning = false;
+    });
+  }
+
+  private startSemanticAnalysisPolling(projectId: string) {
+    this.stopSemanticAnalysisPolling();
+    void this.refreshSemanticAnalysisProgress(projectId);
+    this.semanticAnalysisPollHandle = setInterval(() => {
+      void this.refreshSemanticAnalysisProgress(projectId);
+    }, 2000);
+  }
+
+  private stopSemanticAnalysisPolling() {
+    if (!this.semanticAnalysisPollHandle) return;
+    clearInterval(this.semanticAnalysisPollHandle);
+    this.semanticAnalysisPollHandle = undefined;
+  }
+
+  private async refreshSemanticAnalysisProgress(projectId = this.selectedProjectId, includeInbox = false) {
+    if (!projectId) return;
+    try {
+      const [status, runs, inbox] = await Promise.all([
+        this.client.call("memory.get_semantic_graph_status", { projectId }),
+        this.client.call("memory.list_semantic_graph_runs", { projectId }),
+        includeInbox ? this.client.call("memory.list_inbox", { projectId }) : Promise.resolve(undefined)
+      ]);
+      const latestRun = (runs as any[])[0] || (status as any)?.runCounts?.latest;
+      runInAction(() => {
+        if (projectId !== this.selectedProjectId) return;
+        const keepPendingRun = shouldKeepPendingSemanticAnalysisRun(this.semanticAnalysisProgressRun, latestRun, this.semanticAnalysisRunning);
+        this.semanticGraphStatus = status;
+        this.semanticGraphRuns = runs as any[];
+        this.semanticAnalysisProgressRun = keepPendingRun ? this.semanticAnalysisProgressRun : latestRun;
+        this.semanticAnalysisRunning = keepPendingRun || isSemanticAnalysisRunActive(this.semanticAnalysisProgressRun);
+        if (includeInbox && inbox) this.inbox = inbox as any[];
+      });
+      if (
+        projectId === this.selectedProjectId &&
+        !isSemanticAnalysisRunActive(latestRun) &&
+        !shouldKeepPendingSemanticAnalysisRun(this.semanticAnalysisProgressRun, latestRun, this.semanticAnalysisRunning)
+      ) {
+        this.stopSemanticAnalysisPolling();
+      }
+    } catch {
+      // Progress polling should not interrupt the foreground run.
+    }
+  }
+
+  private syncSemanticAnalysisPolling() {
+    if (!this.selectedProjectId || !isSemanticAnalysisRunActive(this.semanticAnalysisProgressRun)) {
+      if (!this.semanticAnalysisRunning) this.stopSemanticAnalysisPolling();
+      return;
+    }
+    if (!this.semanticAnalysisPollHandle) this.startSemanticAnalysisPolling(this.selectedProjectId);
   }
 
   async acceptSemanticEdgesProposal(proposalId: string, options: Record<string, unknown> = {}) {
@@ -887,4 +973,49 @@ function writeStoredGraphRelationshipMode(mode: GraphRelationshipMode): void {
   } catch {
     // Local storage can be unavailable in hardened browser contexts.
   }
+}
+
+function isSemanticAnalysisRunActive(run: any): boolean {
+  const status = String(run?.status || "");
+  return status === "running" || status === "pending";
+}
+
+function createPendingSemanticAnalysisRun(projectId: string, args: Record<string, unknown>): any {
+  return {
+    id: "pending-ui-run",
+    projectId,
+    status: "pending",
+    mode: String(args.mode || (args.dryRun ? "dry-run" : "review")),
+    scope: args.scope || { kind: "all-docs" },
+    model: typeof args.model === "string" ? args.model : undefined,
+    started: new Date().toISOString(),
+    thresholds: {
+      autoAccept: 0,
+      review: 0,
+      discardBelow: 0
+    },
+    counts: {
+      documentsTotal: 0,
+      documentsAnalyzed: 0,
+      extractionsReused: 0,
+      candidates: 0,
+      judged: 0,
+      accepted: 0,
+      proposed: 0,
+      rejected: 0,
+      discarded: 0
+    }
+  };
+}
+
+function shouldKeepPendingSemanticAnalysisRun(currentRun: any, latestRun: any, currentlyRunning: boolean): boolean {
+  if (!currentlyRunning || currentRun?.id !== "pending-ui-run") return false;
+  if (isSemanticAnalysisRunActive(latestRun)) return false;
+  if (!latestRun) return true;
+  return timestampMs(latestRun.started) < timestampMs(currentRun.started);
+}
+
+function timestampMs(input: unknown): number {
+  const value = typeof input === "string" ? Date.parse(input) : NaN;
+  return Number.isFinite(value) ? value : 0;
 }

@@ -351,7 +351,7 @@ export class SemanticGraphService {
       providerKind: provider.providerKind || params.providerKind || settings.providerKind || "openai-compatible",
       model: provider.model,
       counts: {
-        documentsTotal: scopedDocuments.length,
+        documentsTotal: selectedPlanItems.length,
         extractionsReused
       }
     });
@@ -413,6 +413,13 @@ export class SemanticGraphService {
       const candidates = maxCandidates === undefined
         ? candidateIndex.candidates
         : candidateIndex.candidates.slice(0, maxCandidates);
+      run = await writeSemanticRun(project, {
+        ...run,
+        counts: {
+          ...run.counts,
+          candidates: candidates.length
+        }
+      });
       const extractionByDocument = new Map(extractions.map((extraction) => [extraction.documentId, extraction]));
       const decisions: SemanticRelationshipDecision[] = [];
 
@@ -426,16 +433,14 @@ export class SemanticGraphService {
           { schemaName: "semantic relationship decision", retryOnInvalidJson: true }
         );
         decisions.push(semanticDecisionFromProviderJson(result.value, candidate.id));
-        if (decisions.length % 5 === 0) {
-          run = await writeSemanticRun(project, {
-            ...run,
-            counts: {
-              ...run.counts,
-              candidates: candidateIndex.counts.candidates,
-              judged: decisions.length
-            }
-          });
-        }
+        run = await writeSemanticRun(project, {
+          ...run,
+          counts: {
+            ...run.counts,
+            candidates: candidates.length,
+            judged: decisions.length
+          }
+        });
       }
 
       const policy = applySemanticEdgePolicy({
@@ -485,10 +490,10 @@ export class SemanticGraphService {
         finished: nowIso(),
         outputPath: params.persistCandidateIndex ?? true ? semanticCandidateIndexPath(project) : undefined,
         counts: {
-          documentsTotal: scopedDocuments.length,
+          documentsTotal: selectedPlanItems.length,
           documentsAnalyzed: extractionItems.length,
           extractionsReused,
-          candidates: candidateIndex.counts.candidates,
+          candidates: candidates.length,
           judged: decisions.length,
           accepted: acceptedEdges.length,
           proposed: proposedPolicyEdges.length + dryRunPolicyEdges.length,

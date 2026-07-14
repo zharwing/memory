@@ -47,6 +47,14 @@ export interface GraphFlowElements {
   focusLabel?: string;
 }
 
+export function graphNodeVisualKind(node: Pick<GraphMapNode, "type" | "displayType">): string {
+  const type = String(node.type || "node");
+  const displayType = String(node.displayType || type);
+  if (type === "diagram" || displayType === "diagram") return "diagram";
+  if (type === "doc") return "doc";
+  return displayType || type;
+}
+
 export function buildGraphFlowElements(graph: any, viewMode: GraphViewMode, focusedNodeId = ""): GraphFlowElements {
   const allNodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
   const allEdges = Array.isArray(graph?.edges) ? graph.edges : [];

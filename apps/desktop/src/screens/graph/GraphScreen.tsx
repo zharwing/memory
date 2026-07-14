@@ -16,28 +16,54 @@ import {
   graphEdgeLabel,
 } from "./graph-display.js";
 import { GraphMap, graphNodeVisualStyle, removeStoredGraphNodePositions } from "./GraphMap.js";
-import { buildGraphFlowElements, type GraphMapEdge, RawStorageAudit } from "./graph-flow.js";
+import { buildGraphFlowElements, graphNodeVisualKind, type GraphMapEdge, type GraphMapNode, RawStorageAudit } from "./graph-flow.js";
 import { projectPath } from "../../utils/routes.js";
 
 const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.d3.v2";
-const GRAPH_LEGEND_ITEMS = [
-  ["project", "Project"],
-  ["repo", "Repo"],
-  ["workstream", "Workstream"],
-  ["service", "Service"],
-  ["package", "Package"],
-  ["topic", "Topic"],
-  ["diagram-group", "Diagram group"],
-  ["doc", "Document"],
-  ["diagram", "Diagram"],
-  ["decision", "Decision"],
-  ["command", "Command"],
-  ["gotcha", "Gotcha"],
-  ["session", "Session"],
-  ["task", "Task"],
-  ["file", "File"],
-  ["external-reference", "External"]
+const GRAPH_LEGEND_PRIORITY = [
+  "project",
+  "repo",
+  "workstream",
+  "service",
+  "package",
+  "topic",
+  "diagram-group",
+  "doc",
+  "diagram",
+  "decision",
+  "command",
+  "gotcha",
+  "session",
+  "task",
+  "file",
+  "external-reference"
 ] as const;
+const GRAPH_LEGEND_RANK = new Map<string, number>(GRAPH_LEGEND_PRIORITY.map((kind, index) => [kind, index]));
+const GRAPH_LEGEND_LABELS: Record<string, string> = {
+  project: "Project",
+  repo: "Repo",
+  workstream: "Workstream",
+  service: "Service",
+  package: "Package",
+  topic: "Topic",
+  "diagram-group": "Diagram group",
+  doc: "Document",
+  diagram: "Diagram",
+  decision: "Decision",
+  command: "Command",
+  gotcha: "Gotcha",
+  session: "Session",
+  task: "Task",
+  file: "File",
+  "external-reference": "External"
+};
+
+type GraphLegendItem = { kind: string; label: string; count: number };
+type SemanticPreviewState = {
+  scopeKey: string;
+  status: "idle" | "loading" | "done" | "failed";
+  error?: string;
+};
 
 export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
@@ -63,13 +89,19 @@ export const GraphScreen = observer(function GraphScreen() {
     maxCandidatesPerDocument: "8",
     timeoutMs: "120000",
     maxOutputTokens: "1024",
-    jsonMode: false
+    jsonMode: true
   });
   const [showSemanticAdvanced, setShowSemanticAdvanced] = useState(false);
+  const [showSemanticPreviewDialog, setShowSemanticPreviewDialog] = useState(false);
+  const [semanticPreviewState, setSemanticPreviewState] = useState<SemanticPreviewState>({
+    scopeKey: "",
+    status: "idle"
+  });
   const [layoutVersion, setLayoutVersion] = useState(0);
   const graphStats = useMemo(() => getGraphStats(graph), [graph]);
   const focusOptions = useMemo(() => getGraphFocusOptions(graph), [graph]);
   const graphElements = useMemo(() => buildGraphFlowElements(graph, graphViewMode, focusedNodeId), [graph, graphViewMode, focusedNodeId]);
+  const graphLegendItems = useMemo(() => buildGraphLegendItems(graphElements.nodes), [graphElements.nodes]);
   const graphElementNodeById = useMemo(() => new Map(graphElements.nodes.map((node) => [node.id, node])), [graphElements.nodes]);
   const graphElementEdgeIds = useMemo(() => new Set(graphElements.edges.map((edge) => edge.id)), [graphElements.edges]);
   const selectedGraphEdge = useMemo(
@@ -89,7 +121,7 @@ export const GraphScreen = observer(function GraphScreen() {
   );
   const canHideSelectedSemanticEdge = Boolean(selectedDurableSemanticEdgeId);
   const graphProjectId = store.selectedProjectId || String(graph?.projectId || "project");
-  const graphNodeById = useMemo(
+  const graphNodeById = useMemo<Map<string, any>>(
     () => new Map((Array.isArray(graph?.nodes) ? graph.nodes : []).map((node: any) => [String(node.id || ""), node])),
     [graph]
   );
@@ -107,11 +139,24 @@ export const GraphScreen = observer(function GraphScreen() {
   const graphGeneratedLabel = graph?.generated ? `${graph.displayProjected ? "Projected" : "Generated"} ${formatShortDateTime(graph.generated)}` : "";
   const semanticEdgeCounts = store.semanticGraphEdgeCounts;
   const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
+  const semanticLatestRunStartedLabel = semanticLatestRun?.started ? formatShortDateTime(semanticLatestRun.started) : "";
+  const semanticLatestRunStatusLabel = semanticLatestRun?.status || "No runs";
   const semanticResult = store.semanticAnalysisResult;
   const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
   const semanticProviderEndpoint = semanticRunDraft.endpoint.trim() || assistantPolicy.endpoint || "";
   const semanticProviderModel = semanticRunDraft.model.trim() || store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
   const semanticProviderReady = Boolean(semanticProviderEndpoint && semanticProviderModel);
+  const semanticSelectedScope = semanticAnalysisScope();
+  const semanticSelectedScopeKey = semanticScopeKey(semanticSelectedScope);
+  const semanticScopeCopy = semanticScopeSummary(semanticSelectedScope, graphElements.focusLabel);
+  const semanticPreview = store.semanticAnalysisPreview;
+  const semanticPreviewForSelectedScope = semanticPreview &&
+    semanticScopeKey(semanticPreview.scope) === semanticSelectedScopeKey
+      ? semanticPreview
+      : undefined;
+  const semanticPreviewStateForSelectedScope = semanticPreviewState.scopeKey === semanticSelectedScopeKey
+    ? semanticPreviewState
+    : undefined;
 
   useEffect(() => {
     const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
@@ -310,8 +355,20 @@ export const GraphScreen = observer(function GraphScreen() {
     return { kind: "all-docs" };
   }
 
-  function previewSemanticAnalysis() {
-    void store.previewSemanticGraphAnalysis(semanticAnalysisScope());
+  async function previewSemanticAnalysis() {
+    const scope = semanticAnalysisScope();
+    const scopeKey = semanticScopeKey(scope);
+    setSemanticPreviewState({ scopeKey, status: "loading" });
+    const preview = await store.previewSemanticGraphAnalysis(scope);
+    if (preview) {
+      setSemanticPreviewState({ scopeKey, status: "done" });
+      return;
+    }
+    setSemanticPreviewState({
+      scopeKey,
+      status: "failed",
+      error: store.error || "Unable to estimate this target."
+    });
   }
 
   function runSemanticAnalysis() {
@@ -450,6 +507,7 @@ export const GraphScreen = observer(function GraphScreen() {
             className={`graph-details-toggle ${showGraphDetails ? "selected" : ""}`}
             onClick={() => setShowGraphDetails((open) => !open)}
             aria-expanded={showGraphDetails}
+            title={showGraphDetails ? "Hide the graph details and AI relationship review panel." : "Show graph details, relationship counts, and AI review controls."}
           >
             {showGraphDetails ? "Hide details" : "Details"}
           </button>
@@ -477,12 +535,12 @@ export const GraphScreen = observer(function GraphScreen() {
                   ))}
                 </div>
               ) : null}
-              {!isRawGraph ? (
+              {!isRawGraph && graphLegendItems.length ? (
                 <div className="graph-legend" aria-label="Graph legend">
-                  {GRAPH_LEGEND_ITEMS.map(([kind, label]) => {
-                    const colors = graphNodeVisualStyle(kind);
+                  {graphLegendItems.map((item) => {
+                    const colors = graphNodeVisualStyle(item.kind);
                     return (
-                    <span key={kind}>
+                    <span key={item.kind}>
                       <i
                         className="graph-legend-dot"
                         style={{
@@ -491,7 +549,8 @@ export const GraphScreen = observer(function GraphScreen() {
                         }}
                         aria-hidden="true"
                       />
-                      {label}
+                      {item.label}
+                      <small className="graph-legend-count">{item.count}</small>
                     </span>
                     );
                   })}
@@ -547,6 +606,7 @@ export const GraphScreen = observer(function GraphScreen() {
                           type="button"
                           disabled={store.loading}
                           onClick={() => void acceptSelectedSemanticEdge()}
+                          title="Accept this suggested semantic relationship so it becomes a saved graph link."
                         >
                           Accept Edge
                         </button>
@@ -557,6 +617,7 @@ export const GraphScreen = observer(function GraphScreen() {
                           className="danger-button"
                           disabled={store.loading}
                           onClick={() => void hideSelectedSemanticEdge()}
+                          title="Hide this semantic relationship by marking it rejected."
                         >
                           Hide Edge
                         </button>
@@ -565,6 +626,7 @@ export const GraphScreen = observer(function GraphScreen() {
                         <Link
                           className="button-link"
                           to={projectPath(store.selectedProjectId, `/inbox?proposal=${encodeURIComponent(selectedProposedSemanticEdge.proposalId)}`)}
+                          title="Open the Inbox proposal that contains this suggested relationship."
                         >
                           Open Inbox
                         </Link>
@@ -575,24 +637,38 @@ export const GraphScreen = observer(function GraphScreen() {
               ) : null}
               {!isRawGraph ? (
                 <div className="semantic-analysis-panel">
-                  <div className="semantic-analysis-header">
+                  <div className="semantic-review-header">
                     <strong>AI relationship review</strong>
-                    <span>{semanticLatestRun?.status || "No runs"}</span>
+                    <div className="semantic-review-meta">
+                      <span>{semanticLatestRunStatusLabel}</span>
+                      {semanticLatestRunStartedLabel ? (
+                        <time dateTime={semanticLatestRun?.started}>{semanticLatestRunStartedLabel}</time>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="semantic-graph-mini-stats">
-                    <KeyValue label="Accepted" value={(semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0)} />
-                    <KeyValue label="Proposed" value={semanticEdgeCounts.proposed || 0} />
-                    <KeyValue label="Latest" value={semanticLatestRun?.started ? formatShortDateTime(semanticLatestRun.started) : "None"} />
+                  <div className="semantic-review-stats" aria-label="AI relationship review summary">
+                    <div className="semantic-review-stat">
+                      <span>Accepted</span>
+                      <strong>{(semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0)}</strong>
+                    </div>
+                    <div className="semantic-review-stat">
+                      <span>Proposed</span>
+                      <strong>{semanticEdgeCounts.proposed || 0}</strong>
+                    </div>
                   </div>
                   <div className="semantic-provider-strip">
                     <span>{semanticProviderReady ? `${semanticProviderModel} at ${semanticProviderEndpoint}` : "Provider not configured"}</span>
-                    <Link className="button-link compact-link" to={projectPath(store.selectedProjectId, "/assistant")}>
+                    <Link
+                      className="button-link compact-link"
+                      to={projectPath(store.selectedProjectId, "/assistant")}
+                      title="Open Assistant settings to configure the provider and model used by AI relationship review."
+                    >
                       Assistant
                     </Link>
                   </div>
                   <div className="semantic-run-form semantic-run-form-basic">
                     <label>
-                      <span>Scope</span>
+                      <span>Review target</span>
                       <select
                         value={semanticRunDraft.scopeKind}
                         disabled={store.loading}
@@ -602,6 +678,7 @@ export const GraphScreen = observer(function GraphScreen() {
                         <option value="changed-docs">Changed docs</option>
                         <option value="all-docs">Project</option>
                       </select>
+                      <small>{semanticScopeCopy.title}. {semanticScopeCopy.detail}</small>
                     </label>
                   </div>
                   <div className="semantic-run-actions primary">
@@ -610,20 +687,34 @@ export const GraphScreen = observer(function GraphScreen() {
                       className="icon-text-button primary"
                       disabled={!store.selectedProjectId || store.loading || !semanticProviderReady}
                       onClick={runSemanticAnalysis}
+                      title="Run AI relationship review for the selected target. This calls the configured model and may create Inbox proposals."
                     >
                       <Play size={14} />
                       Run review
                     </button>
-                    <button
-                      type="button"
-                      className={`icon-text-button ${showSemanticAdvanced ? "selected" : ""}`}
-                      disabled={store.loading}
-                      onClick={() => setShowSemanticAdvanced((open) => !open)}
-                      aria-expanded={showSemanticAdvanced}
-                    >
-                      <Settings2 size={14} />
-                      Advanced
-                    </button>
+                    <div className="semantic-run-secondary-actions">
+                      <button
+                        type="button"
+                        className="icon-text-button"
+                        disabled={!store.selectedProjectId || store.loading}
+                        onClick={() => setShowSemanticPreviewDialog(true)}
+                        title="Estimate how many docs and candidate relationships this target will process. This does not call the AI model or change the graph."
+                      >
+                        <FlaskConical size={14} />
+                        {semanticPreviewStateForSelectedScope?.status === "loading" ? "Estimating..." : "Estimate docs"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`icon-text-button ${showSemanticAdvanced ? "selected" : ""}`}
+                        disabled={store.loading}
+                        onClick={() => setShowSemanticAdvanced((open) => !open)}
+                        aria-expanded={showSemanticAdvanced}
+                        title="Show provider overrides, limits, timeouts, and JSON response settings for the next review run."
+                      >
+                        <Settings2 size={14} />
+                        Advanced
+                      </button>
+                    </div>
                   </div>
                   {showSemanticAdvanced ? (
                     <div className="semantic-run-advanced">
@@ -735,17 +826,25 @@ export const GraphScreen = observer(function GraphScreen() {
                           <span>Use strict JSON responses when supported.</span>
                         </label>
                       </div>
-                      <div className="semantic-run-actions">
-                        <button
-                          type="button"
-                          className="icon-text-button"
-                          disabled={!store.selectedProjectId || store.loading}
-                          onClick={previewSemanticAnalysis}
-                        >
-                          <FlaskConical size={14} />
-                          Preview
-                        </button>
-                      </div>
+                    </div>
+                  ) : null}
+                  {semanticPreviewStateForSelectedScope?.status === "loading" ? (
+                    <div className="semantic-run-preview pending" aria-live="polite">
+                      <strong>{semanticScopeCopy.title}</strong>
+                      <span>Estimating eligible docs and candidate links...</span>
+                    </div>
+                  ) : semanticPreviewStateForSelectedScope?.status === "failed" ? (
+                    <div className="semantic-run-preview failed" aria-live="polite">
+                      <strong>{semanticScopeCopy.title}</strong>
+                      <span>{semanticPreviewStateForSelectedScope.error || "Unable to estimate this target."}</span>
+                    </div>
+                  ) : semanticPreviewForSelectedScope ? (
+                    <div className="semantic-run-preview" aria-label="Review target preview">
+                      <strong>{semanticScopeCopy.title}</strong>
+                      <span><b>{semanticPreviewForSelectedScope.counts?.documentsEligible ?? 0}</b> eligible</span>
+                      <span><b>{semanticPreviewForSelectedScope.counts?.baselineExtractions ?? 0}</b> new</span>
+                      <span><b>{semanticPreviewForSelectedScope.counts?.cachedExtractions ?? 0}</b> cached</span>
+                      <span><b>{semanticPreviewForSelectedScope.counts?.candidates ?? 0}</b> candidates</span>
                     </div>
                   ) : null}
                   {semanticResult?.run ? (
@@ -755,6 +854,7 @@ export const GraphScreen = observer(function GraphScreen() {
                         <span>{semanticResult.run.mode}</span>
                       </div>
                       <div className="semantic-graph-mini-stats">
+                        <KeyValue label="Target" value={semanticScopeLabel(semanticResult.run.scope, graphElements.focusLabel)} />
                         <KeyValue label="Docs" value={`${semanticResult.run.counts?.documentsAnalyzed || 0} new / ${semanticResult.run.counts?.extractionsReused || 0} cached`} />
                         <KeyValue label="Judged" value={semanticResult.run.counts?.judged || 0} />
                         <KeyValue label="Accepted" value={semanticResult.run.counts?.accepted || 0} />
@@ -764,6 +864,46 @@ export const GraphScreen = observer(function GraphScreen() {
                       </div>
                     </div>
                   ) : null}
+                </div>
+              ) : null}
+              {showSemanticPreviewDialog ? (
+                <div
+                  className="dialog-backdrop graph-confirm-backdrop"
+                  role="presentation"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) setShowSemanticPreviewDialog(false);
+                  }}
+                >
+                  <div className="confirm-dialog graph-preview-dialog" role="dialog" aria-modal="true" aria-label="Estimate review target">
+                    <h3>Estimate Review Target?</h3>
+                    <p>
+                      This checks <strong>{semanticScopeCopy.title}</strong> and reports how many docs and candidate relationships would be included.
+                    </p>
+                    <p>
+                      It does not call the AI model, create Inbox proposals, accept links, or change the graph.
+                    </p>
+                    <div className="button-row">
+                      <button
+                        type="button"
+                        onClick={() => setShowSemanticPreviewDialog(false)}
+                        title="Close this dialog without estimating the target."
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-text-button primary"
+                        disabled={store.loading}
+                        onClick={() => {
+                          setShowSemanticPreviewDialog(false);
+                          void previewSemanticAnalysis();
+                        }}
+                        title="Start the estimate. This does not call the AI model or change graph relationships."
+                      >
+                        Start estimate
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -818,6 +958,42 @@ export const GraphScreen = observer(function GraphScreen() {
   );
 });
 
+function buildGraphLegendItems(nodes: GraphMapNode[]): GraphLegendItem[] {
+  const itemsByKind = new Map<string, GraphLegendItem>();
+  for (const node of nodes) {
+    const kind = graphNodeVisualKind(node);
+    const item = itemsByKind.get(kind);
+    if (item) {
+      item.count += 1;
+      continue;
+    }
+    itemsByKind.set(kind, {
+      kind,
+      label: graphLegendLabel(kind, node),
+      count: 1
+    });
+  }
+
+  return [...itemsByKind.values()].sort((left, right) => {
+    const leftRank = GRAPH_LEGEND_RANK.get(left.kind) ?? GRAPH_LEGEND_RANK.size;
+    const rightRank = GRAPH_LEGEND_RANK.get(right.kind) ?? GRAPH_LEGEND_RANK.size;
+    return leftRank - rightRank || right.count - left.count || left.label.localeCompare(right.label);
+  });
+}
+
+function graphLegendLabel(kind: string, node: GraphMapNode): string {
+  return GRAPH_LEGEND_LABELS[kind] || node.typeLabel || graphLegendFallbackLabel(kind);
+}
+
+function graphLegendFallbackLabel(kind: string): string {
+  const label = kind
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+  return label || "Node";
+}
+
 function numberOrUndefined(input: string): number | undefined {
   const value = Number(input);
   return Number.isFinite(value) && value > 0 ? value : undefined;
@@ -830,6 +1006,48 @@ function graphRelationshipModeFromSearchParam(input: string | null): GraphRelati
 function graphRelationshipModeLabel(mode: GraphRelationshipMode): string {
   if (mode === "ai-reviewed") return "Saved relationships";
   return "Metadata links";
+}
+
+function semanticScopeKey(scope: any): string {
+  const kind = String(scope?.kind || "all-docs");
+  if (kind === "focused-graph-node") return `${kind}:${String(scope?.nodeId || "")}`;
+  if (kind === "selected-docs") {
+    const documentIds = Array.isArray(scope?.documentIds) ? scope.documentIds : [];
+    return `${kind}:${documentIds.join(",")}`;
+  }
+  if (kind === "workstream") return `${kind}:${String(scope?.workstreamId || "")}`;
+  if (kind === "repo") return `${kind}:${String(scope?.repoPath || "")}`;
+  return kind;
+}
+
+function semanticScopeLabel(scope: any, focusLabel?: string): string {
+  const kind = String(scope?.kind || "all-docs");
+  if (kind === "focused-graph-node") return focusLabel ? `Focused: ${focusLabel}` : "Focused node";
+  if (kind === "changed-docs") return "Changed docs";
+  if (kind === "selected-docs") return "Selected docs";
+  if (kind === "workstream") return "Workstream";
+  if (kind === "repo") return "Repo";
+  return "Project";
+}
+
+function semanticScopeSummary(scope: any, focusLabel?: string): { title: string; detail: string } {
+  const kind = String(scope?.kind || "all-docs");
+  if (kind === "focused-graph-node") {
+    return {
+      title: semanticScopeLabel(scope, focusLabel),
+      detail: "Run review uses docs directly linked to this graph node."
+    };
+  }
+  if (kind === "changed-docs") {
+    return {
+      title: "Changed docs",
+      detail: "Run review skips docs that already have a current extraction cache."
+    };
+  }
+  return {
+    title: semanticScopeLabel(scope, focusLabel),
+    detail: "Run review uses all eligible project docs and reuses cached extractions."
+  };
 }
 
 function durableSemanticEdgeId(input?: string): string | undefined {

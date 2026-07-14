@@ -119,7 +119,7 @@ function installFakeOpenAiProvider(t: TestContext): {
       model?: string;
     };
     const content = payload.messages?.map((message) => message.content).join("\n") || "";
-    const kind = content.includes('Return {"ok":true')
+    const kind = content.includes('{"ok":true,"message":"ready"}')
       ? "provider-check"
       : content.includes("reviewer-facing summary")
         ? "summary"
