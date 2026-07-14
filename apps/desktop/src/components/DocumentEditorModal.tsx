@@ -31,6 +31,8 @@ import { $createParagraphNode } from "lexical";
 import "@mdxeditor/editor/style.css";
 import { KeyValue } from "./layout.js";
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton.js";
+import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
+import { isLikelyMermaidSource } from "./markdown/MermaidDiagramPreview.js";
 
 export function DocumentEditorModal({
   doc,
@@ -53,6 +55,9 @@ export function DocumentEditorModal({
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [editorRevision, setEditorRevision] = useState(0);
   const [localSaving, setLocalSaving] = useState(false);
+  const isDiagramDocument = doc.type === "diagram";
+  const hasMermaidDiagram = containsMermaidDiagram(body);
+  const useRenderedPreview = mode === "preview" && (isDiagramDocument || hasMermaidDiagram);
   const dirty = title !== savedTitle || normalizeDocumentBody(body) !== normalizeDocumentBody(savedBody);
   const saveInProgress = saving || localSaving;
 
@@ -185,7 +190,7 @@ export function DocumentEditorModal({
         <div className="document-editor-toolbar">
           <div className="segmented-control compact" role="group" aria-label="Document editor mode">
             <button type="button" className={mode === "preview" ? "selected" : ""} onClick={() => setMode("preview")}>
-              Preview
+              {isDiagramDocument || hasMermaidDiagram ? "Rendered" : "Preview"}
             </button>
             <button type="button" className={mode === "markdown" ? "selected" : ""} onClick={() => setMode("markdown")}>
               Markdown
@@ -193,7 +198,9 @@ export function DocumentEditorModal({
           </div>
         </div>
         <div className="document-editor-body">
-          {mode === "preview" ? (
+          {useRenderedPreview ? (
+            <MarkdownPreview body={body} />
+          ) : mode === "preview" ? (
             <MDXEditor
               key={`${doc.id}-${editorRevision}-rich-editor`}
               className="mdx-rich-editor"
@@ -240,6 +247,11 @@ export function DocumentEditorModal({
 
 function normalizeDocumentBody(value: string) {
   return value.replace(/\r\n/g, "\n").trimEnd();
+}
+
+function containsMermaidDiagram(value: string) {
+  const trimmed = value.trim();
+  return isLikelyMermaidSource(trimmed) || /(^|\n)```\s*mermaid\b/i.test(trimmed);
 }
 
 const markdownEditorPlugins = [

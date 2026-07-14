@@ -6,13 +6,13 @@ import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
 import { reviewModeLabel } from "../utils/labels.js";
 import { projectPath } from "../utils/routes.js";
-import { pendingInboxItems } from "../utils/inbox.js";
+import { pendingInboxReviewCount } from "../utils/inbox.js";
 
 export const DashboardScreen = observer(function DashboardScreen() {
   const store = useStore();
   const summary = store.summary;
   const memoryWritePolicy = store.selectedMemoryWritePolicy;
-  const pendingReviewCount = pendingInboxItems(store.inbox).length;
+  const pendingReviewCount = pendingInboxReviewCount(store.inbox);
   return (
     <Screen title="Project Dashboard" actions={<DashboardActions />}>
       <div className="dashboard-grid">

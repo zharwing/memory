@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Link, useSearchParams } from "react-router-dom";
-import { AlertCircle, CircleHelp, Play, Settings2, Sparkles, X } from "lucide-react";
+import { Activity, AlertCircle, CircleHelp, Play, Settings2, Sparkles, X } from "lucide-react";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
@@ -22,7 +22,7 @@ const defaultRelationshipRunDraft = {
   maxCandidatesPerDocument: "8",
   timeoutSeconds: "120",
   maxOutputTokens: "1024",
-  jsonMode: false
+  jsonMode: true
 };
 
 export const DocsScreen = observer(function DocsScreen() {
@@ -74,6 +74,23 @@ export const DocsScreen = observer(function DocsScreen() {
   const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
   const semanticResult = store.semanticAnalysisResult;
   const savedLinkCount = (semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0);
+  const semanticDisplayRun = store.semanticAnalysisProgressRun || semanticResult?.run || semanticLatestRun;
+  const semanticRunCounts = semanticDisplayRun?.counts || {};
+  const semanticRunStatus = String(semanticDisplayRun?.status || "");
+  const semanticRunRunning = store.semanticAnalysisRunning || semanticRunStatus === "running" || semanticRunStatus === "pending";
+  const semanticRunFinished = Boolean(semanticDisplayRun && !semanticRunRunning && ["completed", "failed", "cancelled"].includes(semanticRunStatus));
+  const semanticDocumentsTotal = Number(semanticRunCounts.documentsTotal || 0);
+  const semanticDocumentsProcessed = Math.min(
+    semanticDocumentsTotal || Number.MAX_SAFE_INTEGER,
+    Number(semanticRunCounts.documentsAnalyzed || 0) + Number(semanticRunCounts.extractionsReused || 0)
+  );
+  const semanticCandidatesTotal = Number(semanticRunCounts.candidates || 0);
+  const semanticCandidatesJudged = Number(semanticRunCounts.judged || 0);
+  const semanticProposalId = semanticResult?.proposal?.id || pendingRelationshipApprovals[0]?.id;
+  const semanticInboxPath = semanticProposalId
+    ? projectPath(store.selectedProjectId, `/inbox?proposal=${encodeURIComponent(semanticProposalId)}`)
+    : projectPath(store.selectedProjectId, "/inbox");
+  const showSemanticRunBanner = Boolean(semanticDisplayRun && !showLinkDiscoveryDialog && (semanticRunRunning || semanticRunFinished));
 
   useEffect(() => {
     const urlDocId = searchParams.get("doc") || "";
@@ -161,6 +178,59 @@ export const DocsScreen = observer(function DocsScreen() {
   return (
     <Screen title="Docs Library">
       <LibraryTabs />
+      {showSemanticRunBanner ? (
+        <section className={`semantic-run-banner ${semanticRunStatusClass(semanticDisplayRun)}`} aria-live={semanticRunRunning ? "polite" : "off"}>
+          <div className="semantic-run-banner-main">
+            <div className="semantic-run-banner-title">
+              <Activity size={16} aria-hidden="true" />
+              <div>
+                <strong>{semanticRunTitle(semanticDisplayRun, pendingRelationshipSuggestions, Boolean(semanticResult?.proposal))}</strong>
+                <span>{semanticRunPhase(semanticDisplayRun, semanticRunRunning)}</span>
+              </div>
+            </div>
+            {semanticRunRunning ? (
+              <div className="semantic-run-banner-progress">
+                <ProgressMeter
+                  label="Documents"
+                  value={semanticDocumentsProcessed}
+                  total={semanticDocumentsTotal}
+                />
+                {semanticCandidatesTotal > 0 ? (
+                  <ProgressMeter
+                    label="Link candidates"
+                    value={semanticCandidatesJudged}
+                    total={semanticCandidatesTotal}
+                  />
+                ) : (
+                  <div className="semantic-progress-row muted">
+                    <span>Link candidates</span>
+                    <strong>Preparing</strong>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="semantic-run-banner-copy">
+                {semanticRunCompletionCopy(semanticDisplayRun, pendingRelationshipSuggestions, Boolean(semanticResult?.proposal))}
+              </p>
+            )}
+          </div>
+          <div className="semantic-run-banner-actions">
+            <button
+              type="button"
+              className="icon-text-button"
+              onClick={() => setShowLinkDiscoveryDialog(true)}
+            >
+              <Sparkles size={14} aria-hidden="true" />
+              {semanticRunRunning ? "View progress" : "View details"}
+            </button>
+            {semanticRunFinished && (pendingRelationshipSuggestions > 0 || semanticResult?.proposal) ? (
+              <Link className="button-link primary" to={semanticInboxPath}>
+                Review Inbox
+              </Link>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       {(filter === "draft" || showStarterDocsHelp) ? (
         <div className="notice docs-explainer">
           <strong>Draft starter docs</strong>
@@ -315,29 +385,28 @@ export const DocsScreen = observer(function DocsScreen() {
                   <button
                     type="button"
                     className="icon-text-button primary"
-                    disabled={!store.selectedProjectId || store.loading || aiEligibleDocs.length === 0}
+                    disabled={!store.selectedProjectId || store.loading || semanticRunRunning || aiEligibleDocs.length === 0}
                     onClick={runRelationshipReview}
                   >
                     <Play size={14} />
-                    {store.loading ? "Creating suggestions..." : "Create suggestions"}
+                    {semanticRunRunning ? "Creating suggestions..." : "Create suggestions"}
                   </button>
                   <button
                     type="button"
                     className="icon-text-button"
-                    disabled={store.loading}
                     onClick={closeLinkDiscoveryDialog}
                   >
-                    Cancel
+                    {semanticRunRunning ? "Hide" : "Close"}
                   </button>
                   {(pendingRelationshipCount > 0 || semanticResult?.proposal) && pendingRelationshipSuggestions === 0 ? (
-                    <Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>
+                    <Link className="button-link" to={semanticInboxPath}>
                       Review Inbox
                     </Link>
                   ) : null}
                   <button
                     type="button"
                     className={`icon-text-button ${showRelationshipAdvanced ? "selected" : ""}`}
-                    disabled={store.loading}
+                    disabled={store.loading || semanticRunRunning}
                     onClick={() => setShowRelationshipAdvanced((open) => !open)}
                     aria-expanded={showRelationshipAdvanced}
                   >
@@ -345,6 +414,53 @@ export const DocsScreen = observer(function DocsScreen() {
                     Advanced settings
                   </button>
                 </div>
+                {semanticDisplayRun ? (
+                  <div className={`semantic-run-result ${semanticRunStatusClass(semanticDisplayRun)}`}>
+                    <div className="semantic-analysis-header">
+                      <strong>{semanticRunTitle(semanticDisplayRun, pendingRelationshipSuggestions, Boolean(semanticResult?.proposal))}</strong>
+                      <span>{semanticRunPhase(semanticDisplayRun, semanticRunRunning)}</span>
+                    </div>
+                    {semanticRunRunning ? (
+                      <div className="semantic-run-progress" aria-label="Graph link suggestion progress">
+                        <ProgressMeter
+                          label="Documents"
+                          value={semanticDocumentsProcessed}
+                          total={semanticDocumentsTotal}
+                        />
+                        {semanticCandidatesTotal > 0 ? (
+                          <ProgressMeter
+                            label="Link candidates"
+                            value={semanticCandidatesJudged}
+                            total={semanticCandidatesTotal}
+                          />
+                        ) : (
+                          <div className="semantic-progress-row muted">
+                            <span>Link candidates</span>
+                            <strong>Preparing</strong>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    {semanticRunFinished ? (
+                      <p className="semantic-run-result-copy">
+                        {semanticRunCompletionCopy(semanticDisplayRun, pendingRelationshipSuggestions, Boolean(semanticResult?.proposal))}
+                      </p>
+                    ) : null}
+                    <div className="link-discovery-metrics compact">
+                      <span><strong>{semanticRunCounts.documentsAnalyzed || 0}</strong> new docs</span>
+                      <span><strong>{semanticRunCounts.extractionsReused || 0}</strong> cached</span>
+                      <span><strong>{semanticRunCounts.judged || 0}</strong> judged</span>
+                      <span><strong>{semanticRunCounts.proposed || 0}</strong> proposed</span>
+                      <span><strong>{semanticRunCounts.accepted || 0}</strong> approved</span>
+                      <span><strong>{semanticRunCounts.discarded || 0}</strong> discarded</span>
+                    </div>
+                    {semanticRunFinished && (pendingRelationshipSuggestions > 0 || semanticResult?.proposal) ? (
+                      <Link className="button-link primary" to={semanticInboxPath}>
+                        Review suggestions in Inbox
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : null}
                 {showRelationshipAdvanced ? (
                   <div className="semantic-run-advanced">
                     <p className="semantic-run-advanced-note">
@@ -476,25 +592,6 @@ export const DocsScreen = observer(function DocsScreen() {
                     </div>
                   </div>
                 ) : null}
-                {semanticResult?.run ? (
-                  <div className="semantic-run-result">
-                    <div className="semantic-analysis-header">
-                      <strong>{semanticResult.run.status}</strong>
-                      <span>{semanticResult.run.mode}</span>
-                    </div>
-                    <div className="link-discovery-metrics compact">
-                      <span><strong>{semanticResult.run.counts?.documentsAnalyzed || 0}</strong> new docs</span>
-                      <span><strong>{semanticResult.run.counts?.extractionsReused || 0}</strong> cached</span>
-                      <span><strong>{semanticResult.run.counts?.proposed || 0}</strong> proposed</span>
-                      <span><strong>{semanticLatestRun?.status || "No runs"}</strong> latest run</span>
-                    </div>
-                    {semanticResult.proposal ? (
-                      <Link className="button-link primary" to={projectPath(store.selectedProjectId, "/inbox")}>
-                        Review suggestions
-                      </Link>
-                    ) : null}
-                  </div>
-                ) : null}
               </>
             )}
           </section>
@@ -512,6 +609,82 @@ function numberOrUndefined(input: string): number | undefined {
 function secondsToMilliseconds(input: string): number | undefined {
   const seconds = numberOrUndefined(input);
   return seconds ? seconds * 1000 : undefined;
+}
+
+function ProgressMeter({ label, value, total }: { label: string; value: number; total: number }) {
+  const boundedTotal = Math.max(0, Number(total || 0));
+  const boundedValue = boundedTotal > 0
+    ? Math.min(boundedTotal, Math.max(0, Number(value || 0)))
+    : Math.max(0, Number(value || 0));
+  const percent = boundedTotal > 0 ? Math.round((boundedValue / boundedTotal) * 100) : 0;
+
+  return (
+    <div className="semantic-progress-row">
+      <div>
+        <span>{label}</span>
+        <strong>{boundedTotal > 0 ? `${boundedValue} of ${boundedTotal}` : `${boundedValue}`}</strong>
+      </div>
+      <div
+        className="semantic-progress-track"
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={boundedTotal || undefined}
+        aria-valuenow={boundedTotal ? boundedValue : undefined}
+      >
+        <i style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function semanticRunTitle(run: any, pendingSuggestions: number, hasProposal: boolean): string {
+  if (run.status === "failed") return "Suggestion run failed";
+  if (run.status === "cancelled") return "Suggestion run cancelled";
+  if (run.status === "running" || run.status === "pending") return "Creating suggestions";
+  if (run.mode === "dry-run") return "Dry run complete";
+  if (pendingSuggestions > 0 || hasProposal) return "Suggestions ready for review";
+  if ((run.counts?.accepted || 0) > 0) return "Links added to Graph";
+  return "Suggestion run complete";
+}
+
+function semanticRunPhase(run: any, running: boolean): string {
+  if (!running) return String(run.status || "latest run");
+  const counts = run.counts || {};
+  const documentsTotal = Number(counts.documentsTotal || 0);
+  const documentsProcessed = Number(counts.documentsAnalyzed || 0) + Number(counts.extractionsReused || 0);
+  if (documentsTotal > 0 && documentsProcessed < documentsTotal) return "Scanning documents";
+  if (Number(counts.candidates || 0) > 0) return "Judging links";
+  return "Preparing links";
+}
+
+function semanticRunStatusClass(run: any): string {
+  if (run.status === "failed") return "failed";
+  if (run.status === "cancelled") return "warning";
+  if (run.status === "completed") return "completed";
+  return "running";
+}
+
+function semanticRunCompletionCopy(run: any, pendingSuggestions: number, hasProposal: boolean): string {
+  const counts = run.counts || {};
+  if (run.status === "failed") return semanticRunErrorCopy(run.error);
+  if (run.status === "cancelled") return "The run stopped before it could finish.";
+  if (run.mode === "dry-run") return "The dry run finished without writing suggestions to Inbox.";
+  if (pendingSuggestions > 0 || hasProposal) {
+    return `${pendingSuggestions || counts.proposed || 0} suggestion${(pendingSuggestions || counts.proposed || 0) === 1 ? "" : "s"} are ready in Inbox.`;
+  }
+  if ((counts.accepted || 0) > 0) {
+    return `${counts.accepted} link${counts.accepted === 1 ? "" : "s"} were approved and added to Graph.`;
+  }
+  return "No links passed the review thresholds for this run.";
+}
+
+function semanticRunErrorCopy(error: unknown): string {
+  const message = String(error || "");
+  if (message.includes("invalid JSON") || message.includes("no parseable JSON")) {
+    return "The AI provider answered without valid JSON. Keep strict JSON output enabled, or use a model/provider that supports JSON object responses for document analysis.";
+  }
+  return message || "The provider or daemon stopped before suggestions could be created.";
 }
 
 function providerLabel(runtimeType: string): string {

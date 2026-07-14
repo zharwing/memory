@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callOpenAiCompatibleJson, checkAiProvider } from "./openai-compatible.js";
+import { callAiProviderJson, callOpenAiCompatibleJson, checkAiProvider } from "./openai-compatible.js";
 
 test("callOpenAiCompatibleJson accepts array-form message content", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -36,6 +36,39 @@ test("callOpenAiCompatibleJson accepts array-form message content", async (t) =>
   assert.equal(result.value.ok, true);
   assert.equal(result.value.message, "ready");
   assert.equal(result.model, "array-content-model");
+});
+
+test("callAiProviderJson uses LM Studio json_schema response format", async (t) => {
+  const originalFetch = globalThis.fetch;
+  let requestBody: any;
+  globalThis.fetch = (async (input, init) => {
+    const url = requestUrl(input);
+    if (url === "http://127.0.0.1:1234/v1/chat/completions") {
+      requestBody = requestJsonBody(init);
+      return jsonResponse({
+        model: "local-json-model",
+        choices: [{ message: { content: '{"ok":true}' } }]
+      });
+    }
+    return jsonResponse({ error: `unexpected ${url}` }, 500);
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const result = await callAiProviderJson<{ ok: boolean }>(
+    {
+      providerKind: "lm-studio",
+      endpoint: "http://127.0.0.1:1234/v1",
+      model: "local-json-model"
+    },
+    [{ role: "user", content: "Return JSON." }]
+  );
+
+  assert.equal(result.value.ok, true);
+  assert.equal(requestBody.response_format.type, "json_schema");
+  assert.equal(requestBody.response_format.json_schema.name, "aimem_json_response");
+  assert.equal(requestBody.response_format.json_schema.schema.type, "object");
 });
 
 test("callOpenAiCompatibleJson reports the empty first choice when content is missing", async (t) => {

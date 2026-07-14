@@ -13,6 +13,7 @@ export interface OpenAiCompatibleProviderConfig {
   maxOutputTokens?: number;
   temperature?: number;
   jsonMode?: boolean;
+  providerKind?: AiProviderKind | string;
 }
 
 export type AiProviderKind =
@@ -849,7 +850,7 @@ async function callOpenAiCompatibleText(
         messages,
         temperature: config.temperature ?? 0,
         max_tokens: config.maxOutputTokens || 1024,
-        ...(config.jsonMode === false ? {} : { response_format: { type: "json_object" } })
+        ...openAiCompatibleJsonResponseFormat(config)
       }),
       signal: controller.signal
     });
@@ -879,6 +880,29 @@ async function callOpenAiCompatibleText(
     clearTimeout(timeout);
     signal?.removeEventListener("abort", abort);
   }
+}
+
+function openAiCompatibleJsonResponseFormat(config: OpenAiCompatibleProviderConfig): Record<string, unknown> {
+  if (config.jsonMode === false) return {};
+  const providerKind = normalizeAiProviderKind(config.providerKind);
+  if (providerKind === "lm-studio") {
+    return {
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "aimem_json_response",
+          strict: false,
+          schema: {
+            type: "object",
+            additionalProperties: true
+          }
+        }
+      }
+    };
+  }
+  return {
+    response_format: { type: "json_object" }
+  };
 }
 
 function textFromChoice(choice: OpenAiChatChoice | undefined): string {

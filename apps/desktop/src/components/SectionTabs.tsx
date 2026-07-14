@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useStore } from "../stores/store-context.js";
 import { appPathFromPathname, projectPath } from "../utils/routes.js";
-import { pendingInboxItems } from "../utils/inbox.js";
+import { pendingInboxReviewCount } from "../utils/inbox.js";
 
 const workTabs = [
   ["Current Work", "/current-work"],
@@ -30,7 +30,7 @@ export function WorkTabs() {
 
 export function LibraryTabs() {
   const store = useStore();
-  const pendingInboxCount = pendingInboxItems(store.inbox).length;
+  const pendingInboxCount = pendingInboxReviewCount(store.inbox);
   return <SectionTabs tabs={libraryTabs} badges={{ "/inbox": pendingInboxCount }} />;
 }
 

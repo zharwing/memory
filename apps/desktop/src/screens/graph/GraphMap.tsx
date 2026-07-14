@@ -18,7 +18,7 @@ import {
 } from "d3";
 import { Maximize2, Minus, Plus } from "lucide-react";
 import { graphDocumentIdForGraphNode, isGraphFocusableNodeId } from "./graph-display.js";
-import type { GraphMapEdge, GraphMapNode } from "./graph-flow.js";
+import { graphNodeVisualKind, type GraphMapEdge, type GraphMapNode } from "./graph-flow.js";
 
 const GRAPH_MIN_ZOOM = 0.06;
 const GRAPH_MAX_ZOOM = 22;
@@ -412,9 +412,10 @@ function buildD3GraphModel(
 
   const graphNodes = nodes.map((node, index): D3GraphNode => {
     const type = String(node.type || "node");
+    const visualType = graphNodeVisualKind(node);
     const degree = degreeByNodeId.get(node.id) || 0;
     const isRoot = node.id === focusedNodeId || (!focusedNodeId && type === "project");
-    const colors = graphNodeVisualStyle(type);
+    const colors = graphNodeVisualStyle(visualType, node);
     const target = targetPositions.get(node.id) || fallbackGraphPosition(index, nodes.length);
     const storedPosition = storedPositions?.[node.id];
     const position = storedPosition || deterministicJitteredPosition(target, node.id);
@@ -893,7 +894,11 @@ function graphNodeFontSize(node: D3GraphNode): number {
   return 12;
 }
 
-export function graphNodeVisualStyle(type: string): { fill: string; accent: string; text: string } {
+export function graphNodeVisualStyle(type: string, node?: Pick<GraphMapNode, "id" | "label">): { fill: string; accent: string; text: string } {
+  if (type === "repo" && node) {
+    return repoNodeVisualStyle(node);
+  }
+
   const colors: Record<string, { fill: string; accent: string; text: string }> = {
     project: { fill: "#e0e7ff", accent: "#4f46e5", text: "#312e81" },
     repo: { fill: "#e5f7fb", accent: "#0891b2", text: "#164e63" },
@@ -914,6 +919,26 @@ export function graphNodeVisualStyle(type: string): { fill: string; accent: stri
     "external-reference": { fill: "#fefce8", accent: "#ca8a04", text: "#713f12" }
   };
   return colors[type] || { fill: "#f5f3ff", accent: "#8b5cf6", text: "#4c1d95" };
+}
+
+function repoNodeVisualStyle(node: Pick<GraphMapNode, "id" | "label">): { fill: string; accent: string; text: string } {
+  const palette = [
+    { fill: "#e0f2fe", accent: "#0284c7", text: "#0c4a6e" },
+    { fill: "#dcfce7", accent: "#16a34a", text: "#14532d" },
+    { fill: "#fef3c7", accent: "#d97706", text: "#78350f" },
+    { fill: "#fce7f3", accent: "#db2777", text: "#831843" },
+    { fill: "#ede9fe", accent: "#7c3aed", text: "#4c1d95" },
+    { fill: "#ccfbf1", accent: "#0d9488", text: "#134e4a" }
+  ];
+  return palette[Math.abs(hashGraphStyleKey(`${node.id}:${node.label}`)) % palette.length];
+}
+
+function hashGraphStyleKey(input: string): number {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
+  }
+  return hash;
 }
 
 function graphMapNodeLabel(node: GraphMapNode): string {
