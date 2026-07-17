@@ -218,21 +218,24 @@ under Graph Details **Advanced**.
 ## Validation Checklist For Future Runtime Work
 
 1. Install dependencies.
-2. Run `corepack pnpm typecheck`.
-3. Run `corepack pnpm test`.
-4. Run `corepack pnpm build` after dependencies are installed for the current OS.
-5. Start daemon.
-6. Initialize a temporary project.
-7. Start a session.
-8. Generate context preview.
-9. Save checkpoint.
-10. Close session.
-11. Create inbox proposal.
-12. Rebuild index.
-13. Create backup snapshot.
-14. Open desktop app.
-15. Connect MCP adapter to a client.
-16. If testing AI features, run the provider smoke checklist in
+2. Run `corepack pnpm check:source-artifacts`.
+3. Run `corepack pnpm typecheck`.
+4. Run `corepack pnpm test` (compiles from clean and fails on zero tests).
+5. Run `corepack pnpm build` after dependencies are installed for the current OS.
+6. Run `corepack pnpm check:source-artifacts` again to confirm no build wrote
+   output into a `src` directory.
+7. Start daemon.
+8. Initialize a temporary project.
+9. Start a session.
+10. Generate context preview.
+11. Save checkpoint.
+12. Close session.
+13. Create inbox proposal.
+14. Rebuild index.
+15. Create backup snapshot.
+16. Open desktop app.
+17. Connect MCP adapter to a client.
+18. If testing AI features, run the provider smoke checklist in
     [Testing With AI Providers](AI_TESTING.md).
 
 ## Known Constraints

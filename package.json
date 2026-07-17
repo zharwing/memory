@@ -5,15 +5,24 @@
   "description": "Local-first project context manager for AI-assisted coding tools.",
   "type": "module",
   "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=22.21.0 <23",
+    "pnpm": "9.0.0"
+  },
   "scripts": {
     "dev:daemon": "node --env-file-if-exists=.env --import tsx apps/daemon/src/index.ts",
     "dev:cli": "node --env-file-if-exists=.env --import tsx apps/cli/src/index.ts",
     "dev:mcp": "node --env-file-if-exists=.env --import tsx apps/mcp-server/src/index.ts",
     "dev:web": "vite --config apps/desktop/vite.config.ts",
     "dev:desktop": "node scripts/tauri-dev.mjs",
+    "build:ts": "tsc -b",
+    "build:web": "vite build --config apps/desktop/vite.config.ts",
     "build": "tsc -b && vite build --config apps/desktop/vite.config.ts",
-    "typecheck": "tsc -b",
-    "test": "node scripts/run-tests.mjs"
+    "typecheck": "tsc -b --pretty false",
+    "test:compile": "tsc -b --clean && tsc -b --force --pretty false",
+    "test": "tsc -b --clean && tsc -b --force --pretty false && node scripts/run-tests.mjs",
+    "test:coverage": "tsc -b --clean && tsc -b --force --pretty false && node scripts/run-tests.mjs --coverage",
+    "check:source-artifacts": "node scripts/check-source-artifacts.mjs"
   },
   "workspaces": [
     "apps/*",
