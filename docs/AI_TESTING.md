@@ -304,8 +304,20 @@ Relationship quality pass criteria:
 
 ## MCP Smoke Test
 
-When validating an AI client integration, configure the MCP adapter from
-`templates/mcp/`, start the daemon, and have the client call these tools:
+When validating an AI client integration, start or reuse the daemon, install the
+target client config, and check setup:
+
+```text
+aimem mcp install auto
+aimem mcp doctor
+```
+
+Use `codex`, `claude-code`, or `claude-desktop` instead of `auto` to target one
+client. Use `--transport stdio` when the client needs a process-launched
+adapter. Manual templates remain available in `templates/mcp/`, and the full
+setup guide is [MCP Setup](MCP_SETUP.md).
+
+Then have the client call these tools:
 
 ```text
 memory.get_startup_state
@@ -324,7 +336,8 @@ Use preview and dry-run modes before review or auto mode.
 ## Troubleshooting
 
 - `ECONNREFUSED` from AI Memory: start `corepack pnpm dev:daemon`.
-- `401 Unauthorized`: the bearer token does not match `.env`.
+- `401 Unauthorized`: the bearer token does not match `.env`, or the client did
+  not inherit `AIMEM_AUTH_TOKEN`.
 - Provider timeout: lower `--max-docs`, `--max-candidates`, and `--per-doc`, or
   increase `--timeout-ms`.
 - Invalid JSON: choose a model with stronger instruction following or lower the

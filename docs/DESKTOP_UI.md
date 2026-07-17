@@ -36,6 +36,12 @@ The browser UI cannot browse arbitrary local folders. In browser mode, path
 fields accept typed or pasted absolute paths. In the Tauri window, Setup,
 Repos, and Import can use OS folder picker buttons.
 
+Setup also includes Agent MCP actions for automatic install, installing Codex,
+Claude Code, or Claude Desktop config, and checking the current MCP setup.
+These actions call the same installer as `aimem mcp install` and require
+restarting the target AI client after config changes. See
+[MCP Setup](MCP_SETUP.md).
+
 ## Sidebar Model
 
 The sidebar intentionally stays lightweight. It contains only primary areas:

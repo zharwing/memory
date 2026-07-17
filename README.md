@@ -15,7 +15,7 @@ Implemented:
 - TypeScript monorepo layout.
 - Local daemon API.
 - CLI helper.
-- MCP-style stdio adapter.
+- MCP HTTP endpoint and stdio adapter.
 - Tauri + React desktop shell.
 - Markdown-first storage model.
 - Project registry and `.ai-memory.json` pointer support.
@@ -101,6 +101,7 @@ docs/
   ARCHITECTURE.md   System architecture
   DATA_MODEL.md     Entities, storage, and metadata
   API_REFERENCE.md  Daemon, CLI, and MCP surfaces
+  MCP_SETUP.md      Codex, Claude, HTTP/stdio, auth, and troubleshooting
   AGENT_AUTOMATION.md MCP, bootstrap, and skill setup for agents
   USER_FLOWS.md     Human and agent workflows
   DIAGRAMS.md       Mermaid UML, ERD, sequence, state, flow diagrams
@@ -303,7 +304,7 @@ their own linked repos should be committed or kept local.
 For automatic session behavior in Codex, Claude, or local agents:
 
 1. Start the daemon.
-2. Register the MCP adapter using `templates/mcp/`.
+2. Register the MCP adapter with `aimem mcp install auto`.
 3. Link source repos from the UI or CLI.
 4. Generate repo bootstrap files from `templates/bootstrap/`.
 5. Optionally install `templates/skills/ai-memory-session` as a generic Codex
@@ -313,6 +314,14 @@ Agents should call `memory.get_startup_state`, read the latest previous session,
 start a fresh daily/work-round session, search memory, load context when useful,
 save checkpoints during work, and close or checkpoint at the end. See
 [Agent Automation](docs/AGENT_AUTOMATION.md).
+
+For localhost-only personal setups, `AIMEM_AUTH_MODE=none` lets MCP clients use
+`http://127.0.0.1:37841/mcp` without a bearer token. The daemon refuses no-auth
+mode on non-loopback hosts.
+
+For MCP setup details, including Codex and Claude config, HTTP vs stdio,
+Windows/WSL reachability, desktop installer buttons, and troubleshooting, see
+[MCP Setup](docs/MCP_SETUP.md).
 
 ## CLI Examples
 

@@ -2,6 +2,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { AimemClient } from "@aimem/api-client";
+import { doctorMcpSetup, installMcpAuto, installMcpClient, serveMcpStdio, type McpClientTarget, type McpInstallTarget, type McpInstallTransport } from "@aimem/mcp-tools";
 import {
   defaultInstructionFile,
   normalizeAgentTarget,
@@ -86,9 +87,52 @@ async function run(): Promise<void> {
     case "agent-instructions":
     case "generate-agent-instructions":
       return agentInstructions();
+    case "mcp":
+      return mcp();
     default:
       printHelp();
       process.exitCode = 1;
+  }
+}
+
+async function mcp(): Promise<void> {
+  const subcommand = args.positional[0] || "doctor";
+  switch (subcommand) {
+    case "serve":
+      serveMcpStdio();
+      return;
+    case "doctor":
+      return printJson(await doctorMcpSetup({
+        daemonUrl: flagString(args.flags, "daemon-url"),
+        workingDirectory: process.cwd()
+      }));
+    case "install": {
+      const target = normalizeMcpInstallTarget(args.positional[1]);
+      const transport = normalizeMcpTransport(flagString(args.flags, "transport") || "http");
+      if (target === "auto") {
+        if (flagString(args.flags, "config")) throw new Error("--config cannot be used with `mcp install auto`; use a specific client target.");
+        return printJson(await installMcpAuto({
+          transport,
+          daemonUrl: flagString(args.flags, "daemon-url"),
+          authMode: normalizeMcpAuthMode(flagString(args.flags, "auth") || "auto"),
+          serverName: flagString(args.flags, "name") || "aimem",
+          workingDirectory: process.cwd(),
+          dryRun: flagBool(args.flags, "dry-run")
+        }));
+      }
+      return printJson(await installMcpClient({
+        client: target,
+        transport,
+        configPath: flagString(args.flags, "config"),
+        daemonUrl: flagString(args.flags, "daemon-url"),
+        authMode: normalizeMcpAuthMode(flagString(args.flags, "auth") || "auto"),
+        serverName: flagString(args.flags, "name") || "aimem",
+        workingDirectory: process.cwd(),
+        dryRun: flagBool(args.flags, "dry-run")
+      }));
+    }
+    default:
+      throw new Error(`Unknown mcp command: ${subcommand}`);
   }
 }
 
@@ -479,6 +523,22 @@ function requireProjectId(): string {
   const projectId = flagString(args.flags, "project");
   if (!projectId) throw new Error("Missing --project <id>.");
   return projectId;
+}
+
+function normalizeMcpInstallTarget(value: string | undefined): McpInstallTarget {
+  if (!value || value === "auto" || value === "all") return "auto";
+  if (value === "codex" || value === "claude-code" || value === "claude-desktop") return value;
+  throw new Error("Invalid MCP client. Use auto, codex, claude-code, or claude-desktop.");
+}
+
+function normalizeMcpTransport(value: string): McpInstallTransport {
+  if (value === "http" || value === "stdio") return value;
+  throw new Error("Invalid --transport. Use http or stdio.");
+}
+
+function normalizeMcpAuthMode(value: string): "none" | "token" | "auto" {
+  if (value === "none" || value === "token" || value === "auto") return value;
+  throw new Error("Invalid --auth. Use auto, none, or token.");
 }
 
 function requireSessionId(): string {

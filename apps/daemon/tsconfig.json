@@ -13,6 +13,7 @@
     { "path": "../../packages/context-engine" },
     { "path": "../../packages/search" },
     { "path": "../../packages/graph" },
-    { "path": "../../packages/semantic-graph" }
+    { "path": "../../packages/semantic-graph" },
+    { "path": "../../packages/mcp-tools" }
   ]
 }

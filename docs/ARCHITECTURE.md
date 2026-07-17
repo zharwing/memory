@@ -96,7 +96,8 @@ Location: `apps/mcp-server`
 Role:
 
 - exposes agent-facing tools over stdio JSON-RPC
-- maps MCP tool calls to daemon RPC methods
+- shares MCP request handling with the daemon HTTP `/mcp` endpoint
+- maps MCP tool calls to daemon behavior
 - exposes prompt/resource text for startup and checkpoint behavior
 
 The adapter is intentionally thin.

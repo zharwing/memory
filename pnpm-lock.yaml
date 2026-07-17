@@ -26,6 +26,9 @@ importers:
       '@aimem/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@aimem/mcp-tools':
+        specifier: workspace:*
+        version: link:../../packages/mcp-tools
 
   apps/daemon:
     dependencies:
@@ -41,6 +44,9 @@ importers:
       '@aimem/graph':
         specifier: workspace:*
         version: link:../../packages/graph
+      '@aimem/mcp-tools':
+        specifier: workspace:*
+        version: link:../../packages/mcp-tools
       '@aimem/privacy':
         specifier: workspace:*
         version: link:../../packages/privacy

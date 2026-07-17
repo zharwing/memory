@@ -36,6 +36,8 @@ export class RootStore {
   importProfiles: any[] = [];
   importPlan: any = undefined;
   importResult: any = undefined;
+  mcpDoctor: any = undefined;
+  mcpInstallResult: any = undefined;
   backups: any[] = [];
   trashItems: any[] = [];
   loading = false;
@@ -90,6 +92,29 @@ export class RootStore {
       runInAction(() => {
         this.daemonHealth = health;
       });
+    });
+  }
+
+  async loadMcpDoctor() {
+    await this.run(async () => {
+      const result = await this.client.call("memory.mcp_doctor");
+      runInAction(() => {
+        this.mcpDoctor = result;
+      });
+    });
+  }
+
+  async installMcpClient(client: "auto" | "codex" | "claude-code" | "claude-desktop", transport = "http") {
+    await this.run(async () => {
+      const result = await this.client.call("memory.mcp_install", {
+        client,
+        transport,
+        authMode: "auto"
+      });
+      runInAction(() => {
+        this.mcpInstallResult = result;
+      });
+      await this.loadMcpDoctor();
     });
   }
 
