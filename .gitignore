@@ -15,3 +15,11 @@ memory-store/
 .env.*
 !.env.example
 .ai-memory.json
+
+# planning docs stay out of version control
+docs/TESTING_PLAN.md
+AGENTS.md
+CLAUDE.md
+.claude/
+.codex/
+.agents/
