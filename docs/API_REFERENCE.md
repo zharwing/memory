@@ -12,6 +12,28 @@ Authorization: Bearer local-dev-token
 Content-Type: application/json
 ```
 
+Streamable HTTP MCP endpoint:
+
+```text
+POST http://127.0.0.1:37841/mcp
+Content-Type: application/json
+```
+
+For localhost-only personal use, set `AIMEM_AUTH_MODE=none` to allow MCP
+clients to connect without a bearer token. The daemon refuses no-auth mode when
+bound to a non-loopback host.
+
+The stdio MCP entrypoint is:
+
+```text
+aimem mcp serve
+```
+
+Client config can be generated with `aimem mcp install auto` or
+`aimem mcp install <client>`. See
+[MCP Setup](MCP_SETUP.md) for supported clients, auth modes, and transport
+choices.
+
 Request shape:
 
 ```json
@@ -52,6 +74,8 @@ Error shape:
 ### Health
 
 - `memory.health`
+- `memory.mcp_doctor`
+- `memory.mcp_install`
 
 ### Projects
 
@@ -288,7 +312,8 @@ aimem semantic-graph edges --project <id> --status accepted,auto-accepted
 
 ## MCP Tools
 
-The MCP adapter exposes the same behavior with `memory.*` tool names.
+The MCP adapter exposes the same behavior with `memory.*` tool names over the
+daemon HTTP endpoint or the stdio adapter.
 
 Core tools:
 
@@ -374,7 +399,9 @@ Core tools:
 ## Security Notes
 
 - The daemon binds to localhost by default.
-- RPC requests require a bearer token.
+- RPC requests require a bearer token unless `AIMEM_AUTH_MODE=none` is used on
+  a loopback-only daemon.
+- HTTP MCP requests follow the same daemon auth mode.
 - The default token is a development placeholder.
 - A packaged product should generate and store a per-user local token.
 - Remote access should remain disabled unless explicitly configured.

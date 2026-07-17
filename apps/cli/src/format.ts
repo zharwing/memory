@@ -55,6 +55,9 @@ Commands:
   import-folder <path> --project <id> --commit [--conflict skip|overwrite|duplicate]
   import-commit <path> --project <id> [--profile <name>]
   agent-instructions --project <id> [--agent generic|codex|claude|qwen]
+  mcp serve                        Run the AI Memory MCP stdio adapter
+  mcp doctor                       Check daemon and MCP client setup
+  mcp install [auto|client]        Install MCP config for current OS, codex, claude-code, or claude-desktop
 
 Flags:
   --json                           Print raw JSON where a command normally formats output
@@ -82,5 +85,10 @@ Flags:
   --keep-pointer                   Do not remove .ai-memory.json when unlinking a repo
   --agent <name>                   Agent instruction target: generic, codex, claude, or qwen
   --output <path|default>          Write generated agent instructions to a file
+  --transport <http|stdio>         MCP install transport
+  --daemon-url <url>               AI Memory daemon URL for MCP setup
+  --auth <auto|none|token>         MCP HTTP auth mode for generated config
+  --config <path>                  Override MCP client config path
+  --dry-run                        Preview installer output without writing config
 `);
 }

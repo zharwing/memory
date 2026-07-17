@@ -19,7 +19,8 @@ An agent should be able to start inside a linked repo and automatically:
 
 ## Required Pieces
 
-- Local daemon running with `AIMEM_MEMORY_ROOT` and `AIMEM_AUTH_TOKEN`.
+- Local daemon running with `AIMEM_MEMORY_ROOT` and either token auth or
+  localhost-only no-auth mode.
 - MCP config for each AI client, or CLI access as a fallback.
 - Linked source repos with `.ai-memory.json` pointer files when auto-detection
   is wanted.
@@ -28,24 +29,42 @@ An agent should be able to start inside a linked repo and automatically:
 
 ## MCP Setup
 
-Start the daemon first:
+Start the daemon first or use the desktop app to start or reuse it:
 
 ```text
 corepack pnpm dev:daemon
 ```
 
-Use the templates in `templates/mcp/`:
+Recommended local setup uses the daemon's Streamable HTTP MCP endpoint:
+
+```text
+aimem mcp install auto
+aimem mcp doctor
+```
+
+The installer writes or updates detected client MCP configs, creates a
+timestamped backup when replacing an existing file, and uses the running CLI
+entrypoint for stdio configs instead of hardcoded checkout paths.
+
+For localhost-only personal use, set:
+
+```text
+AIMEM_AUTH_MODE=none
+```
+
+No-auth mode is refused when the daemon is not bound to a loopback host.
+
+Manual templates remain available in `templates/mcp/`:
 
 - `codex.toml` for Codex MCP configuration.
 - `claude-desktop.json` for Claude Desktop-style MCP configuration.
 
-Replace:
+The MCP endpoint exposes `memory.*` tools and calls the local daemon. It does
+not store project data by itself.
 
-- `<ai-memory-project>` with the absolute path to this AI Memory app checkout.
-- `<local-ai-memory-token>` with the same token in `.env`.
-
-The MCP server exposes `memory.*` tools and calls the local daemon. It does not
-store project data by itself.
+For full setup details, including `--transport stdio`, token-auth config,
+desktop installer buttons, and Windows/WSL reachability, see
+[MCP Setup](MCP_SETUP.md).
 
 ## Repo Bootstrap
 

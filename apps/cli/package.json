@@ -13,6 +13,7 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@aimem/api-client": "workspace:*"
+    "@aimem/api-client": "workspace:*",
+    "@aimem/mcp-tools": "workspace:*"
   }
 }

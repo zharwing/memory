@@ -10,8 +10,8 @@ flowchart LR
   Desktop["Desktop UI\nTauri + React"]
   CLI["CLI\ncommand helper"]
   Agent["External AI agent\nCodex / Claude / Gemini / local"]
-  MCP["MCP adapter\nstdio JSON-RPC"]
-  Daemon["AI Memory daemon\nlocalhost JSON-RPC"]
+  MCP["MCP adapter\nstdio or HTTP MCP"]
+  Daemon["AI Memory daemon\nlocalhost JSON-RPC + MCP"]
   Storage["Markdown source of truth"]
   Index["Rebuildable indexes"]
   Assistant["Optional local Memory Assistant"]
@@ -36,7 +36,7 @@ flowchart TB
     Desktop["apps/desktop\nHuman control plane"]
     Daemon["apps/daemon\nMemory orchestration API"]
     CLI["apps/cli\nTerminal workflows"]
-    MCPServer["apps/mcp-server\nAgent tool adapter"]
+    MCPServer["apps/mcp-server\nStdio MCP adapter"]
   end
 
   subgraph Packages["Shared packages"]
@@ -672,7 +672,7 @@ flowchart TB
   subgraph UserMachine["User machine"]
     Desktop["Tauri desktop app"]
     Daemon["Node daemon sidecar"]
-    MCP["MCP stdio process"]
+    MCP["MCP stdio process or HTTP client"]
     CLI["aimem CLI"]
     MemoryRoot["Local memory root"]
     LocalModel["Optional llama.cpp sidecar"]

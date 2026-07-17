@@ -105,6 +105,18 @@ MCP:
 corepack pnpm dev:mcp
 ```
 
+Installed client setup:
+
+```text
+aimem mcp install auto
+aimem mcp doctor
+```
+
+Use HTTP MCP when the client can reach the daemon at
+`http://127.0.0.1:37841/mcp`. Use stdio with `--transport stdio` when a client
+needs to launch a local subprocess or when Windows/WSL localhost routing makes
+the daemon URL unreachable. See [MCP Setup](MCP_SETUP.md).
+
 The daemon and browser UI Vite commands have been run during validation. The native
 Tauri command requires the local Rust/Tauri toolchain.
 
@@ -115,6 +127,7 @@ Production packaging should:
 - generate a per-user local auth token
 - store the token in the OS app data directory or keychain-compatible location
 - bind daemon to localhost by default
+- allow `AIMEM_AUTH_MODE=none` only for loopback-only personal setups
 - keep remote access disabled by default
 - require explicit approval for project creation, repo linking, context serving, and canonical memory writes only when review mode or safety policy requires it
 - log sensitive operations without storing raw secrets

@@ -1,7 +1,2 @@
 [mcp_servers.aimem]
-command = "corepack"
-args = ["pnpm", "--dir", "<ai-memory-project>", "dev:mcp"]
-
-[mcp_servers.aimem.env]
-AIMEM_DAEMON_URL = "http://127.0.0.1:37841"
-AIMEM_AUTH_TOKEN = "<local-ai-memory-token>"
+url = "http://127.0.0.1:37841/mcp"

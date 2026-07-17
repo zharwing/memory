@@ -1,4 +1,5 @@
 import type { MemoryService } from "./memory-service.js";
+import { doctorMcpSetup, installMcpAuto, installMcpClient } from "@aimem/mcp-tools";
 
 export interface RpcRequest {
   id?: string | number;
@@ -36,6 +37,11 @@ async function callMethod(service: MemoryService, method: string, params: Record
   switch (method) {
     case "memory.health":
       return { status: "ok", memoryRoot: service.memoryRoot() };
+    case "memory.mcp_doctor":
+      return doctorMcpSetup(params as never);
+    case "memory.mcp_install":
+      if (params.client === "auto") return installMcpAuto(params as never);
+      return installMcpClient(params as never);
     case "memory.list_projects":
       return service.listProjects();
     case "memory.get_project":

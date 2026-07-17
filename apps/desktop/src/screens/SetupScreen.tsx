@@ -23,6 +23,31 @@ export const SetupScreen = observer(function SetupScreen() {
 
   const preview = store.projectCreationPreview;
   const memoryRoot = store.daemonHealth?.memoryRoot || "not connected";
+  const mcpInstall = store.mcpInstallResult as {
+    changed?: boolean;
+    client?: string;
+    scope?: string;
+    transport?: string;
+    configPath?: string;
+    backupPath?: string;
+    installs?: Array<{
+      changed?: boolean;
+      client?: string;
+      scope?: string;
+      transport?: string;
+      configPath?: string;
+      warnings?: string[];
+    }>;
+    skipped?: Array<{ client?: string; scope?: string; reason?: string }>;
+    warnings?: string[];
+  } | undefined;
+  const mcpDoctor = store.mcpDoctor as {
+    daemon?: { reachable?: boolean; url?: string };
+    stdio?: { toolCount?: number };
+  } | undefined;
+  const mcpWarnings = Array.isArray(mcpInstall?.warnings) ? mcpInstall.warnings : [];
+  const mcpAutoInstalls = Array.isArray(mcpInstall?.installs) ? mcpInstall.installs : [];
+  const mcpSkipped = Array.isArray(mcpInstall?.skipped) ? mcpInstall.skipped : [];
   return (
     <Screen title="Setup" actions={<button onClick={() => store.loadDaemonHealth()}>Check Daemon</button>}>
       <SettingsTabs />
@@ -42,6 +67,56 @@ export const SetupScreen = observer(function SetupScreen() {
             <li>Create broad workstreams for multi-day topics.</li>
             <li>Preview imports before committing old notes or sessions.</li>
           </ol>
+        </Panel>
+        <Panel title="Agent MCP">
+          <div className="stacked-form">
+            <p className="panel-help">
+              Install AI Memory as a local MCP server for coding agents. Restart the agent after installation.
+            </p>
+            <div className="button-row">
+              <button type="button" onClick={() => store.installMcpClient("auto")}>Install Auto</button>
+              <button type="button" onClick={() => store.installMcpClient("codex")}>Install Codex</button>
+              <button type="button" onClick={() => store.installMcpClient("claude-code")}>Install Claude Code</button>
+              <button type="button" onClick={() => store.installMcpClient("claude-desktop")}>Install Claude Desktop</button>
+              <button type="button" onClick={() => store.loadMcpDoctor()}>Check MCP</button>
+            </div>
+            {mcpInstall ? (
+              <div className="setup-guidance">
+                <strong>{mcpInstall.client === "auto" ? "Auto install complete" : mcpInstall.changed ? "Installed" : "Already configured"}</strong>
+                {mcpAutoInstalls.length ? (
+                  <ul>
+                    {mcpAutoInstalls.map((install) => (
+                      <li key={`${install.scope}-${install.client}-${install.configPath}`}>
+                        {install.client} ({install.scope}) uses {install.transport} at {install.configPath}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{mcpInstall.client} ({mcpInstall.scope || "current-os"}) uses {mcpInstall.transport} at {mcpInstall.configPath}.</p>
+                )}
+                {mcpInstall.backupPath ? <p>Backup: {mcpInstall.backupPath}</p> : null}
+                {mcpWarnings.length ? (
+                  <ul>
+                    {mcpWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+                  </ul>
+                ) : null}
+                {mcpSkipped.length ? (
+                  <ul>
+                    {mcpSkipped.map((skipped) => (
+                      <li key={`${skipped.scope}-${skipped.client}-${skipped.reason}`}>{skipped.client} ({skipped.scope}) skipped: {skipped.reason}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+            {mcpDoctor ? (
+              <div className="setup-guidance">
+                <strong>Doctor</strong>
+                <p>Daemon: {mcpDoctor.daemon?.reachable ? "reachable" : "not reachable"} at {mcpDoctor.daemon?.url}</p>
+                <p>Stdio tools: {mcpDoctor.stdio?.toolCount || 0}</p>
+              </div>
+            ) : null}
+          </div>
         </Panel>
         <Panel title="Create Project">
           <form className="stacked-form" onSubmit={(event) => {
