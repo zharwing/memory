@@ -39,7 +39,7 @@ export function MermaidDiagramPreview({ source }: { source: string }) {
             tertiaryColor: color("--background", "#f7f3ee")
           }
         });
-        const result = await mermaid.render(`aimem-mermaid-${Math.abs(hashString(source))}-${Date.now()}`, source);
+        const result = await mermaid.render(`zharwing-mermaid-${Math.abs(hashString(source))}-${Date.now()}`, source);
         if (!cancelled) setSvg(result.svg);
       } catch (renderError) {
         if (!cancelled) setError(renderError instanceof Error ? renderError.message : String(renderError));

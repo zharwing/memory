@@ -1,13 +1,13 @@
 # Agent Automation
 
-AI Memory is project-neutral. It should work for any user's repositories without
+Zharwing Memory is project-neutral. It should work for any user's repositories without
 hardcoded project ids, company names, or local paths.
 
 ## Goal
 
 An agent should be able to start inside a linked repo and automatically:
 
-1. Detect the active AI Memory project.
+1. Detect the active Zharwing Memory project.
 2. Read the latest relevant previous session, including the last weekday session
    after weekends or gaps.
 3. Create a fresh session for the current day or work round by default.
@@ -19,10 +19,10 @@ An agent should be able to start inside a linked repo and automatically:
 
 ## Required Pieces
 
-- Local daemon running with `AIMEM_MEMORY_ROOT` and either token auth or
+- Local daemon running with `ZHARWING_MEMORY_ROOT` and either token auth or
   localhost-only no-auth mode.
 - MCP config for each AI client, or CLI access as a fallback.
-- Linked source repos with `.ai-memory.json` pointer files when auto-detection
+- Linked source repos with `.zharwing/memory.json` pointer files when auto-detection
   is wanted.
 - Repo-local bootstrap instructions such as `AGENTS.md` or `CLAUDE.md`.
 - Optional generic skill or custom instruction that makes the behavior habitual.
@@ -38,8 +38,8 @@ corepack pnpm dev:daemon
 Recommended local setup uses the daemon's Streamable HTTP MCP endpoint:
 
 ```text
-aimem mcp install auto
-aimem mcp doctor
+zharwing-memory mcp install auto
+zharwing-memory mcp doctor
 ```
 
 The installer writes or updates detected client MCP configs, creates a
@@ -49,7 +49,7 @@ entrypoint for stdio configs instead of hardcoded checkout paths.
 For localhost-only personal use, set:
 
 ```text
-AIMEM_AUTH_MODE=none
+ZHARWING_MEMORY_AUTH_MODE=none
 ```
 
 No-auth mode is refused when the daemon is not bound to a loopback host.
@@ -68,12 +68,12 @@ desktop installer buttons, and Windows/WSL reachability, see
 
 ## Repo Bootstrap
 
-After creating an AI Memory project and linking a source repo, generate bootstrap
+After creating an Zharwing Memory project and linking a source repo, generate bootstrap
 instructions for that repo:
 
 ```text
-aimem agent-instructions --project <project-id> --agent codex --output AGENTS.md
-aimem agent-instructions --project <project-id> --agent claude --output CLAUDE.md
+zharwing-memory agent-instructions --project <project-id> --agent codex --output AGENTS.md
+zharwing-memory agent-instructions --project <project-id> --agent claude --output CLAUDE.md
 ```
 
 For manual setup, copy from:
@@ -94,7 +94,7 @@ Codex users can install the generic skill template from:
 templates/skills/ai-memory-session
 ```
 
-The skill tells an agent to use AI Memory at session start, during progress
+The skill tells an agent to use Zharwing Memory at session start, during progress
 checkpoints, and at closeout. It should not contain private project names or
 paths.
 
@@ -121,23 +121,23 @@ memory.close_session
 CLI fallback:
 
 ```text
-aimem detect <working-directory>
-aimem resume --project <project-id>
-aimem sessions --project <project-id> --limit 1 --json
-aimem start "<task>" --project <project-id> --agent <agent-name>
-aimem search --project <project-id> "<query>"
-aimem context --project <project-id> --preview --task "<task>"
-aimem checkpoint --project <project-id> --session <session-id> "summary"
-aimem close --project <project-id> --session <session-id> "summary"
+zharwing-memory detect <working-directory>
+zharwing-memory resume --project <project-id>
+zharwing-memory sessions --project <project-id> --limit 1 --json
+zharwing-memory start "<task>" --project <project-id> --agent <agent-name>
+zharwing-memory search --project <project-id> "<query>"
+zharwing-memory context --project <project-id> --preview --task "<task>"
+zharwing-memory checkpoint --project <project-id> --session <session-id> "summary"
+zharwing-memory close --project <project-id> --session <session-id> "summary"
 ```
 
 ## Closeout Extensions
 
-AI Memory should not prescribe a universal source-control, release, deployment,
+Zharwing Memory should not prescribe a universal source-control, release, deployment,
 or task-tracker workflow. Those workflows are project-specific and belong in a
 private project profile, repo bootstrap file, or personal agent skill.
 
-When such a project-specific closeout exists, AI Memory can help by listing
+When such a project-specific closeout exists, Zharwing Memory can help by listing
 today's sessions/checkpoints, identifying touched repos, and recording final
 artifacts such as commit hashes, PR links, deploy targets, external task ids,
 blockers, and next steps.

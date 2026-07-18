@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { AimemClient } from "@aimem/api-client";
+import { AimemClient } from "@zharwing/memory-api-client";
 
 export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
 

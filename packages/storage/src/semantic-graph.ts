@@ -12,7 +12,7 @@ import {
   type SemanticGraphRunCounts,
   type SemanticGraphScope,
   type SemanticGraphSettings
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { listFiles, readJson, writeJson } from "./fs.js";
 
 export function semanticGraphRoot(project: Project): string {

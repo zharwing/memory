@@ -1,6 +1,6 @@
 import path from "node:path";
-import type { Project, RepoLink } from "@aimem/core";
-import type { ProjectRegistry } from "@aimem/storage";
+import type { Project, RepoLink } from "@zharwing/memory-core";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   linkProjectRepo,
   listTrash as storageListTrash,
@@ -9,7 +9,7 @@ import {
   readTrashJsonPayload,
   removeTrashMetadata,
   restorePathFromTrash
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class TrashService {

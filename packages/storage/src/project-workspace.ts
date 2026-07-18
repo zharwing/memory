@@ -11,12 +11,13 @@ import {
   type ProjectCreationPreview,
   type ProjectDetectionResult,
   type RepoLink
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { ensureDir, normalizePath, pathExists, readJson, writeJson, writeText } from "./fs.js";
 import { ProjectRegistry } from "./registry.js";
 import { defaultProjectDocument } from "./templates.js";
 
 export interface PointerFile {
+  schema?: string;
   projectId: string;
   memoryRoot: string;
   contextPolicy?: {
@@ -25,6 +26,24 @@ export interface PointerFile {
     maxRawSessions: number;
     maxSummarizedSessions: number;
   };
+}
+
+export const POINTER_SCHEMA = "zharwing.memory.pointer.v1";
+
+/**
+ * Canonical pointer path plus the pre-rename legacy path. New pointers are
+ * written to the canonical path; detection accepts both so repos linked
+ * before the Zharwing rename keep resolving without user action.
+ */
+export const POINTER_RELATIVE_PATH = path.join(".zharwing", "memory.json");
+export const LEGACY_POINTER_RELATIVE_PATH = ".ai-memory.json";
+
+export function pointerFilePathFor(repoRoot: string): string {
+  return path.join(repoRoot, POINTER_RELATIVE_PATH);
+}
+
+export function legacyPointerFilePathFor(repoRoot: string): string {
+  return path.join(repoRoot, LEGACY_POINTER_RELATIVE_PATH);
 }
 
 export async function findRepoRoot(start: string): Promise<string | undefined> {
@@ -44,8 +63,10 @@ export async function findPointerFile(start: string): Promise<string | undefined
   let current = normalizePath(start);
 
   while (true) {
-    const pointer = path.join(current, ".ai-memory.json");
+    const pointer = pointerFilePathFor(current);
     if (await pathExists(pointer)) return pointer;
+    const legacyPointer = legacyPointerFilePathFor(current);
+    if (await pathExists(legacyPointer)) return legacyPointer;
     const parent = path.dirname(current);
     if (parent === current) return undefined;
     current = parent;
@@ -69,7 +90,7 @@ export async function detectProject(args: {
         pointerFilePath,
         projectId: pointer.projectId,
         projectStatus: "resolved",
-        message: "Resolved project from .ai-memory.json pointer file."
+        message: "Resolved project from memory pointer file."
       };
     }
   }
@@ -89,7 +110,7 @@ export async function detectProject(args: {
     workingDirectory,
     repoRoot,
     projectStatus: "unregistered",
-    message: "No AI Memory project is linked to this working directory."
+    message: "No Zharwing Memory project is linked to this working directory."
   };
 }
 
@@ -118,7 +139,7 @@ export async function prepareProjectCreation(args: {
     repoRoot,
     memoryLocation,
     willCreatePointerFile,
-    pointerFilePath: repoRoot && willCreatePointerFile ? path.join(repoRoot, ".ai-memory.json") : undefined,
+    pointerFilePath: repoRoot && willCreatePointerFile ? pointerFilePathFor(repoRoot) : undefined,
     willCreateBootstrapFiles: args.bootstrapFiles || [],
     privacyDefaults: [
       "exclude .env and .env.*",
@@ -216,7 +237,7 @@ export async function linkProjectRepo(args: {
 
   await writeProjectFile(nextProject);
 
-  const pointerFilePath = path.join(repoRoot, ".ai-memory.json");
+  const pointerFilePath = pointerFilePathFor(repoRoot);
   if (args.writePointerFile ?? true) {
     await writePointerFile(pointerFilePath, nextProject);
   }
@@ -253,10 +274,13 @@ export async function unlinkProjectRepo(args: {
   };
   await writeProjectFile(nextProject);
 
-  const pointerFilePath = path.join(repoRoot, ".ai-memory.json");
+  const pointerFilePath = pointerFilePathFor(repoRoot);
   let pointerRemoved = false;
   if (args.removePointerFile ?? true) {
+    // Remove both the canonical and the pre-rename legacy pointer so an
+    // unlinked repo does not keep resolving through a stale legacy file.
     await fs.rm(pointerFilePath, { force: true });
+    await fs.rm(legacyPointerFilePathFor(repoRoot), { force: true });
     pointerRemoved = true;
   }
 
@@ -311,6 +335,7 @@ function normalizePrimaryRepo(project: Project, preferredPrimaryPath?: string): 
 
 export async function writePointerFile(pointerFilePath: string, project: Project): Promise<void> {
   const pointer: PointerFile = {
+    schema: POINTER_SCHEMA,
     projectId: project.id,
     memoryRoot: project.memoryRoot,
     contextPolicy: {
@@ -339,9 +364,9 @@ function normalizeRepoRole(input?: string): string {
 }
 
 function bootstrapInstructions(): string {
-  return `Use AI Memory as the durable project memory, session history, search, and context layer for this repo.
+  return `Use Zharwing Memory as the durable project memory, session history, search, and context layer for this repo.
 
-Resolve the active project from this directory or the linked .ai-memory.json pointer before work.
+Resolve the active project from this directory or the linked memory pointer file (.zharwing/memory.json, or legacy .ai-memory.json) before work.
 Search project memory before making assumptions.
 Start or resume a project-scoped session for meaningful work.
 Preview or load a context bundle when prior context matters.

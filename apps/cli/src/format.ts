@@ -15,7 +15,7 @@ export function printTable(rows: Array<Record<string, unknown>>, columns: string
 }
 
 export function printHelp(): void {
-  process.stdout.write(`aimem
+  process.stdout.write(`zharwing-memory (legacy alias: aimem)
 
 Commands:
   projects                         List registered projects
@@ -55,7 +55,7 @@ Commands:
   import-folder <path> --project <id> --commit [--conflict skip|overwrite|duplicate]
   import-commit <path> --project <id> [--profile <name>]
   agent-instructions --project <id> [--agent generic|codex|claude|qwen]
-  mcp serve                        Run the AI Memory MCP stdio adapter
+  mcp serve                        Run the Zharwing Memory MCP stdio adapter
   mcp doctor                       Check daemon and MCP client setup
   mcp install [auto|client]        Install MCP config for current OS, codex, claude-code, or claude-desktop
 
@@ -81,12 +81,12 @@ Flags:
   --topic <a,b>                    Comma-separated workstream topics
   --repo-role <a,b>                Comma-separated workstream repo categories
   --project-only                   Create a project without linking the current folder
-  --no-pointer                     Do not write .ai-memory.json when linking a repo
-  --keep-pointer                   Do not remove .ai-memory.json when unlinking a repo
+  --no-pointer                     Do not write .zharwing/memory.json when linking a repo
+  --keep-pointer                   Do not remove the memory pointer file when unlinking a repo
   --agent <name>                   Agent instruction target: generic, codex, claude, or qwen
   --output <path|default>          Write generated agent instructions to a file
   --transport <http|stdio>         MCP install transport
-  --daemon-url <url>               AI Memory daemon URL for MCP setup
+  --daemon-url <url>               Zharwing Memory daemon URL for MCP setup
   --auth <auto|none|token>         MCP HTTP auth mode for generated config
   --config <path>                  Override MCP client config path
   --dry-run                        Preview installer output without writing config

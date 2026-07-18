@@ -1,11 +1,11 @@
-import { searchProjectMemory } from "@aimem/search";
-import type { ProjectRegistry } from "@aimem/storage";
+import { searchProjectMemory } from "@zharwing/memory-search";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   listProjectDocuments,
   listProjectSessions,
   listProjectWorkstreams,
   listProposedUpdates
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class SearchService {

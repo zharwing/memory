@@ -5,7 +5,7 @@ import {
   nowIso,
   type TrashItem,
   type TrashItemType
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { ensureDir, listFiles, normalizePath, pathExists, readJson, writeJson } from "./fs.js";
 
 export interface TrashMoveArgs {

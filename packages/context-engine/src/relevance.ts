@@ -1,4 +1,4 @@
-import type { MemoryDocument, Session } from "@aimem/core";
+import type { MemoryDocument, Session } from "@zharwing/memory-core";
 
 export function scoreDocumentRelevance(doc: MemoryDocument, query: string, activeSession?: Session): number {
   let score = 0;

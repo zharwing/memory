@@ -6,7 +6,7 @@ import type {
   SearchResult,
   Session,
   Workstream
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 
 export interface SearchCorpus {
   projectId: ProjectId;

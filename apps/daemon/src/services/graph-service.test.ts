@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { ProjectGraph, ProposedMemoryUpdate, SemanticGraphEdge, SemanticGraphEdgeStatus } from "@aimem/core";
+import type { ProjectGraph, ProposedMemoryUpdate, SemanticGraphEdge, SemanticGraphEdgeStatus } from "@zharwing/memory-core";
 import { mergeSemanticEdgesIntoGraph, semanticEdgesFromInboxProposals } from "./graph-service.js";
 
 const generated = "2026-07-04T00:00:00.000Z";

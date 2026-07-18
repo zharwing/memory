@@ -1,6 +1,6 @@
 # Architecture
 
-AI Memory is a local-first project context manager for AI-assisted coding tools. The architecture has one important rule:
+Zharwing Memory is a local-first project context manager for AI-assisted coding tools. The architecture has one important rule:
 
 ```text
 UI, CLI, and MCP adapters do not own memory behavior.
@@ -11,7 +11,7 @@ Shared packages read and write Markdown source files.
 
 ## System Boundary
 
-AI Memory is responsible for:
+Zharwing Memory is responsible for:
 
 - registering projects
 - linking repos to projects
@@ -106,23 +106,23 @@ The adapter is intentionally thin.
 
 | Package | Responsibility |
 | --- | --- |
-| `@aimem/core` | Domain types, default policies, IDs, project model helpers |
-| `@aimem/storage` | Markdown/frontmatter IO, registry, project workspace, sessions, docs, inbox, bundles, backups, Trash, index |
-| `@aimem/privacy` | Visibility gates, ignore patterns, never-send patterns, secret scanning, redaction |
-| `@aimem/context-engine` | Context selection, token estimates, inclusion/exclusion reasons, bundle Markdown |
-| `@aimem/search` | Dependency-free keyword search boundary |
-| `@aimem/graph` | Derived graph projection from metadata |
-| `@aimem/assistant-runtime` | Optional local assistant boundary and deterministic proposal jobs |
-| `@aimem/api-client` | Shared daemon RPC client |
-| `@aimem/mcp-tools` | Tool definitions and dispatch |
-| `@aimem/theme` | Graphite + Copper tokens |
+| `@zharwing/memory-core` | Domain types, default policies, IDs, project model helpers |
+| `@zharwing/memory-store` | Markdown/frontmatter IO, registry, project workspace, sessions, docs, inbox, bundles, backups, Trash, index |
+| `@zharwing/memory-privacy` | Visibility gates, ignore patterns, never-send patterns, secret scanning, redaction |
+| `@zharwing/memory-context-engine` | Context selection, token estimates, inclusion/exclusion reasons, bundle Markdown |
+| `@zharwing/memory-search` | Dependency-free keyword search boundary |
+| `@zharwing/memory-graph` | Derived graph projection from metadata |
+| `@zharwing/memory-assistant` | Optional local assistant boundary and deterministic proposal jobs |
+| `@zharwing/memory-api-client` | Shared daemon RPC client |
+| `@zharwing/memory-mcp` | Tool definitions and dispatch |
+| `@zharwing/memory-theme` | Graphite + Copper tokens |
 
 ## Storage Architecture
 
 Markdown remains the durable source of truth. Indexes are rebuildable.
 
 ```text
-AI Memory Root/
+Zharwing Memory Root/
   global/
     projects.json
     trash/

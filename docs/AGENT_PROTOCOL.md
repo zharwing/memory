@@ -1,19 +1,19 @@
 # Agent Memory Protocol
 
-This protocol defines how any AI agent should use AI Memory. It is
+This protocol defines how any AI agent should use Zharwing Memory. It is
 project-neutral and agent-neutral. Do not put project names, machine-local paths,
 or vendor-specific task systems in this file.
 
 ## Purpose
 
-AI Memory is the durable context layer for AI-assisted work. Agents use it to
+Zharwing Memory is the durable context layer for AI-assisted work. Agents use it to
 find relevant project knowledge, preserve session history, write durable memory
 updates, and build context bundles before doing work.
 
-AI Memory is not automatically the project task tracker, issue tracker, CI
+Zharwing Memory is not automatically the project task tracker, issue tracker, CI
 system, source control system, or deployment system. When a project has an
 external task system, store only stable references to external task ids in
-`related_tasks` metadata unless that project explicitly adopts AI Memory for task
+`related_tasks` metadata unless that project explicitly adopts Zharwing Memory for task
 tracking.
 
 ## Startup Flow
@@ -31,7 +31,7 @@ tracking.
 6. Preview or generate a context bundle when prior context matters.
 
 If memory tooling is unavailable, continue with the user's task using local
-project files and report that AI Memory was unavailable.
+project files and report that Zharwing Memory was unavailable.
 
 ## During Work
 
@@ -82,7 +82,7 @@ project files and report that AI Memory was unavailable.
 Use the strongest available interface in this order:
 
 1. MCP `memory.*` tools.
-2. The `aimem` CLI.
+2. The `zharwing-memory` CLI.
 3. The local daemon JSON-RPC API.
 4. Read-only local docs fallback when no memory tool is available.
 

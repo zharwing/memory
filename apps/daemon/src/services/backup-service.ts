@@ -1,9 +1,9 @@
-import type { ProjectRegistry } from "@aimem/storage";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   createProjectSnapshot,
   listProjectSnapshots,
   movePathToTrash
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class BackupService {

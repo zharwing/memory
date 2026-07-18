@@ -4,7 +4,7 @@ import {
   createProjectModel,
   type Project,
   type ProjectId
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { ensureDir, normalizePath, pathExists, readJson, writeJson } from "./fs.js";
 
 export interface RegistryFile {

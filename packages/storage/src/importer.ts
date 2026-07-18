@@ -17,7 +17,7 @@ import {
   type Project,
   type Session,
   type Visibility
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { pathExists, readText } from "./fs.js";
 import { parseMarkdown } from "./markdown.js";
 import { writeDocument } from "./documents.js";

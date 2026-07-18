@@ -1,6 +1,6 @@
 # Data Model
 
-AI Memory stores durable project memory in Markdown and JSON files. The domain model is defined in `packages/core/src/types.ts`.
+Zharwing Memory stores durable project memory in Markdown and JSON files. The domain model is defined in `packages/core/src/types.ts`.
 
 ## Entity Overview
 

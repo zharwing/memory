@@ -4,14 +4,14 @@ import {
   prepareReturnSummaryDeterministically,
   recommendedModels,
   summarizeSessionDeterministically
-} from "@aimem/assistant-runtime";
-import type { ProjectRegistry } from "@aimem/storage";
+} from "@zharwing/memory-assistant";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   getSession,
   listProjectDocuments,
   listProjectSessions,
   proposeMemoryUpdate as storageProposeMemoryUpdate
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class AssistantService {

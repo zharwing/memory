@@ -23,51 +23,45 @@ importers:
 
   apps/cli:
     dependencies:
-      '@aimem/api-client':
+      '@zharwing/memory-api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@aimem/mcp-tools':
+      '@zharwing/memory-mcp':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
 
   apps/daemon:
     dependencies:
-      '@aimem/assistant-runtime':
+      '@zharwing/memory-assistant':
         specifier: workspace:*
         version: link:../../packages/assistant-runtime
-      '@aimem/context-engine':
+      '@zharwing/memory-context-engine':
         specifier: workspace:*
         version: link:../../packages/context-engine
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@aimem/graph':
+      '@zharwing/memory-graph':
         specifier: workspace:*
         version: link:../../packages/graph
-      '@aimem/mcp-tools':
+      '@zharwing/memory-mcp':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
-      '@aimem/privacy':
+      '@zharwing/memory-privacy':
         specifier: workspace:*
         version: link:../../packages/privacy
-      '@aimem/search':
+      '@zharwing/memory-search':
         specifier: workspace:*
         version: link:../../packages/search
-      '@aimem/semantic-graph':
+      '@zharwing/memory-semantic-graph':
         specifier: workspace:*
         version: link:../../packages/semantic-graph
-      '@aimem/storage':
+      '@zharwing/memory-store':
         specifier: workspace:*
         version: link:../../packages/storage
 
   apps/desktop:
     dependencies:
-      '@aimem/api-client':
-        specifier: workspace:*
-        version: link:../../packages/api-client
-      '@aimem/theme':
-        specifier: workspace:*
-        version: link:../../packages/theme
       '@lexical/rich-text':
         specifier: ^0.35.0
         version: 0.35.0
@@ -80,6 +74,12 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: ^2.2.0
         version: 2.7.1
+      '@zharwing/memory-api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@zharwing/memory-theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -126,7 +126,7 @@ importers:
 
   apps/mcp-server:
     dependencies:
-      '@aimem/mcp-tools':
+      '@zharwing/memory-mcp':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
 
@@ -134,16 +134,16 @@ importers:
 
   packages/assistant-runtime:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
 
   packages/context-engine:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
-      '@aimem/privacy':
+      '@zharwing/memory-privacy':
         specifier: workspace:*
         version: link:../privacy
 
@@ -151,40 +151,40 @@ importers:
 
   packages/graph:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
 
   packages/mcp-tools:
     dependencies:
-      '@aimem/api-client':
+      '@zharwing/memory-api-client':
         specifier: workspace:*
         version: link:../api-client
 
   packages/privacy:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
 
   packages/search:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
 
   packages/semantic-graph:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
-      '@aimem/privacy':
+      '@zharwing/memory-privacy':
         specifier: workspace:*
         version: link:../privacy
 
   packages/storage:
     dependencies:
-      '@aimem/core':
+      '@zharwing/memory-core':
         specifier: workspace:*
         version: link:../core
 

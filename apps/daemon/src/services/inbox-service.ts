@@ -1,13 +1,13 @@
 import path from "node:path";
-import type { ProjectRegistry } from "@aimem/storage";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   deleteProposedUpdates,
   listProposedUpdates,
   movePathToTrash,
   proposeMemoryUpdate as storageProposeMemoryUpdate,
   updateProposalStatus as storageUpdateProposalStatus
-} from "@aimem/storage";
-import { semanticEdgesFromProposalPatch } from "@aimem/semantic-graph";
+} from "@zharwing/memory-store";
+import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph";
 import { resolveProject } from "./project-resolver.js";
 
 export class InboxService {

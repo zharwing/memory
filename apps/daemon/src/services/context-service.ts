@@ -1,12 +1,12 @@
-import type { ContextBundle } from "@aimem/core";
-import { buildContextBundle } from "@aimem/context-engine";
-import type { ProjectRegistry } from "@aimem/storage";
+import type { ContextBundle } from "@zharwing/memory-core";
+import { buildContextBundle } from "@zharwing/memory-context-engine";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   getSession,
   listProjectDocuments,
   listProjectSessions,
   saveContextBundle
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class ContextService {

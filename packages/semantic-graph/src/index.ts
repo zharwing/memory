@@ -19,8 +19,8 @@ import {
   type SemanticGraphRun,
   type SemanticGraphRunCounts,
   type SemanticGraphSettings
-} from "@aimem/core";
-import { applyPrivacyGate, type PrivacyDecision } from "@aimem/privacy";
+} from "@zharwing/memory-core";
+import { applyPrivacyGate, type PrivacyDecision } from "@zharwing/memory-privacy";
 
 export interface SemanticPromptMessage {
   role: "system" | "user" | "assistant";
@@ -543,7 +543,7 @@ export function semanticProposalSummaryMessages(input: {
     {
       role: "system",
       content: [
-        "Write a short reviewer-facing summary for proposed AI Memory graph relationships.",
+        "Write a short reviewer-facing summary for proposed Zharwing Memory graph relationships.",
         "Return only JSON.",
         "Use only the supplied relationships, reasons, and evidence.",
         "Do not invent facts, files, dependencies, or conclusions.",

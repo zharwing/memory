@@ -95,12 +95,18 @@ export interface McpDoctorResult {
 }
 
 export async function installMcpClient(options: McpInstallOptions): Promise<McpInstallResult> {
-  const serverName = options.serverName || "aimem";
-  const daemonUrl = trimTrailingSlash(options.daemonUrl || process.env.AIMEM_DAEMON_URL || "http://127.0.0.1:37841");
+  const serverName = options.serverName || "zharwing-memory";
+  const daemonUrl = trimTrailingSlash(
+    options.daemonUrl ||
+      process.env.ZHARWING_MEMORY_DAEMON_URL ||
+      process.env.AIMEM_DAEMON_URL ||
+      "http://127.0.0.1:37841"
+  );
   const health = await readDaemonHealth(daemonUrl);
+  const envAuthMode = process.env.ZHARWING_MEMORY_AUTH_MODE ?? process.env.AIMEM_AUTH_MODE;
   const authMode = options.authMode && options.authMode !== "auto"
     ? options.authMode
-    : health.authMode === "none" || process.env.AIMEM_AUTH_MODE === "none"
+    : health.authMode === "none" || envAuthMode === "none"
       ? "none"
       : "token";
   const transport = options.transport || "http";
@@ -115,7 +121,7 @@ export async function installMcpClient(options: McpInstallOptions): Promise<McpI
     warnings.push(`Daemon was not reachable at ${daemonUrl}; config was written but clients will fail until the daemon is running.`);
   }
   if (transport === "http" && authMode === "token") {
-    warnings.push("Daemon reports token auth; clients must have AIMEM_AUTH_TOKEN in their environment or switch local daemon to AIMEM_AUTH_MODE=none.");
+    warnings.push("Daemon reports token auth; clients must have ZHARWING_MEMORY_AUTH_TOKEN in their environment or switch local daemon to ZHARWING_MEMORY_AUTH_MODE=none.");
   }
 
   const serverConfig = transport === "http"
@@ -216,7 +222,7 @@ export async function installMcpAuto(options: McpAutoInstallOptions = {}): Promi
   }
 
   if (process.platform === "win32") {
-    warnings.push("Windows configs were installed from Windows. Run `aimem mcp install auto` inside WSL separately for WSL-hosted clients.");
+    warnings.push("Windows configs were installed from Windows. Run `zharwing-memory mcp install auto` inside WSL separately for WSL-hosted clients.");
   }
 
   return {
@@ -230,7 +236,12 @@ export async function installMcpAuto(options: McpAutoInstallOptions = {}): Promi
 }
 
 export async function doctorMcpSetup(options: { daemonUrl?: string; workingDirectory?: string } = {}): Promise<McpDoctorResult> {
-  const daemonUrl = trimTrailingSlash(options.daemonUrl || process.env.AIMEM_DAEMON_URL || "http://127.0.0.1:37841");
+  const daemonUrl = trimTrailingSlash(
+    options.daemonUrl ||
+      process.env.ZHARWING_MEMORY_DAEMON_URL ||
+      process.env.AIMEM_DAEMON_URL ||
+      "http://127.0.0.1:37841"
+  );
   const health = await readDaemonHealth(daemonUrl);
   const stdio = await smokeTestStdioHandler();
   const workingDirectory = options.workingDirectory || process.cwd();
@@ -241,7 +252,7 @@ export async function doctorMcpSetup(options: { daemonUrl?: string; workingDirec
       client,
       configPath,
       exists: text !== undefined,
-      hasAimem: Boolean(text && text.includes("aimem"))
+      hasAimem: Boolean(text && (text.includes("zharwing-memory") || text.includes("aimem")))
     };
   }));
   return { daemon: health, stdio, configs };

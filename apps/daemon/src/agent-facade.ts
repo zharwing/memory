@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
-import type { ContextBundle, ContextIncludedItem } from "@aimem/core";
+import type { ContextBundle, ContextIncludedItem } from "@zharwing/memory-core";
 import type { MemoryService } from "./memory-service.js";
 import type { RpcRequest, RpcResponse } from "./rpc.js";
 
-export const AIMEM_BUNDLE_SCHEMA = "aimem.bundle.v1";
+// The emitted schema ID stays "aimem.bundle.v1" until the harness-side
+// companion adapter migrates to "zharwing.memory.bundle.v1" (rename wave 6);
+// the ID is a cross-service contract declared in the harness ecosystem lock,
+// so the writer must not switch before its reader does.
+export const MEMORY_BUNDLE_SCHEMA = "aimem.bundle.v1";
 export const DEFAULT_BUNDLE_TOKEN_BUDGET = 4000;
 
 /**
@@ -21,7 +25,7 @@ export interface AgentBundleSection {
 }
 
 export interface AgentBundle {
-  schema: typeof AIMEM_BUNDLE_SCHEMA;
+  schema: typeof MEMORY_BUNDLE_SCHEMA;
   status: "ok";
   projectId: string;
   sessionId?: string;
@@ -35,7 +39,7 @@ export interface AgentBundle {
 }
 
 export interface AgentApprovalRequired {
-  schema: typeof AIMEM_BUNDLE_SCHEMA;
+  schema: typeof MEMORY_BUNDLE_SCHEMA;
   status: "approval_required";
   projectId: string;
   approvalRef: string;
@@ -96,7 +100,7 @@ async function getAgentContextBundle(
 
   if (project.privacyPolicy?.requireApprovalBeforeServingContext) {
     return {
-      schema: AIMEM_BUNDLE_SCHEMA,
+      schema: MEMORY_BUNDLE_SCHEMA,
       status: "approval_required",
       projectId,
       approvalRef: approvalRef(projectId, params),
@@ -142,7 +146,7 @@ export function projectBundleForAgent(
     usedTokens += tokenEstimate;
   }
   return {
-    schema: AIMEM_BUNDLE_SCHEMA,
+    schema: MEMORY_BUNDLE_SCHEMA,
     status: "ok",
     projectId: bundle.projectId,
     ...(bundle.sessionId ? { sessionId: bundle.sessionId } : {}),
@@ -168,7 +172,7 @@ function approvalRef(projectId: string, params: Record<string, unknown>): string
   const digest = createHash("sha256")
     .update(JSON.stringify({ projectId, sessionId: params.sessionId ?? null, taskText: params.taskText ?? null }))
     .digest("hex");
-  return `aimem-approval-${digest.slice(0, 16)}`;
+  return `zharwing-approval-${digest.slice(0, 16)}`;
 }
 
 function sanitizeMethodName(method: string): string {

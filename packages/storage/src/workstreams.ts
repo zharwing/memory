@@ -12,7 +12,7 @@ import {
   type WorkstreamDetail,
   type WorkstreamId,
   type WorkstreamStatus
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { listFiles, readText, writeText } from "./fs.js";
 import { formatMarkdown, parseMarkdown } from "./markdown.js";
 import { listProjectDocuments } from "./documents.js";

@@ -37,9 +37,9 @@ export async function handleMcpRequest(
   if (request.method === "initialize") {
     return ok(request.id, {
       protocolVersion: "2024-11-05",
-      serverInfo: { name: "aimem", version: "0.1.0" },
+      serverInfo: { name: "zharwing-memory", version: "0.1.0" },
       capabilities: { tools: {}, prompts: {}, resources: {} },
-      instructions: "Use AI Memory only for the active project. Resolve startup state first, then read relevant sessions, start a fresh work session, save checkpoints, and avoid storing secrets."
+      instructions: "Use Zharwing Memory only for the active project. Resolve startup state first, then read relevant sessions, start a fresh work session, save checkpoints, and avoid storing secrets."
     });
   }
 

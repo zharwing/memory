@@ -1,11 +1,11 @@
-import { DEFAULT_MEMORY_WRITE_POLICY, nowIso } from "@aimem/core";
-import type { ProjectRegistry } from "@aimem/storage";
+import { DEFAULT_MEMORY_WRITE_POLICY, nowIso } from "@zharwing/memory-core";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   createDocument as storageCreateDocument,
   listProjectDocuments,
   movePathToTrash,
   writeDocument as storageWriteDocument
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class DocumentService {

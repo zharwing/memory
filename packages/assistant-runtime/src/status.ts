@@ -1,4 +1,4 @@
-import type { AssistantState, Project } from "@aimem/core";
+import type { AssistantState, Project } from "@zharwing/memory-core";
 
 export interface AssistantStatus {
   state: AssistantState;

@@ -8,7 +8,7 @@ server.listen(config.port, config.host, () => {
   process.stdout.write(
     JSON.stringify(
       {
-        event: "aimem-daemon-started",
+        event: "zharwing-memory-daemon-started",
         host: config.host,
         port: config.port,
         memoryRoot: config.memoryRoot

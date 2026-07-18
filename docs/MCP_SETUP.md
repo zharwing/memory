@@ -1,6 +1,6 @@
 # MCP Setup
 
-AI Memory exposes `memory.*` tools to external agents through two MCP transports:
+Zharwing Memory exposes `memory.*` tools to external agents through two MCP transports:
 
 1. HTTP MCP on the daemon:
 
@@ -11,7 +11,7 @@ AI Memory exposes `memory.*` tools to external agents through two MCP transports
 2. Stdio MCP from the CLI:
 
    ```text
-   aimem mcp serve
+   zharwing-memory mcp serve
    ```
 
 Use HTTP when the AI client and daemon run in the same OS or network namespace.
@@ -23,8 +23,8 @@ supported, or when a bridge is easier than exposing a daemon URL.
 Start or make sure the daemon is available, then run:
 
 ```text
-aimem mcp install auto
-aimem mcp doctor
+zharwing-memory mcp install auto
+zharwing-memory mcp doctor
 ```
 
 `auto` installs the supported MCP configs for the environment where it is run:
@@ -42,9 +42,9 @@ of a hardcoded checkout path.
 Specific client installs remain available:
 
 ```text
-aimem mcp install codex
-aimem mcp install claude-code
-aimem mcp install claude-desktop
+zharwing-memory mcp install codex
+zharwing-memory mcp install claude-code
+zharwing-memory mcp install claude-desktop
 ```
 
 Supported install flags:
@@ -70,28 +70,28 @@ Use `--config <path>` when a client stores config somewhere else.
 
 ## Auth Modes
 
-Tokens are not required by MCP itself. AI Memory uses token auth by default
+Tokens are not required by MCP itself. Zharwing Memory uses token auth by default
 because the daemon exposes write-capable local methods such as session creation,
 document updates, graph rules, and delete operations.
 
 Default mode:
 
 ```text
-AIMEM_AUTH_MODE=token
-AIMEM_AUTH_TOKEN=<local-random-token>
+ZHARWING_MEMORY_AUTH_MODE=token
+ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
 ```
 
 Local personal mode:
 
 ```text
-AIMEM_AUTH_MODE=none
+ZHARWING_MEMORY_AUTH_MODE=none
 ```
 
 No-auth mode is accepted only when the daemon binds to a loopback host such as
 `127.0.0.1`, `localhost`, or `::1`. The daemon refuses to start with
-`AIMEM_AUTH_MODE=none` on non-loopback hosts.
+`ZHARWING_MEMORY_AUTH_MODE=none` on non-loopback hosts.
 
-For token mode, make the AI client process inherit `AIMEM_AUTH_TOKEN` or use the
+For token mode, make the AI client process inherit `ZHARWING_MEMORY_AUTH_TOKEN` or use the
 installer's generated environment-variable reference. Do not write real tokens
 into repo files.
 
@@ -109,14 +109,14 @@ Token-auth localhost HTTP config:
 ```toml
 [mcp_servers.aimem]
 url = "http://127.0.0.1:37841/mcp"
-bearer_token_env_var = "AIMEM_AUTH_TOKEN"
+bearer_token_env_var = "ZHARWING_MEMORY_AUTH_TOKEN"
 ```
 
 Equivalent Codex CLI commands, when supported by the installed Codex version:
 
 ```text
-codex mcp add aimem --url http://127.0.0.1:37841/mcp
-codex mcp add aimem --url http://127.0.0.1:37841/mcp --bearer-token-env-var AIMEM_AUTH_TOKEN
+codex mcp add zharwing-memory --url http://127.0.0.1:37841/mcp
+codex mcp add zharwing-memory --url http://127.0.0.1:37841/mcp --bearer-token-env-var ZHARWING_MEMORY_AUTH_TOKEN
 ```
 
 After changing MCP config, restart the AI client.
@@ -145,7 +145,7 @@ Token-auth localhost HTTP config:
       "type": "http",
       "url": "http://127.0.0.1:37841/mcp",
       "headers": {
-        "Authorization": "Bearer ${AIMEM_AUTH_TOKEN}"
+        "Authorization": "Bearer ${ZHARWING_MEMORY_AUTH_TOKEN}"
       }
     }
   }
@@ -164,17 +164,17 @@ Common layouts:
   `http://127.0.0.1:37841/mcp`.
 - WSL AI client + WSL daemon: use HTTP MCP at
   `http://127.0.0.1:37841/mcp`.
-- WSL installer + Windows clients: `aimem mcp install auto` also tries to write
+- WSL installer + Windows clients: `zharwing-memory mcp install auto` also tries to write
   Windows Codex and Claude Desktop config files by asking Windows for profile
   paths through interop.
-- WSL AI client + Windows daemon: first run `aimem mcp doctor` from WSL. If the
+- WSL AI client + Windows daemon: first run `zharwing-memory mcp doctor` from WSL. If the
   daemon is not reachable at `127.0.0.1`, run the daemon in WSL or launch a
   stdio bridge from Windows.
-- Windows installer + WSL clients: run `aimem mcp install auto` inside WSL
+- Windows installer + WSL clients: run `zharwing-memory mcp install auto` inside WSL
   separately. A Windows process should not guess a WSL distro, user, or tool
   path.
 
-Do not bind the daemon to `0.0.0.0` with `AIMEM_AUTH_MODE=none`. No-auth mode is
+Do not bind the daemon to `0.0.0.0` with `ZHARWING_MEMORY_AUTH_MODE=none`. No-auth mode is
 intended only for same-machine loopback use.
 
 ## Desktop Setup
@@ -197,7 +197,7 @@ After installing from the desktop UI, restart the target AI client.
 Run:
 
 ```text
-aimem mcp doctor
+zharwing-memory mcp doctor
 ```
 
 Typical results:
@@ -207,7 +207,7 @@ Typical results:
 - `Tools: (none)` in an AI client: the client started but MCP initialization or
   `tools/list` failed. Check the client config and run the doctor command from
   the same shell or OS environment.
-- Auth failure: use `AIMEM_AUTH_MODE=none` for loopback-only local personal use,
-  or make the client inherit `AIMEM_AUTH_TOKEN`.
+- Auth failure: use `ZHARWING_MEMORY_AUTH_MODE=none` for loopback-only local personal use,
+  or make the client inherit `ZHARWING_MEMORY_AUTH_TOKEN`.
 - Windows/WSL native dependency errors: reinstall dependencies in the OS where
   the command is being run.

@@ -1,9 +1,10 @@
 {
-  "name": "@aimem/cli",
+  "name": "@zharwing/memory-cli",
   "version": "0.1.0",
   "type": "module",
   "private": true,
   "bin": {
+    "zharwing-memory": "dist/index.js",
     "aimem": "dist/index.js"
   },
   "scripts": {
@@ -13,7 +14,7 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@aimem/api-client": "workspace:*",
-    "@aimem/mcp-tools": "workspace:*"
+    "@zharwing/memory-api-client": "workspace:*",
+    "@zharwing/memory-mcp": "workspace:*"
   }
 }

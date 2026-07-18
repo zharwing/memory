@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/mcp-server",
+  "name": "@zharwing/memory-mcp-server",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -10,6 +10,6 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@aimem/mcp-tools": "workspace:*"
+    "@zharwing/memory-mcp": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 import type { MemoryService } from "./memory-service.js";
 import { requireParams, RpcValidationError } from "./rpc-params.js";
-import { doctorMcpSetup, installMcpAuto, installMcpClient } from "@aimem/mcp-tools";
+import { doctorMcpSetup, installMcpAuto, installMcpClient } from "@zharwing/memory-mcp";
 
 export interface RpcRequest {
   id?: string | number;

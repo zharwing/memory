@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ContextBundle, Project } from "@aimem/core";
+import type { ContextBundle, Project } from "@zharwing/memory-core";
 import { writeJson, writeText } from "./fs.js";
 
 export async function saveContextBundle(project: Project, bundle: ContextBundle): Promise<ContextBundle> {

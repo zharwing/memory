@@ -1,13 +1,13 @@
 ---
 name: ai-memory-session
-description: Use AI Memory as a project-neutral session memory layer for agentic coding work. Trigger when a repo has AI Memory MCP tools, an `.ai-memory.json` pointer, an `aimem` CLI, or the user asks to resume context, keep daily session history, read yesterday's work, save checkpoints, close out work, or make future AI sessions remember project progress.
+description: Use Zharwing Memory as a project-neutral session memory layer for agentic coding work. Trigger when a repo has Zharwing Memory MCP tools, an `.zharwing/memory.json` pointer, an `zharwing-memory` CLI, or the user asks to resume context, keep daily session history, read yesterday's work, save checkpoints, close out work, or make future AI sessions remember project progress.
 ---
 
-# AI Memory Session
+# Zharwing Memory Session
 
 ## Overview
 
-Use AI Memory to resolve the current project, read the latest relevant session,
+Use Zharwing Memory to resolve the current project, read the latest relevant session,
 start a fresh project-scoped work session for the current day or work round, and
 leave durable progress updates for future agents. Never hardcode a project id;
 resolve it from the working directory, pointer file, user selection, or tool
@@ -15,8 +15,8 @@ response.
 
 ## Startup
 
-Prefer MCP tools when available. If MCP is unavailable, use the `aimem` CLI. If
-both are unavailable, continue with local files and mention that AI Memory was
+Prefer MCP tools when available. If MCP is unavailable, use the `zharwing-memory` CLI. If
+both are unavailable, continue with local files and mention that Zharwing Memory was
 not reachable.
 
 1. Call `memory.get_startup_state` with the current working directory and client
@@ -51,12 +51,12 @@ memory.get_context_bundle
 CLI fallback:
 
 ```text
-aimem detect <working-directory>
-aimem resume --project <project-id>
-aimem sessions --project <project-id> --limit 1 --json
-aimem start "<task>" --project <project-id> --agent <agent-name>
-aimem search --project <project-id> "<query>"
-aimem context --project <project-id> --preview --task "<task>"
+zharwing-memory detect <working-directory>
+zharwing-memory resume --project <project-id>
+zharwing-memory sessions --project <project-id> --limit 1 --json
+zharwing-memory start "<task>" --project <project-id> --agent <agent-name>
+zharwing-memory search --project <project-id> "<query>"
+zharwing-memory context --project <project-id> --preview --task "<task>"
 ```
 
 ## During Work
@@ -91,7 +91,7 @@ At the end of a work round, treat user phrases such as "end of day", "job is
 over", "close the session", or "close out today" as a memory closeout trigger.
 
 If the project has separate source-control, release, deployment, or task-tracker
-closeout policy, follow that project-specific policy first. AI Memory should
+closeout policy, follow that project-specific policy first. Zharwing Memory should
 record the resulting artifacts, but the public skill should not prescribe a
 specific commit, PR, deploy, or task-tracker workflow.
 

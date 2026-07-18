@@ -6,7 +6,7 @@ import test from "node:test";
 import { installMcpAuto, installMcpClient } from "./install.js";
 
 test("installs codex HTTP MCP config without auth token in none mode", async () => {
-  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-mcp-install-"));
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
   const configPath = path.join(temp, "config.toml");
 
   const result = await installMcpClient({
@@ -19,13 +19,13 @@ test("installs codex HTTP MCP config without auth token in none mode", async () 
 
   const config = await fs.readFile(configPath, "utf8");
   assert.equal(result.changed, true);
-  assert.match(config, /\[mcp_servers\.aimem\]/);
+  assert.match(config, /\[mcp_servers\.zharwing-memory\]/);
   assert.match(config, /url = "http:\/\/127\.0\.0\.1:37841\/mcp"/);
   assert.doesNotMatch(config, /bearer_token_env_var/);
 });
 
 test("installs claude-code HTTP MCP config", async () => {
-  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-mcp-install-"));
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
   const configPath = path.join(temp, ".mcp.json");
 
   await installMcpClient({
@@ -37,12 +37,12 @@ test("installs claude-code HTTP MCP config", async () => {
   });
 
   const config = JSON.parse(await fs.readFile(configPath, "utf8"));
-  assert.equal(config.mcpServers.aimem.type, "http");
-  assert.equal(config.mcpServers.aimem.url, "http://127.0.0.1:37841/mcp");
+  assert.equal(config.mcpServers["zharwing-memory"].type, "http");
+  assert.equal(config.mcpServers["zharwing-memory"].url, "http://127.0.0.1:37841/mcp");
 });
 
 test("auto install writes current working directory claude-code config", async () => {
-  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-mcp-auto-"));
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-auto-"));
 
   const result = await installMcpAuto({
     clients: ["claude-code"],
@@ -56,5 +56,5 @@ test("auto install writes current working directory claude-code config", async (
   assert.equal(result.client, "auto");
   assert.equal(result.installs.length, 1);
   assert.equal(result.installs[0].scope, "current-os");
-  assert.equal(config.mcpServers.aimem.url, "http://127.0.0.1:37841/mcp");
+  assert.equal(config.mcpServers["zharwing-memory"].url, "http://127.0.0.1:37841/mcp");
 });

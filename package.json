@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/workspace",
+  "name": "@zharwing/memory-workspace",
   "private": true,
   "version": "0.1.0",
   "description": "Local-first project context manager for AI-assisted coding tools.",

@@ -1,4 +1,4 @@
-import type { ProjectRegistry } from "@aimem/storage";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   closeSession as storageCloseSession,
   getActiveSession,
@@ -9,7 +9,7 @@ import {
   saveCheckpoint,
   startSession,
   updateSessionSummary
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import {
   callAiProviderJson,
   sessionSummaryFromProviderJson,
@@ -17,9 +17,9 @@ import {
   summarizeSessionMetadataDeterministically,
   type AiProviderConfig,
   type SessionSummaryDraft
-} from "@aimem/assistant-runtime";
-import { applyPrivacyGate } from "@aimem/privacy";
-import type { Project, Session } from "@aimem/core";
+} from "@zharwing/memory-assistant";
+import { applyPrivacyGate } from "@zharwing/memory-privacy";
+import type { Project, Session } from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
 
 export class SessionService {

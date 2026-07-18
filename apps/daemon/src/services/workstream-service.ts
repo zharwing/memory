@@ -1,11 +1,11 @@
-import type { ProjectRegistry } from "@aimem/storage";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   createWorkstream as storageCreateWorkstream,
   getWorkstreamDetail as storageGetWorkstreamDetail,
   listProjectWorkstreams,
   movePathToTrash,
   updateWorkstreamStatus as storageUpdateWorkstreamStatus
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class WorkstreamService {

@@ -100,7 +100,7 @@ test("MemoryService runs a project session and memory update lifecycle", async (
 });
 
 async function tempMemoryRoot(t: TestContext): Promise<string> {
-  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-daemon-test-"));
+  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-daemon-test-"));
   t.after(() => fs.rm(memoryRoot, { recursive: true, force: true }));
   return memoryRoot;
 }

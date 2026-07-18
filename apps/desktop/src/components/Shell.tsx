@@ -51,7 +51,7 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
       <aside className="sidebar">
         <Link className="brand" to={projectPath(selectedProjectId, "/dashboard")}>
           <Boxes size={22} />
-          <span>AI Memory</span>
+          <span>Zharwing Memory</span>
         </Link>
         <Link className="project-switcher" to="/projects">
           <span>Project</span>

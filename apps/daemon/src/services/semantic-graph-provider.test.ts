@@ -209,7 +209,7 @@ function semanticEdgeInput(
 }
 
 async function tempMemoryRoot(t: TestContext): Promise<string> {
-  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-semantic-provider-test-"));
+  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-semantic-provider-test-"));
   t.after(() => fs.rm(memoryRoot, { recursive: true, force: true }));
   return memoryRoot;
 }

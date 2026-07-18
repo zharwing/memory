@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/daemon",
+  "name": "@zharwing/memory-daemon",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -10,14 +10,14 @@
     "test": "node --preserve-symlinks --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@aimem/assistant-runtime": "workspace:*",
-    "@aimem/core": "workspace:*",
-    "@aimem/storage": "workspace:*",
-    "@aimem/context-engine": "workspace:*",
-    "@aimem/search": "workspace:*",
-    "@aimem/graph": "workspace:*",
-    "@aimem/mcp-tools": "workspace:*",
-    "@aimem/privacy": "workspace:*",
-    "@aimem/semantic-graph": "workspace:*"
+    "@zharwing/memory-assistant": "workspace:*",
+    "@zharwing/memory-core": "workspace:*",
+    "@zharwing/memory-store": "workspace:*",
+    "@zharwing/memory-context-engine": "workspace:*",
+    "@zharwing/memory-search": "workspace:*",
+    "@zharwing/memory-graph": "workspace:*",
+    "@zharwing/memory-mcp": "workspace:*",
+    "@zharwing/memory-privacy": "workspace:*",
+    "@zharwing/memory-semantic-graph": "workspace:*"
   }
 }

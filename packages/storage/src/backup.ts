@@ -1,5 +1,5 @@
 import path from "node:path";
-import { nowIso, type Project } from "@aimem/core";
+import { nowIso, type Project } from "@zharwing/memory-core";
 import { promises as fs } from "node:fs";
 import { ensureDir, listFiles, readJson, writeJson } from "./fs.js";
 

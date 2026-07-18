@@ -71,7 +71,7 @@ export const SetupScreen = observer(function SetupScreen() {
         <Panel title="Agent MCP">
           <div className="stacked-form">
             <p className="panel-help">
-              Install AI Memory as a local MCP server for coding agents. Restart the agent after installation.
+              Install Zharwing Memory as a local MCP server for coding agents. Restart the agent after installation.
             </p>
             <div className="button-row">
               <button type="button" onClick={() => store.installMcpClient("auto")}>Install Auto</button>

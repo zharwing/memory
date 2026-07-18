@@ -11,7 +11,7 @@ flowchart LR
   CLI["CLI\ncommand helper"]
   Agent["External AI agent\nCodex / Claude / Gemini / local"]
   MCP["MCP adapter\nstdio or HTTP MCP"]
-  Daemon["AI Memory daemon\nlocalhost JSON-RPC + MCP"]
+  Daemon["Zharwing Memory daemon\nlocalhost JSON-RPC + MCP"]
   Storage["Markdown source of truth"]
   Index["Rebuildable indexes"]
   Assistant["Optional local Memory Assistant"]
@@ -300,7 +300,7 @@ sequenceDiagram
 
   Agent->>MCP: memory.get_startup_state(workingDirectory)
   MCP->>Daemon: RPC memory.get_startup_state
-  Daemon->>Storage: find .ai-memory.json
+  Daemon->>Storage: find .zharwing/memory.json
   Daemon->>Registry: find project by repo path
   alt project resolved
     Daemon->>Storage: load active/latest/recent sessions
@@ -330,7 +330,7 @@ sequenceDiagram
   User->>Client: approve
   Client->>Daemon: memory.create_project(preview)
   Daemon->>Storage: create workspace folders and default docs
-  Daemon->>Repo: write .ai-memory.json if enabled
+  Daemon->>Repo: write .zharwing/memory.json if enabled
   Daemon->>Repo: write bootstrap files if requested
   Daemon->>Registry: register project
   Daemon-->>Client: project created
@@ -437,7 +437,7 @@ stateDiagram-v2
   [*] --> HasExplicitIds
   HasExplicitIds --> Resolved: project and session IDs valid
   HasExplicitIds --> UseWorkingDirectory: IDs missing
-  UseWorkingDirectory --> PointerFound: .ai-memory.json found
+  UseWorkingDirectory --> PointerFound: .zharwing/memory.json found
   PointerFound --> Resolved
   UseWorkingDirectory --> RegistryMatch: repo path registered
   RegistryMatch --> Resolved
@@ -566,7 +566,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  Root["AI Memory Root"]
+  Root["Zharwing Memory Root"]
   Global["global/projects.json"]
   Trash["global/trash/items"]
   Project["projects/project-slug"]
@@ -673,7 +673,7 @@ flowchart TB
     Desktop["Tauri desktop app"]
     Daemon["Node daemon sidecar"]
     MCP["MCP stdio process or HTTP client"]
-    CLI["aimem CLI"]
+    CLI["zharwing-memory CLI"]
     MemoryRoot["Local memory root"]
     LocalModel["Optional llama.cpp sidecar"]
   end

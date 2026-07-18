@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createProjectModel, type SemanticGraphSettings } from "@aimem/core";
+import { createProjectModel, type SemanticGraphSettings } from "@zharwing/memory-core";
 import {
   applySemanticEdgePolicy,
   buildSemanticExtractionPlan,
@@ -14,11 +14,11 @@ import {
   splitSemanticDocumentIntoChunks,
   type SemanticRelationshipCandidate,
   type SemanticRelationshipDecision
-} from "@aimem/semantic-graph";
+} from "@zharwing/memory-semantic-graph";
 
 const project = createProjectModel({
   name: "Semantic Graph Test",
-  memoryRoot: "/tmp/aimem-semantic-graph-test"
+  memoryRoot: "/tmp/zharwing-semantic-graph-test"
 });
 
 const settings: SemanticGraphSettings = {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { AimemClient } from "@aimem/api-client";
-import { doctorMcpSetup, installMcpAuto, installMcpClient, serveMcpStdio, type McpClientTarget, type McpInstallTarget, type McpInstallTransport } from "@aimem/mcp-tools";
+import { AimemClient } from "@zharwing/memory-api-client";
+import { doctorMcpSetup, installMcpAuto, installMcpClient, serveMcpStdio, type McpClientTarget, type McpInstallTarget, type McpInstallTransport } from "@zharwing/memory-mcp";
 import {
   defaultInstructionFile,
   normalizeAgentTarget,
@@ -115,7 +115,7 @@ async function mcp(): Promise<void> {
           transport,
           daemonUrl: flagString(args.flags, "daemon-url"),
           authMode: normalizeMcpAuthMode(flagString(args.flags, "auth") || "auto"),
-          serverName: flagString(args.flags, "name") || "aimem",
+          serverName: flagString(args.flags, "name") || "zharwing-memory",
           workingDirectory: process.cwd(),
           dryRun: flagBool(args.flags, "dry-run")
         }));
@@ -126,7 +126,7 @@ async function mcp(): Promise<void> {
         configPath: flagString(args.flags, "config"),
         daemonUrl: flagString(args.flags, "daemon-url"),
         authMode: normalizeMcpAuthMode(flagString(args.flags, "auth") || "auto"),
-        serverName: flagString(args.flags, "name") || "aimem",
+        serverName: flagString(args.flags, "name") || "zharwing-memory",
         workingDirectory: process.cwd(),
         dryRun: flagBool(args.flags, "dry-run")
       }));
@@ -386,7 +386,7 @@ async function start(): Promise<void> {
     workingDirectory: process.cwd(),
     branch: flagString(args.flags, "branch"),
     agent: flagString(args.flags, "agent") || "manual",
-    client: "aimem-cli",
+    client: "zharwing-memory-cli",
     goal: flagString(args.flags, "goal"),
     workstreamIds: listFlag("workstream")
   });
@@ -416,7 +416,7 @@ async function context(): Promise<void> {
     projectId: requireProjectId(),
     sessionId: flagString(args.flags, "session"),
     taskText: flagString(args.flags, "task"),
-    requestedBy: "aimem-cli"
+    requestedBy: "zharwing-memory-cli"
   })) as { markdown: string };
   if (flagBool(args.flags, "json")) return printJson(bundle);
   process.stdout.write(`${bundle.markdown}\n`);

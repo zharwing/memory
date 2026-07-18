@@ -1,6 +1,6 @@
 # Importing Existing Markdown Memory
 
-AI Memory includes a generic Markdown importer for bringing existing notes,
+Zharwing Memory includes a generic Markdown importer for bringing existing notes,
 session logs, and project memory folders into a project workspace. It is not
 tied to any one repository or folder layout.
 
@@ -9,11 +9,11 @@ tied to any one repository or folder layout.
 The importer has two phases:
 
 1. Prepare an import plan.
-   AI Memory scans a source folder, classifies matching files, infers titles and
+   Zharwing Memory scans a source folder, classifies matching files, infers titles and
    metadata, computes source hashes, predicts target paths, and reports warnings.
 
 2. Commit the import.
-   AI Memory reads the source files again and writes native project documents or
+   Zharwing Memory reads the source files again and writes native project documents or
    sessions under the project memory workspace.
 
 Imported files keep provenance metadata:
@@ -26,12 +26,12 @@ import_profile: markdown-memory
 ```
 
 The original Markdown body is preserved. Existing source frontmatter is used as
-input metadata, then AI Memory writes its own normalized frontmatter around the
+input metadata, then Zharwing Memory writes its own normalized frontmatter around the
 body.
 
 ## What Profiles Are
 
-An import profile is a set of rules that tells AI Memory how to interpret files
+An import profile is a set of rules that tells Zharwing Memory how to interpret files
 in the selected source folder. The profile decides:
 
 - which files are included or ignored
@@ -43,7 +43,7 @@ in the selected source folder. The profile decides:
 - where the imported files will be written inside the project memory workspace
 
 Profiles do not change the source folder. Previewing an import only scans files
-and shows what would happen. Committing the import writes normalized AI Memory
+and shows what would happen. Committing the import writes normalized Zharwing Memory
 Markdown files into the selected project.
 
 Use a profile based on what the source folder represents:
@@ -132,33 +132,33 @@ The CLI assumes the daemon is running.
 Preview memory documents:
 
 ```text
-aimem import-folder <source-memory-folder> --project <project-id> --profile markdown-memory
+zharwing-memory import-folder <source-memory-folder> --project <project-id> --profile markdown-memory
 ```
 
 Preview session history:
 
 ```text
-aimem import-folder <source-sessions-folder> --project <project-id> --profile markdown-sessions
+zharwing-memory import-folder <source-sessions-folder> --project <project-id> --profile markdown-sessions
 ```
 
 Commit after reviewing the preview:
 
 ```text
-aimem import-folder <source-memory-folder> --project <project-id> --profile markdown-memory --commit
-aimem import-folder <source-sessions-folder> --project <project-id> --profile markdown-sessions --commit
+zharwing-memory import-folder <source-memory-folder> --project <project-id> --profile markdown-memory --commit
+zharwing-memory import-folder <source-sessions-folder> --project <project-id> --profile markdown-sessions --commit
 ```
 
 Conflict behavior defaults to `skip`. Other options:
 
 ```text
-aimem import-folder <source-memory-folder> --project <project-id> --profile markdown-memory --commit --conflict overwrite
-aimem import-folder <source-memory-folder> --project <project-id> --profile markdown-memory --commit --conflict duplicate
+zharwing-memory import-folder <source-memory-folder> --project <project-id> --profile markdown-memory --commit --conflict overwrite
+zharwing-memory import-folder <source-memory-folder> --project <project-id> --profile markdown-memory --commit --conflict duplicate
 ```
 
 List available profiles:
 
 ```text
-aimem import-profiles
+zharwing-memory import-profiles
 ```
 
 ## MCP Workflow

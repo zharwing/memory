@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/desktop",
+  "name": "@zharwing/memory-desktop",
   "version": "0.1.0",
   "type": "module",
   "private": true,
@@ -10,8 +10,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@aimem/api-client": "workspace:*",
-    "@aimem/theme": "workspace:*",
+    "@zharwing/memory-api-client": "workspace:*",
+    "@zharwing/memory-theme": "workspace:*",
     "@lexical/rich-text": "^0.35.0",
     "@mdxeditor/editor": "^3.0.0",
     "@tauri-apps/api": "^2.2.0",

@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/semantic-graph",
+  "name": "@zharwing/memory-semantic-graph",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@aimem/core": "workspace:*",
-    "@aimem/privacy": "workspace:*"
+    "@zharwing/memory-core": "workspace:*",
+    "@zharwing/memory-privacy": "workspace:*"
   }
 }

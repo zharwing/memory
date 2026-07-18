@@ -6,7 +6,7 @@ import {
   type ProposedMemoryUpdate,
   type ProposedUpdateStatus,
   type ProposedUpdateType
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { listFiles, readJson, writeJson } from "./fs.js";
 import { promises as fs } from "node:fs";
 

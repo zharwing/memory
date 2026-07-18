@@ -4,7 +4,7 @@ import type {
   Redaction,
   SafetyStatus,
   Visibility
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { matchesAnyPattern } from "./patterns.js";
 import { redactSecrets, scanSecrets } from "./secrets.js";
 

@@ -9,8 +9,8 @@ import {
   type Redaction,
   type SafetyStatus,
   type Session
-} from "@aimem/core";
-import { applyPrivacyGate, combineSafetyStatus } from "@aimem/privacy";
+} from "@zharwing/memory-core";
+import { applyPrivacyGate, combineSafetyStatus } from "@zharwing/memory-privacy";
 import { scoreDocumentRelevance, scoreSessionRelevance } from "./relevance.js";
 import { estimateTokens, truncateToTokenBudget } from "./tokens.js";
 

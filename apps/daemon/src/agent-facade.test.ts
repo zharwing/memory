@@ -4,14 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, type TestContext } from "node:test";
-import type { ContextBundle } from "@aimem/core";
+import type { ContextBundle } from "@zharwing/memory-core";
 import { agentSafeMethods, dispatchAgentRpc, isAgentSafeMethod, projectBundleForAgent } from "./agent-facade.js";
 import { MemoryService } from "./memory-service.js";
 
 const RPC_SOURCE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "daemon", "src", "rpc.ts");
 
 async function tempMemoryRoot(t: TestContext): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-facade-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-facade-"));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -86,7 +86,7 @@ test("context bundle honors requireApprovalBeforeServingContext with a typed sta
   assert.equal(response.ok, true);
   const result = response.result as { status: string; approvalRef?: string; sections?: unknown[] };
   assert.equal(result.status, "approval_required");
-  assert.match(result.approvalRef ?? "", /^aimem-approval-[0-9a-f]{16}$/);
+  assert.match(result.approvalRef ?? "", /^zharwing-approval-[0-9a-f]{16}$/);
   assert.equal(result.sections, undefined, "approval_required must not carry content");
 });
 

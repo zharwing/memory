@@ -9,10 +9,10 @@ export class AimemClient {
 
   constructor(options: AimemClientOptions = {}) {
     const env = runtimeEnv();
-    this.baseUrl = options.baseUrl || env.AIMEM_DAEMON_URL || "http://127.0.0.1:37841";
+    this.baseUrl = options.baseUrl || env.DAEMON_URL || "http://127.0.0.1:37841";
     // No fallback credential: an unset token means requests fail closed with
     // 401 until the operator supplies the daemon token.
-    this.authToken = options.authToken || env.AIMEM_AUTH_TOKEN || "";
+    this.authToken = options.authToken || env.AUTH_TOKEN || "";
   }
 
   async call<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
@@ -43,7 +43,7 @@ export class AimemClient {
         })
       });
     } catch (error) {
-      throw new Error(`Cannot reach AI Memory daemon at ${this.baseUrl}. Make sure the daemon is running and browser access is allowed. ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Cannot reach Zharwing Memory daemon at ${this.baseUrl}. Make sure the daemon is running and browser access is allowed. ${error instanceof Error ? error.message : String(error)}`);
     }
     const payload = (await response.json()) as {
       ok: boolean;
@@ -129,14 +129,26 @@ export class AimemClient {
   }
 }
 
-function runtimeEnv(): Record<string, string | undefined> {
+function runtimeEnv(): { DAEMON_URL?: string; AUTH_TOKEN?: string } {
   const processEnv = typeof process !== "undefined" && process.env ? process.env : {};
   const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
 
+  // Canonical ZHARWING_MEMORY_* names win; legacy AIMEM_* names remain
+  // readable for one transition release so existing .env files keep working.
   return {
-    ...viteEnv,
-    ...processEnv,
-    AIMEM_DAEMON_URL: processEnv.AIMEM_DAEMON_URL || viteEnv.AIMEM_DAEMON_URL || viteEnv.VITE_AIMEM_DAEMON_URL,
-    AIMEM_AUTH_TOKEN: processEnv.AIMEM_AUTH_TOKEN || viteEnv.AIMEM_AUTH_TOKEN || viteEnv.VITE_AIMEM_AUTH_TOKEN
+    DAEMON_URL:
+      processEnv.ZHARWING_MEMORY_DAEMON_URL ||
+      processEnv.AIMEM_DAEMON_URL ||
+      viteEnv.ZHARWING_MEMORY_DAEMON_URL ||
+      viteEnv.AIMEM_DAEMON_URL ||
+      viteEnv.VITE_ZHARWING_MEMORY_DAEMON_URL ||
+      viteEnv.VITE_AIMEM_DAEMON_URL,
+    AUTH_TOKEN:
+      processEnv.ZHARWING_MEMORY_AUTH_TOKEN ||
+      processEnv.AIMEM_AUTH_TOKEN ||
+      viteEnv.ZHARWING_MEMORY_AUTH_TOKEN ||
+      viteEnv.AIMEM_AUTH_TOKEN ||
+      viteEnv.VITE_ZHARWING_MEMORY_AUTH_TOKEN ||
+      viteEnv.VITE_AIMEM_AUTH_TOKEN
   };
 }

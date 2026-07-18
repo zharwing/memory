@@ -11,7 +11,7 @@ mean "this record is stored in this project."
 
 ## How The Graph Is Built
 
-AI Memory builds the graph from deterministic project data:
+Zharwing Memory builds the graph from deterministic project data:
 
 - linked repo metadata
 - workstream metadata
@@ -89,7 +89,7 @@ Snake-case aliases such as `node_type`, `edge_type`, `slug_from_segment`, and
 
 Rules match imported relative paths, not absolute machine paths.
 
-For current imports, AI Memory writes files under:
+For current imports, Zharwing Memory writes files under:
 
 ```text
 docs/imported/<profile>/<original-relative-path>.md

@@ -4,7 +4,7 @@ A workstream is a project-scoped container for multi-day work. It is the right
 place for things people may also call an epic, initiative, topic, lane, or
 focus area.
 
-Use one AI Memory project for a long-lived product area, then create
+Use one Zharwing Memory project for a long-lived product area, then create
 workstreams inside it.
 
 Example:
@@ -63,10 +63,10 @@ topics, related task labels, names, summaries, and body text.
 ## CLI
 
 ```text
-aimem workstreams --project <project-id>
-aimem create-workstream "Huddle" --project <project-id> --topic huddle,realtime
-aimem workstream huddle --project <project-id>
-aimem start "Huddle service contract pass" --project <project-id> --workstream <workstream-id>
+zharwing-memory workstreams --project <project-id>
+zharwing-memory create-workstream "Huddle" --project <project-id> --topic huddle,realtime
+zharwing-memory workstream huddle --project <project-id>
+zharwing-memory start "Huddle service contract pass" --project <project-id> --workstream <workstream-id>
 ```
 
 ## MCP

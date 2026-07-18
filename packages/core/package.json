@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/core",
+  "name": "@zharwing/memory-core",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",

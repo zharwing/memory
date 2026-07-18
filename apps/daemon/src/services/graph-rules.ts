@@ -1,4 +1,4 @@
-import type { GraphExtractionRule, GraphRuleEdgeType, GraphRuleNodeType } from "@aimem/core";
+import type { GraphExtractionRule, GraphRuleEdgeType, GraphRuleNodeType } from "@zharwing/memory-core";
 
 export function normalizeGraphExtractionRules(input: unknown): GraphExtractionRule[] {
   if (!Array.isArray(input)) return [];

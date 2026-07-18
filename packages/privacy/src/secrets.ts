@@ -1,4 +1,4 @@
-import type { Redaction } from "@aimem/core";
+import type { Redaction } from "@zharwing/memory-core";
 
 export interface SecretFinding {
   kind: Redaction["kind"];

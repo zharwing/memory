@@ -1,10 +1,10 @@
-import type { Project } from "@aimem/core";
+import type { Project } from "@zharwing/memory-core";
 
 export function defaultProjectDocument(project: Project, kind: string): string {
   const title = titleFor(kind, project.name);
   return `# ${title}
 
-This document is part of the local AI Memory workspace for **${project.name}**.
+This document is part of the local Zharwing Memory workspace for **${project.name}**.
 
 Agents may update routine project memory directly when review mode is off. Use Memory Inbox proposals for review-mode, risky, or uncertain updates.
 `;
@@ -50,7 +50,7 @@ export function contextMarkdownHeader(projectName: string): string {
 
 Project: ${projectName}
 
-This bundle was generated from project-scoped AI Memory. It excludes private, never-send, unrelated, and blocked items.
+This bundle was generated from project-scoped Zharwing Memory. It excludes private, never-send, unrelated, and blocked items.
 `;
 }
 

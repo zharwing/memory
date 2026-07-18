@@ -1,4 +1,4 @@
-import { ProjectRegistry } from "@aimem/storage";
+import { ProjectRegistry } from "@zharwing/memory-store";
 import { AssistantService } from "./services/assistant-service.js";
 import { BackupService } from "./services/backup-service.js";
 import { ContextService } from "./services/context-service.js";

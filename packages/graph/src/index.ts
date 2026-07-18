@@ -12,7 +12,7 @@ import {
   type ProjectGraph,
   type Session,
   type Workstream
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 
 export interface BuildGraphInput {
   project: Project;

@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 
-const devUrl = process.env.AIMEM_DESKTOP_DEV_URL || "http://localhost:5174/";
-const expectedTitle = "<title>AI Memory</title>";
+const devUrl =
+  process.env.ZHARWING_MEMORY_DESKTOP_DEV_URL || process.env.AIMEM_DESKTOP_DEV_URL || "http://localhost:5174/";
+const expectedTitle = "<title>Zharwing Memory</title>";
 
 async function readExistingServer() {
   const controller = new AbortController();

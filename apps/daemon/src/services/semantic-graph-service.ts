@@ -19,13 +19,13 @@ import {
   writeSemanticExtraction,
   writeSemanticGraphSettings,
   writeSemanticRun
-} from "@aimem/storage";
-import { buildProjectGraph } from "@aimem/graph";
+} from "@zharwing/memory-store";
+import { buildProjectGraph } from "@zharwing/memory-graph";
 import {
   callAiProviderJson,
   checkAiProvider,
   type AiProviderConfig
-} from "@aimem/assistant-runtime";
+} from "@zharwing/memory-assistant";
 import {
   applySemanticEdgePolicy,
   baselineSemanticExtractionFromPlanItem,
@@ -45,7 +45,7 @@ import {
   type SemanticExtractionPlanItem,
   type SemanticRelationshipCandidate,
   type SemanticRelationshipDecision
-} from "@aimem/semantic-graph";
+} from "@zharwing/memory-semantic-graph";
 import {
   createId,
   nowIso,
@@ -61,7 +61,7 @@ import {
   type SemanticGraphMode,
   type SemanticGraphScope,
   type SemanticGraphSettings
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
 
 export class SemanticGraphService {
@@ -449,7 +449,7 @@ export class SemanticGraphService {
         run,
         candidates,
         decisions,
-        sourceAgent: params.sourceAgent || "aimem-semantic-graph",
+        sourceAgent: params.sourceAgent || "zharwing-memory-semantic-graph",
         promptVersion: "semantic-graph-v1"
       });
       const acceptedPolicyEdges = refineSemanticReviewEdges(policy.acceptedEdges);
@@ -476,7 +476,7 @@ export class SemanticGraphService {
         ? await proposeCurrentSemanticEdges({
             project,
             sourceKind: "memory-assistant",
-            sourceAgent: params.sourceAgent || "aimem-semantic-graph",
+            sourceAgent: params.sourceAgent || "zharwing-memory-semantic-graph",
             confidence: confidenceForEdges(proposedPolicyEdges),
             affectedFiles: affectedFilesForEdges(proposedPolicyEdges, documents),
             proposedPatch: semanticEdgesProposalPatch(run.id, proposedPolicyEdges, proposalSummary),

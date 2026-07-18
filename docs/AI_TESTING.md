@@ -1,6 +1,6 @@
 # Testing With AI Providers
 
-AI Memory has real OpenAI-compatible provider integration for model-backed
+Zharwing Memory has real OpenAI-compatible provider integration for model-backed
 semantic graph analysis. That is the path that builds AI-suggested document
 relationships from project docs, routes reviewable edges through Memory Inbox,
 and stores accepted relationships as semantic graph metadata.
@@ -72,7 +72,7 @@ pnpm typecheck
 pnpm test
 ```
 
-## Start AI Memory
+## Start Zharwing Memory
 
 Copy `.env.example` to `.env`, then set a private memory root and local auth
 token. Do not use a committed or shared source directory as the memory root.
@@ -308,8 +308,8 @@ When validating an AI client integration, start or reuse the daemon, install the
 target client config, and check setup:
 
 ```text
-aimem mcp install auto
-aimem mcp doctor
+zharwing-memory mcp install auto
+zharwing-memory mcp doctor
 ```
 
 Use `codex`, `claude-code`, or `claude-desktop` instead of `auto` to target one
@@ -335,9 +335,9 @@ Use preview and dry-run modes before review or auto mode.
 
 ## Troubleshooting
 
-- `ECONNREFUSED` from AI Memory: start `corepack pnpm dev:daemon`.
+- `ECONNREFUSED` from Zharwing Memory: start `corepack pnpm dev:daemon`.
 - `401 Unauthorized`: the bearer token does not match `.env`, or the client did
-  not inherit `AIMEM_AUTH_TOKEN`.
+  not inherit `ZHARWING_MEMORY_AUTH_TOKEN`.
 - Provider timeout: lower `--max-docs`, `--max-candidates`, and `--per-doc`, or
   increase `--timeout-ms`.
 - Invalid JSON: choose a model with stronger instruction following or lower the

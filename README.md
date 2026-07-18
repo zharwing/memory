@@ -1,12 +1,12 @@
-# AI Memory
+# Zharwing Memory
 
-AI Memory is a local-first project context manager for AI-assisted coding workflows. It is not the coding agent. External agents such as Codex, Claude Code, Gemini CLI, Ollama-based tools, LM Studio workflows, and future MCP-capable clients do the engineering work. AI Memory provides the durable local memory layer those agents can use safely.
+Zharwing Memory is a local-first project context manager for AI-assisted coding workflows. It is not the coding agent. External agents such as Codex, Claude Code, Gemini CLI, Ollama-based tools, LM Studio workflows, and future MCP-capable clients do the engineering work. Zharwing Memory provides the durable local memory layer those agents can use safely.
 
 The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the desktop app to understand current work, review what context would be sent to an AI, inspect the graph, search previous work, and enable approval gates only when they want them.
 
 ## Current Implementation Status
 
-This repository is the generic, project-neutral AI Memory application source.
+This repository is the generic, project-neutral Zharwing Memory application source.
 Private user memory, project data, and personal workflows belong outside this
 repo in each user's chosen memory store.
 
@@ -18,7 +18,7 @@ Implemented:
 - MCP HTTP endpoint and stdio adapter.
 - Tauri + React desktop shell.
 - Markdown-first storage model.
-- Project registry and `.ai-memory.json` pointer support.
+- Project registry and `.zharwing/memory.json` pointer support.
 - Project-scoped sessions and workstreams.
 - Context bundle generation with inclusion/exclusion reasons.
 - Privacy gates, visibility rules, secret redaction, and high-risk blocking.
@@ -81,7 +81,7 @@ Not yet performed:
 apps/
   desktop/          Tauri + React human control plane
   daemon/           Localhost JSON-RPC daemon
-  cli/              aimem command-line helper
+  cli/              zharwing-memory command-line helper
   mcp-server/       MCP-style stdio adapter
 
 packages/
@@ -111,12 +111,12 @@ docs/
 templates/
   bootstrap/        Generic AGENTS.md and CLAUDE.md templates for linked repos
   mcp/              Generic Codex and Claude MCP config examples
-  skills/           Generic AI Memory session skill template
+  skills/           Generic Zharwing Memory session skill template
 ```
 
 ## First Run
 
-AI Memory separates application source code from private memory data.
+Zharwing Memory separates application source code from private memory data.
 
 ```text
 llm-memory/
@@ -135,9 +135,9 @@ cp .env.example .env
 Edit `.env`:
 
 ```text
-AIMEM_MEMORY_ROOT=<absolute-private-store-path>
-AIMEM_AUTH_TOKEN=<local-random-token>
-VITE_AIMEM_AUTH_TOKEN=<same-local-random-token>
+ZHARWING_MEMORY_ROOT=<absolute-private-store-path>
+ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
+VITE_ZHARWING_MEMORY_AUTH_TOKEN=<same-local-random-token>
 ```
 
 Start the daemon and browser UI:
@@ -162,7 +162,7 @@ repo root afterward.
 
 ### Pointer Files
 
-A pointer file is a small `.ai-memory.json` file that AI Memory can write into a
+A pointer file is a small `.zharwing/memory.json` file that Zharwing Memory can write into a
 linked Git repo. It lets tools opened from that repo detect the matching memory
 project automatically.
 
@@ -196,7 +196,7 @@ save a JSON array such as:
 ]
 ```
 
-This is project configuration, not application hardcoding. AI Memory matches
+This is project configuration, not application hardcoding. Zharwing Memory matches
 rules against imported relative paths and derives context graph nodes from them.
 Use Graph for memory relationships; use Diagrams for runtime architecture and
 service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
@@ -248,10 +248,10 @@ The desktop app, CLI, and MCP server are adapters.
 ## Memory Root Shape
 
 The memory root is private per-user state. It can live anywhere on the local
-machine and is configured with `AIMEM_MEMORY_ROOT`.
+machine and is configured with `ZHARWING_MEMORY_ROOT`.
 
 ```text
-AI Memory Root/
+Zharwing Memory Root/
   global/
     projects.json
     trash/
@@ -279,11 +279,11 @@ AI Memory Root/
 Repos may contain:
 
 ```text
-.ai-memory.json
+.zharwing/memory.json
 ```
 
 That pointer file contains only project identity and memory location.
-Because the memory location is machine-local, `.ai-memory.json` is ignored by
+Because the memory location is machine-local, `.zharwing/memory.json` is ignored by
 this app repo by default. Teams can decide separately whether pointer files in
 their own linked repos should be committed or kept local.
 
@@ -304,7 +304,7 @@ their own linked repos should be committed or kept local.
 For automatic session behavior in Codex, Claude, or local agents:
 
 1. Start the daemon.
-2. Register the MCP adapter with `aimem mcp install auto`.
+2. Register the MCP adapter with `zharwing-memory mcp install auto`.
 3. Link source repos from the UI or CLI.
 4. Generate repo bootstrap files from `templates/bootstrap/`.
 5. Optionally install `templates/skills/ai-memory-session` as a generic Codex
@@ -315,7 +315,7 @@ start a fresh daily/work-round session, search memory, load context when useful,
 save checkpoints during work, and close or checkpoint at the end. See
 [Agent Automation](docs/AGENT_AUTOMATION.md).
 
-For localhost-only personal setups, `AIMEM_AUTH_MODE=none` lets MCP clients use
+For localhost-only personal setups, `ZHARWING_MEMORY_AUTH_MODE=none` lets MCP clients use
 `http://127.0.0.1:37841/mcp` without a bearer token. The daemon refuses no-auth
 mode on non-loopback hosts.
 
@@ -328,39 +328,39 @@ Windows/WSL reachability, desktop installer buttons, and troubleshooting, see
 The CLI assumes the daemon is running.
 
 ```text
-aimem init <repo-root> --name "My App" --bootstrap AGENTS.md,CLAUDE.md
-aimem projects
-aimem status --project my-app
-aimem repos --project my-app
-aimem link-repo <repo-root> --project my-app --name "Service API" --role service
-aimem create-workstream "Huddle" --project my-app --topic huddle,realtime
-aimem workstreams --project my-app
-aimem start "Fix settings page save bug" --project my-app --agent codex
-aimem sessions --project my-app
-aimem context --project my-app --preview
-aimem checkpoint --project my-app --session session-id "Implemented save flow"
-aimem close --project my-app --session session-id "Save bug fixed"
-aimem inbox --project my-app
-aimem search --project my-app "settings save"
-aimem graph --project my-app
-aimem backup --project my-app
-aimem validate --project my-app
-aimem rebuild-index --project my-app
-aimem import-profiles
-aimem import-folder <source-memory-folder> --project my-app --profile markdown-memory
-aimem import-folder <source-sessions-folder> --project my-app --profile markdown-sessions --commit
+zharwing-memory init <repo-root> --name "My App" --bootstrap AGENTS.md,CLAUDE.md
+zharwing-memory projects
+zharwing-memory status --project my-app
+zharwing-memory repos --project my-app
+zharwing-memory link-repo <repo-root> --project my-app --name "Service API" --role service
+zharwing-memory create-workstream "Huddle" --project my-app --topic huddle,realtime
+zharwing-memory workstreams --project my-app
+zharwing-memory start "Fix settings page save bug" --project my-app --agent codex
+zharwing-memory sessions --project my-app
+zharwing-memory context --project my-app --preview
+zharwing-memory checkpoint --project my-app --session session-id "Implemented save flow"
+zharwing-memory close --project my-app --session session-id "Save bug fixed"
+zharwing-memory inbox --project my-app
+zharwing-memory search --project my-app "settings save"
+zharwing-memory graph --project my-app
+zharwing-memory backup --project my-app
+zharwing-memory validate --project my-app
+zharwing-memory rebuild-index --project my-app
+zharwing-memory import-profiles
+zharwing-memory import-folder <source-memory-folder> --project my-app --profile markdown-memory
+zharwing-memory import-folder <source-sessions-folder> --project my-app --profile markdown-sessions --commit
 ```
 
 Assistant proposal examples:
 
 ```text
-aimem assistant status --project my-app
-aimem assistant summarize-session --project my-app --session session-id
-aimem assistant generate-session-summary --project my-app --session session-id
-aimem assistant generate-session-summaries --project my-app
-aimem assistant generate-session-summaries --project my-app --all
-aimem assistant return-summary --project my-app
-aimem assistant classify-doc --project my-app --doc doc-id
+zharwing-memory assistant status --project my-app
+zharwing-memory assistant summarize-session --project my-app --session session-id
+zharwing-memory assistant generate-session-summary --project my-app --session session-id
+zharwing-memory assistant generate-session-summaries --project my-app
+zharwing-memory assistant generate-session-summaries --project my-app --all
+zharwing-memory assistant return-summary --project my-app
+zharwing-memory assistant classify-doc --project my-app --doc doc-id
 ```
 
 ## MCP Tool Families

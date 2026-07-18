@@ -36,20 +36,20 @@ cp .env.example .env
 Daemon:
 
 ```text
-AIMEM_HOST=127.0.0.1
-AIMEM_PORT=37841
-AIMEM_AUTH_TOKEN=local-dev-token
-AIMEM_MEMORY_ROOT=<memory-root>
+ZHARWING_MEMORY_HOST=127.0.0.1
+ZHARWING_MEMORY_PORT=37841
+ZHARWING_MEMORY_AUTH_TOKEN=local-dev-token
+ZHARWING_MEMORY_ROOT=<memory-root>
 ```
 
-`AIMEM_MEMORY_ROOT` stores private project memory, sessions, docs, imports,
+`ZHARWING_MEMORY_ROOT` stores private project memory, sessions, docs, imports,
 context bundles, Memory Inbox proposals, and backups. Do not commit this folder.
 
 API client:
 
 ```text
-AIMEM_DAEMON_URL=http://127.0.0.1:37841
-AIMEM_AUTH_TOKEN=local-dev-token
+ZHARWING_MEMORY_DAEMON_URL=http://127.0.0.1:37841
+ZHARWING_MEMORY_AUTH_TOKEN=local-dev-token
 ```
 
 ## Intended Startup
@@ -108,8 +108,8 @@ corepack pnpm dev:mcp
 Installed client setup:
 
 ```text
-aimem mcp install auto
-aimem mcp doctor
+zharwing-memory mcp install auto
+zharwing-memory mcp doctor
 ```
 
 Use HTTP MCP when the client can reach the daemon at
@@ -127,7 +127,7 @@ Production packaging should:
 - generate a per-user local auth token
 - store the token in the OS app data directory or keychain-compatible location
 - bind daemon to localhost by default
-- allow `AIMEM_AUTH_MODE=none` only for loopback-only personal setups
+- allow `ZHARWING_MEMORY_AUTH_MODE=none` only for loopback-only personal setups
 - keep remote access disabled by default
 - require explicit approval for project creation, repo linking, context serving, and canonical memory writes only when review mode or safety policy requires it
 - log sensitive operations without storing raw secrets

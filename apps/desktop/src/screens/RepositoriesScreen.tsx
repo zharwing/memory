@@ -71,7 +71,7 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
           </label>
           <p className="field-help">
             Use the folder that contains the repo's `.git` directory, or any folder inside that repo.
-            AI Memory will resolve it to the repo root.
+            Zharwing Memory will resolve it to the repo root.
           </p>
           <label>
             <span>Name</span>
@@ -94,7 +94,7 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
             <span>Write pointer file</span>
           </label>
           <p className="field-help">
-            Pointer files are small `.ai-memory.json` files in linked repos. They help agents auto-detect this project from the repo.
+            Pointer files are small `.zharwing/memory.json` files in linked repos (legacy `.ai-memory.json` files are still detected). They help agents auto-detect this project from the repo.
           </p>
           <button type="submit" disabled={!store.selectedProjectId}>Link Repo</button>
         </form>

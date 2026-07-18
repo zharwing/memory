@@ -70,7 +70,7 @@ for the full smoke test.
 ## Local Small-LLM Strategy
 
 Small local models should not receive hundreds of full documents in one prompt.
-AI Memory breaks the task into smaller steps:
+Zharwing Memory breaks the task into smaller steps:
 
 - select eligible documents by scope
 - apply privacy and secret gates first
@@ -146,7 +146,7 @@ llm-memory depend on another local service.
 
 ## Vector Store Decision
 
-AI Memory does not require a vector store for semantic graph relationships.
+Zharwing Memory does not require a vector store for semantic graph relationships.
 The default candidate builder intentionally uses deterministic project signals
 first:
 
@@ -183,7 +183,7 @@ sets.
 
 Start an OpenAI-compatible server separately. This can be LM Studio, Ollama,
 llama.cpp, or another local endpoint. The exact model and command depend on
-your local install. AI Memory only needs the HTTP endpoint and model name.
+your local install. Zharwing Memory only needs the HTTP endpoint and model name.
 
 In Assistant:
 
@@ -233,7 +233,7 @@ remaining edges.
 
 ## Session TLDRs
 
-Sessions are summarized separately from graph relationships. On close, AI Memory
+Sessions are summarized separately from graph relationships. On close, Zharwing Memory
 generates a compact searchable TLDR for the session when a local assistant
 provider is configured. If no safe local provider is available, it writes a
 deterministic metadata summary instead. The summary is stored on the session
@@ -263,7 +263,7 @@ corepack pnpm dev:cli assistant generate-session-summaries --project <project-id
 
 ## Storage
 
-AI Memory keeps Markdown documents as the source of truth for human-authored
+Zharwing Memory keeps Markdown documents as the source of truth for human-authored
 knowledge. Semantic graph data is stored as project metadata beside that
 Markdown because it is structured relationship data.
 

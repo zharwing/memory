@@ -1,20 +1,20 @@
-import { buildProjectGraph } from "@aimem/graph";
-import type { ProjectRegistry } from "@aimem/storage";
+import { buildProjectGraph } from "@zharwing/memory-graph";
+import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   listProjectDocuments,
   listProjectSessions,
   listProjectWorkstreams,
   listProposedUpdates,
   readSemanticEdges
-} from "@aimem/storage";
-import { semanticEdgesFromProposalPatch } from "@aimem/semantic-graph";
+} from "@zharwing/memory-store";
+import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph";
 import type {
   GraphEdge,
   ProjectGraph,
   ProposedMemoryUpdate,
   SemanticGraphEdge,
   SemanticGraphEdgeStatus
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
 
 type SemanticGraphIncludeMode = "none" | "accepted" | "all";

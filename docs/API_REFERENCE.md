@@ -1,6 +1,6 @@
 # API Reference
 
-AI Memory exposes one behavioral API through the daemon. CLI and MCP adapters call that API.
+Zharwing Memory exposes one behavioral API through the daemon. CLI and MCP adapters call that API.
 
 ## Daemon
 
@@ -19,18 +19,18 @@ POST http://127.0.0.1:37841/mcp
 Content-Type: application/json
 ```
 
-For localhost-only personal use, set `AIMEM_AUTH_MODE=none` to allow MCP
+For localhost-only personal use, set `ZHARWING_MEMORY_AUTH_MODE=none` to allow MCP
 clients to connect without a bearer token. The daemon refuses no-auth mode when
 bound to a non-loopback host.
 
 The stdio MCP entrypoint is:
 
 ```text
-aimem mcp serve
+zharwing-memory mcp serve
 ```
 
-Client config can be generated with `aimem mcp install auto` or
-`aimem mcp install <client>`. See
+Client config can be generated with `zharwing-memory mcp install auto` or
+`zharwing-memory mcp install <client>`. See
 [MCP Setup](MCP_SETUP.md) for supported clients, auth modes, and transport
 choices.
 
@@ -261,53 +261,53 @@ directly unless a future project policy routes that metadata through review.
 ## CLI Commands
 
 ```text
-aimem projects
-aimem detect [path]
-aimem status --project <id>
-aimem repos --project <id>
-aimem link-repo <path> --project <id> --name "Product Runtime" --role product-runtime
-aimem unlink-repo <path> --project <id>
-aimem workstreams --project <id>
-aimem create-workstream "Huddle" --project <id> --topic huddle,realtime
-aimem workstream huddle --project <id>
-aimem init [path] --name <name> --bootstrap AGENTS.md,CLAUDE.md
-aimem init --name <name> --project-only --no-pointer
-aimem start "task title" --project <id> --agent codex --workstream <workstream-id>
-aimem resume --project <id>
-aimem sessions --project <id>
-aimem context --project <id> --preview
-aimem checkpoint --project <id> --session <id> "summary"
-aimem close --project <id> --session <id> "summary"
-aimem assistant generate-session-summary --project <id> --session <id>
-aimem assistant generate-session-summaries --project <id>
-aimem assistant generate-session-summaries --project <id> --all
-aimem search --project <id> "query"
-aimem inbox --project <id>
-aimem graph --project <id>
-aimem backup --project <id>
-aimem validate --project <id>
-aimem rebuild-index --project <id>
-aimem import <file> --project <id>
-aimem import-profiles
-aimem import-folder <path> --project <id> --profile markdown-memory
-aimem import-folder <path> --project <id> --profile markdown-sessions --commit
-aimem import-commit <path> --project <id> --profile generic-markdown
-aimem agent-instructions --project <id> --agent generic
-aimem agent-instructions --project <id> --agent codex --output AGENTS.md
-aimem agent-instructions --project <id> --agent claude --output CLAUDE.md
-aimem agent-instructions --project <id> --agent qwen --output QWEN.md
-aimem assistant status --project <id>
-aimem assistant summarize-session --project <id> --session <id>
-aimem assistant generate-session-summary --project <id> --session <id>
-aimem assistant generate-session-summaries --project <id>
-aimem assistant return-summary --project <id>
-aimem assistant classify-doc --project <id> --doc <id>
-aimem semantic-graph status --project <id>
-aimem semantic-graph analyze --project <id> --mode dry-run --max-docs 8
-aimem semantic-graph analyze --project <id> --mode review --node <graph-node-id>
-aimem semantic-graph analyze --project <id> --mode dry-run --no-json-mode
-aimem semantic-graph runs --project <id>
-aimem semantic-graph edges --project <id> --status accepted,auto-accepted
+zharwing-memory projects
+zharwing-memory detect [path]
+zharwing-memory status --project <id>
+zharwing-memory repos --project <id>
+zharwing-memory link-repo <path> --project <id> --name "Product Runtime" --role product-runtime
+zharwing-memory unlink-repo <path> --project <id>
+zharwing-memory workstreams --project <id>
+zharwing-memory create-workstream "Huddle" --project <id> --topic huddle,realtime
+zharwing-memory workstream huddle --project <id>
+zharwing-memory init [path] --name <name> --bootstrap AGENTS.md,CLAUDE.md
+zharwing-memory init --name <name> --project-only --no-pointer
+zharwing-memory start "task title" --project <id> --agent codex --workstream <workstream-id>
+zharwing-memory resume --project <id>
+zharwing-memory sessions --project <id>
+zharwing-memory context --project <id> --preview
+zharwing-memory checkpoint --project <id> --session <id> "summary"
+zharwing-memory close --project <id> --session <id> "summary"
+zharwing-memory assistant generate-session-summary --project <id> --session <id>
+zharwing-memory assistant generate-session-summaries --project <id>
+zharwing-memory assistant generate-session-summaries --project <id> --all
+zharwing-memory search --project <id> "query"
+zharwing-memory inbox --project <id>
+zharwing-memory graph --project <id>
+zharwing-memory backup --project <id>
+zharwing-memory validate --project <id>
+zharwing-memory rebuild-index --project <id>
+zharwing-memory import <file> --project <id>
+zharwing-memory import-profiles
+zharwing-memory import-folder <path> --project <id> --profile markdown-memory
+zharwing-memory import-folder <path> --project <id> --profile markdown-sessions --commit
+zharwing-memory import-commit <path> --project <id> --profile generic-markdown
+zharwing-memory agent-instructions --project <id> --agent generic
+zharwing-memory agent-instructions --project <id> --agent codex --output AGENTS.md
+zharwing-memory agent-instructions --project <id> --agent claude --output CLAUDE.md
+zharwing-memory agent-instructions --project <id> --agent qwen --output QWEN.md
+zharwing-memory assistant status --project <id>
+zharwing-memory assistant summarize-session --project <id> --session <id>
+zharwing-memory assistant generate-session-summary --project <id> --session <id>
+zharwing-memory assistant generate-session-summaries --project <id>
+zharwing-memory assistant return-summary --project <id>
+zharwing-memory assistant classify-doc --project <id> --doc <id>
+zharwing-memory semantic-graph status --project <id>
+zharwing-memory semantic-graph analyze --project <id> --mode dry-run --max-docs 8
+zharwing-memory semantic-graph analyze --project <id> --mode review --node <graph-node-id>
+zharwing-memory semantic-graph analyze --project <id> --mode dry-run --no-json-mode
+zharwing-memory semantic-graph runs --project <id>
+zharwing-memory semantic-graph edges --project <id> --status accepted,auto-accepted
 ```
 
 ## MCP Tools
@@ -399,7 +399,7 @@ Core tools:
 ## Security Notes
 
 - The daemon binds to localhost by default.
-- RPC requests require a bearer token unless `AIMEM_AUTH_MODE=none` is used on
+- RPC requests require a bearer token unless `ZHARWING_MEMORY_AUTH_MODE=none` is used on
   a loopback-only daemon.
 - HTTP MCP requests follow the same daemon auth mode.
 - The default token is a development placeholder.

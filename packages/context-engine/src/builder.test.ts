@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createProjectModel, type MemoryDocument } from "@aimem/core";
+import { createProjectModel, type MemoryDocument } from "@zharwing/memory-core";
 import { buildContextBundle } from "./builder.js";
 
 test("buildContextBundle excludes never-send docs and redacts allowed secrets", () => {
   const project = createProjectModel({
     name: "Context Privacy Test",
-    memoryRoot: "/tmp/aimem-context-test"
+    memoryRoot: "/tmp/zharwing-context-test"
   });
   const docs = [
     doc({

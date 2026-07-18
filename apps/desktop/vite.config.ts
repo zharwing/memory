@@ -10,8 +10,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@aimem/api-client": fileURLToPath(new URL("../../packages/api-client/src/index.ts", import.meta.url)),
-      "@aimem/theme": fileURLToPath(new URL("../../packages/theme/src/index.ts", import.meta.url))
+      "@zharwing/memory-api-client": fileURLToPath(new URL("../../packages/api-client/src/index.ts", import.meta.url)),
+      "@zharwing/memory-theme": fileURLToPath(new URL("../../packages/theme/src/index.ts", import.meta.url))
     }
   },
   server: {

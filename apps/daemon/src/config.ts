@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_MEMORY_ROOT_NAME } from "@aimem/core";
-import { normalizePath } from "@aimem/storage";
+import { DEFAULT_MEMORY_ROOT_NAME } from "@zharwing/memory-core";
+import { normalizePath } from "@zharwing/memory-store";
 
 export interface DaemonConfig {
   host: string;
@@ -14,44 +14,77 @@ export interface DaemonConfig {
   /**
    * Agent-facing surfaces (HTTP /mcp, stdio MCP) stay disabled until the
    * privacy facade gate passes. Opt in explicitly with
-   * AIMEM_AGENT_SURFACE=enabled.
+   * ZHARWING_MEMORY_AGENT_SURFACE=enabled.
    */
   agentSurfaceEnabled: boolean;
 }
 
+const warnedLegacyEnv = new Set<string>();
+
+/**
+ * Reads the canonical ZHARWING_MEMORY_* variable, falling back to the legacy
+ * AIMEM_* name for one transition release. The fallback warns once per
+ * variable so existing .env files keep working while users migrate.
+ */
+export function memoryEnv(newName: string, legacyName: string): string | undefined {
+  const current = process.env[newName];
+  if (current !== undefined && current !== "") return current;
+  const legacy = process.env[legacyName];
+  if (legacy !== undefined && legacy !== "") {
+    if (!warnedLegacyEnv.has(legacyName)) {
+      warnedLegacyEnv.add(legacyName);
+      console.warn(`zharwing-memory: ${legacyName} is deprecated; rename it to ${newName}.`);
+    }
+    return legacy;
+  }
+  return undefined;
+}
+
 export function loadDaemonConfig(): DaemonConfig {
-  const host = process.env.AIMEM_HOST || "127.0.0.1";
-  const authMode = process.env.AIMEM_AUTH_MODE === "none" ? "none" : "token";
+  const host = memoryEnv("ZHARWING_MEMORY_HOST", "AIMEM_HOST") || "127.0.0.1";
+  const authMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE", "AIMEM_AUTH_MODE") === "none" ? "none" : "token";
   if (authMode === "none" && !isLoopbackHost(host)) {
-    throw new Error("AIMEM_AUTH_MODE=none is only allowed when AIMEM_HOST is localhost, 127.0.0.1, or ::1.");
+    throw new Error(
+      "ZHARWING_MEMORY_AUTH_MODE=none is only allowed when ZHARWING_MEMORY_HOST is localhost, 127.0.0.1, or ::1."
+    );
   }
   return {
     host,
-    port: Number(process.env.AIMEM_PORT || "37841"),
+    port: Number(memoryEnv("ZHARWING_MEMORY_PORT", "AIMEM_PORT") || "37841"),
     authMode,
     authToken: authMode === "none" ? "" : resolveAuthToken(),
-    memoryRoot: normalizePath(process.env.AIMEM_MEMORY_ROOT || path.join(process.cwd(), DEFAULT_MEMORY_ROOT_NAME)),
-    agentSurfaceEnabled: process.env.AIMEM_AGENT_SURFACE === "enabled"
+    memoryRoot: normalizePath(
+      memoryEnv("ZHARWING_MEMORY_ROOT", "AIMEM_MEMORY_ROOT") || path.join(process.cwd(), DEFAULT_MEMORY_ROOT_NAME)
+    ),
+    agentSurfaceEnabled: memoryEnv("ZHARWING_MEMORY_AGENT_SURFACE", "AIMEM_AGENT_SURFACE") === "enabled"
   };
 }
 
 /**
  * Token file lives in the OS user state directory, never inside the
- * repository. Windows: %APPDATA%\aimem (per-user ACL by default).
+ * repository. Windows: %APPDATA%\zharwing-memory (per-user ACL by default).
  * POSIX: $XDG_STATE_HOME or ~/.local/state, file mode 0600.
  * Rotate by deleting the file; the next daemon start generates a new token.
+ * A token file created by the pre-rename "aimem" daemon keeps working: the
+ * legacy path is used as long as it exists so configured agents keep their
+ * token across the rename.
  */
 export function tokenFilePath(): string {
-  if (process.env.AIMEM_TOKEN_FILE) return process.env.AIMEM_TOKEN_FILE;
+  const fromEnv = memoryEnv("ZHARWING_MEMORY_TOKEN_FILE", "AIMEM_TOKEN_FILE");
+  if (fromEnv) return fromEnv;
   const base =
     process.platform === "win32"
       ? process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming")
       : process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-  return path.join(base, "aimem", "daemon-token");
+  const current = path.join(base, "zharwing-memory", "daemon-token");
+  if (fs.existsSync(current)) return current;
+  const legacy = path.join(base, "aimem", "daemon-token");
+  if (fs.existsSync(legacy)) return legacy;
+  return current;
 }
 
 export function resolveAuthToken(): string {
-  const fromEnv = process.env.AIMEM_AUTH_TOKEN;
+  const fromEnv = memoryEnv("ZHARWING_MEMORY_AUTH_TOKEN", "AIMEM_AUTH_TOKEN");
   if (fromEnv) return fromEnv;
 
   const file = tokenFilePath();

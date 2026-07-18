@@ -10,7 +10,7 @@ import {
   type ProjectCreationPreview,
   type RepoLink,
   type StartupState
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import {
   ProjectRegistry,
   createProjectFromPreview,
@@ -30,7 +30,7 @@ import {
   validateProjectWorkspace,
   writeJsonToTrash,
   writeProjectFile
-} from "@aimem/storage";
+} from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 import { normalizeGraphExtractionRules } from "./graph-rules.js";
 
@@ -66,7 +66,7 @@ export class ProjectService {
         recommendedAction: "offer-create-project",
         contextReadiness: "needs-project",
         safetyStatus: "clean",
-        messageForClient: "This repo is not registered in AI Memory. Offer to create or link a project."
+        messageForClient: "This repo is not registered in Zharwing Memory. Offer to create or link a project."
       };
     }
 
@@ -92,7 +92,7 @@ export class ProjectService {
       recommendedAction,
       contextReadiness: activeSession || latestSession ? "ready" : "needs-session",
       safetyStatus: "clean",
-      messageForClient: `Resolved AI Memory project ${project.name}.`
+      messageForClient: `Resolved Zharwing Memory project ${project.name}.`
     };
   }
 

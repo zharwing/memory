@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_PRIVACY_POLICY } from "@aimem/core";
+import { DEFAULT_PRIVACY_POLICY } from "@zharwing/memory-core";
 import { applyPrivacyGate, combineSafetyStatus } from "./gate.js";
 
 test("applyPrivacyGate excludes blocked visibility and never-send paths", () => {

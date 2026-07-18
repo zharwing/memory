@@ -1,5 +1,5 @@
 {
-  "name": "@aimem/privacy",
+  "name": "@zharwing/memory-privacy",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,6 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "@aimem/core": "workspace:*"
+    "@zharwing/memory-core": "workspace:*"
   }
 }

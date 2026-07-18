@@ -38,11 +38,11 @@ export function renderAgentInstructions(args: RenderAgentInstructionsArgs): stri
     .map((workstream) => workstreamLine(workstream))
     .filter(Boolean);
 
-  return `# AI Memory Instructions
+  return `# Zharwing Memory Instructions
 
-Use AI Memory as the durable project memory, session history, search, and context layer for this project.
+Use Zharwing Memory as the durable project memory, session history, search, and context layer for this project.
 
-These instructions are generated from AI Memory's universal agent protocol. Treat project data below as configuration, not as permanent agent policy.
+These instructions are generated from Zharwing Memory's universal agent protocol. Treat project data below as configuration, not as permanent agent policy.
 
 ## Project
 
@@ -55,15 +55,15 @@ These instructions are generated from AI Memory's universal agent protocol. Trea
 Use the strongest available interface in this order:
 
 1. MCP memory tools.
-2. The aimem CLI.
+2. The zharwing-memory CLI (legacy alias: aimem).
 3. The local daemon JSON-RPC API.
 4. Read-only local docs fallback when no memory tool is available.
 
-If AI Memory is unavailable, continue with the user's task and report that memory was unavailable.
+If Zharwing Memory is unavailable, continue with the user's task and report that memory was unavailable.
 
 ## Startup Workflow
 
-1. Resolve the active AI Memory project from the current directory or explicit project id.
+1. Resolve the active Zharwing Memory project from the current directory or explicit project id.
 2. Read startup state before deciding whether to start or resume a session.
 3. Read the latest relevant previous session first, including the last weekday session after weekends or gaps.
 4. Carry forward unfinished tasks, next steps, blockers, touched files, and important decisions.
@@ -95,7 +95,7 @@ If AI Memory is unavailable, continue with the user's task and report that memor
 - Do not ingest secrets, credentials, local credential caches, .env files, raw private keys, tokens, or unrelated runtime logs.
 - Respect document visibility. Do not send private, human-only, or never-send material to external models.
 - Do not search unrelated projects unless the user explicitly asks for cross-project context and policy allows it.
-- Do not make AI Memory pretend to be an external task tracker unless this project explicitly adopts it for that role.
+- Do not make Zharwing Memory pretend to be an external task tracker unless this project explicitly adopts it for that role.
 
 ## Linked Repos
 

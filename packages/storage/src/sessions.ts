@@ -9,7 +9,7 @@ import {
   type SessionCheckpoint,
   type SessionId,
   type WorkstreamId
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import { listFiles, pathExists, readText, writeText } from "./fs.js";
 import { formatMarkdown, parseMarkdown } from "./markdown.js";
 import { sessionBodyTemplate } from "./templates.js";

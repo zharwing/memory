@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { MemoryDocument, Project, ProposedMemoryUpdate, Session, Workstream } from "@aimem/core";
+import type { MemoryDocument, Project, ProposedMemoryUpdate, Session, Workstream } from "@zharwing/memory-core";
 import { writeJson } from "./fs.js";
 import { listProjectDocuments } from "./documents.js";
 import { listProposedUpdates } from "./inbox.js";

@@ -6,16 +6,16 @@ import {
   type ProjectGraph,
   type SemanticDocumentExtraction,
   type SemanticGraphSettings
-} from "@aimem/core";
+} from "@zharwing/memory-core";
 import {
   applySemanticEdgePolicy,
   buildSemanticCandidateIndex,
   type SemanticRelationshipDecision
-} from "@aimem/semantic-graph";
+} from "@zharwing/memory-semantic-graph";
 
 const project = createProjectModel({
   name: "Semantic Candidate Test",
-  memoryRoot: "/tmp/aimem-semantic-candidate-test"
+  memoryRoot: "/tmp/zharwing-semantic-candidate-test"
 });
 
 const settings: SemanticGraphSettings = {

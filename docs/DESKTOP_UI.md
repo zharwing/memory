@@ -1,6 +1,6 @@
 # Desktop And Web UI
 
-The desktop/web UI is the human control plane for AI Memory. It is not an
+The desktop/web UI is the human control plane for Zharwing Memory. It is not an
 agent. It lets a user create memory projects, link repos, import old notes,
 review context, inspect sessions, manage durable memory, and recover deleted
 items.
@@ -29,7 +29,7 @@ pnpm dev:desktop
 `dev:web` starts only the browser UI and expects a separately running daemon.
 `dev:desktop` starts the Tauri desktop window, runs the same React app inside
 it, and starts or reuses the local daemon automatically. Set
-`AIMEM_DESKTOP_AUTOSTART_DAEMON=false` to disable desktop daemon autostart for
+`ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=false` to disable desktop daemon autostart for
 debugging.
 
 The browser UI cannot browse arbitrary local folders. In browser mode, path
@@ -38,7 +38,7 @@ Repos, and Import can use OS folder picker buttons.
 
 Setup also includes Agent MCP actions for automatic install, installing Codex,
 Claude Code, or Claude Desktop config, and checking the current MCP setup.
-These actions call the same installer as `aimem mcp install` and require
+These actions call the same installer as `zharwing-memory mcp install` and require
 restarting the target AI client after config changes. See
 [MCP Setup](MCP_SETUP.md).
 
@@ -94,7 +94,7 @@ For a simple single-repo project:
 
 ## Repo Paths
 
-A repo path should be a Git repo root or a folder inside that repo. AI Memory
+A repo path should be a Git repo root or a folder inside that repo. Zharwing Memory
 normalizes it to the repo root when possible.
 
 Do not use the private memory store as a repo path. The memory store is where AI

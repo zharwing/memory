@@ -215,7 +215,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
           {!draft.enabled ? (
             <div className="assistant-disabled-state">
               <strong>AI Assistant is off</strong>
-              <p>Turn this on to let AI Memory use a local AI provider for document analysis and graph link suggestions.</p>
+              <p>Turn this on to let Zharwing Memory use a local AI provider for document analysis and graph link suggestions.</p>
             </div>
           ) : (
             <>
@@ -279,16 +279,16 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 ) : null}
               </div>
               {selectedProvider === "lm-studio" ? (
-                <p className="assistant-provider-hint">In LM Studio, start the OpenAI-compatible local server. AI Memory detects the active loaded model when you test the connection.</p>
+                <p className="assistant-provider-hint">In LM Studio, start the OpenAI-compatible local server. Zharwing Memory detects the active loaded model when you test the connection.</p>
               ) : null}
               {activeModelDisplayName && activeModel ? (
                 <p className="assistant-provider-hint">Detected model: {activeModelDisplayName}.</p>
               ) : null}
               {selectedProvider === "ollama" ? (
-                <p className="assistant-provider-hint">Start Ollama locally. AI Memory detects the first available model when you test the connection.</p>
+                <p className="assistant-provider-hint">Start Ollama locally. Zharwing Memory detects the first available model when you test the connection.</p>
               ) : null}
               {selectedProvider === "llama-cpp" ? (
-                <p className="assistant-provider-hint">Start the llama.cpp server with OpenAI-compatible endpoints. AI Memory detects the loaded model when the server lists one.</p>
+                <p className="assistant-provider-hint">Start the llama.cpp server with OpenAI-compatible endpoints. Zharwing Memory detects the loaded model when the server lists one.</p>
               ) : null}
               {selectedProvider === "openai" ? (
                 <p className="assistant-provider-hint">Enter an OpenAI API key for the connection test. The key is not saved in project settings.</p>
@@ -357,7 +357,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                   value={draft.modelPath}
                   disabled={!store.selectedProjectId || store.loading}
                   onChange={(event) => updateDraft({ modelPath: event.target.value })}
-                  placeholder="Only needed if AI Memory launches the model itself"
+                  placeholder="Only needed if Zharwing Memory launches the model itself"
                 />
               </label>
               <label className="checkbox-row">

@@ -1,4 +1,4 @@
-import { AimemClient } from "@aimem/api-client";
+import { AimemClient } from "@zharwing/memory-api-client";
 import { MEMORY_TOOLS } from "./tools.js";
 
 export interface McpToolCall {

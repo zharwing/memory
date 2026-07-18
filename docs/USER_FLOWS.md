@@ -4,12 +4,12 @@
 
 Goal: create a memory project without doing deep codebase analysis.
 
-1. User opens the desktop/web app or runs `aimem init`.
+1. User opens the desktop/web app or runs `zharwing-memory init`.
 2. User chooses `Project only` for a multi-repo product, or `Project plus one repo` for a simple single-repo setup.
 3. App prepares a project creation preview.
 4. User confirms the project name, memory location, and optional pointer-file behavior.
 5. App creates an empty, safe memory workspace.
-6. If an initial repo was supplied, app optionally writes `.ai-memory.json`.
+6. If an initial repo was supplied, app optionally writes `.zharwing/memory.json`.
 7. If bootstrap files were requested, app optionally writes `AGENTS.md`, `CLAUDE.md`, or another adapter file.
 8. App redirects to Repositories so the user can link additional repos.
 9. User opens Import to preview and commit old memory or session folders.
@@ -36,7 +36,7 @@ No deep codebase scan happens during project creation.
    weekday session after weekends or gaps.
 4. System carries forward unfinished tasks, blockers, next steps, touched files,
    and important decisions.
-5. User runs `aimem start "task title"` or the agent calls
+5. User runs `zharwing-memory start "task title"` or the agent calls
    `memory.start_session` to create today's project-scoped session.
 6. User previews the context bundle.
 7. External AI receives context through MCP, CLI, or clipboard/export.
@@ -95,7 +95,7 @@ No deep codebase scan happens during project creation.
 
 ## Backup And Restore
 
-1. User opens Backups or runs `aimem backup`.
+1. User opens Backups or runs `zharwing-memory backup`.
 2. App creates a local snapshot under `backups/snapshots`.
 3. Snapshot excludes previous backups to avoid recursive copies.
 4. User can move old snapshots to Trash.

@@ -1,4 +1,4 @@
-import type { MemoryDocument, Session } from "@aimem/core";
+import type { MemoryDocument, Session } from "@zharwing/memory-core";
 import type { AiChatMessage } from "./openai-compatible.js";
 
 export interface AssistantDraft {
@@ -22,7 +22,7 @@ export function sessionSummaryMessages(session: Session, content?: string): AiCh
     {
       role: "system",
       content: [
-        "You summarize AI Memory project sessions for future search and recall.",
+        "You summarize Zharwing Memory project sessions for future search and recall.",
         "Return only JSON.",
         "Do not invent facts. Prefer compact, durable project context over transcript narration."
       ].join(" ")

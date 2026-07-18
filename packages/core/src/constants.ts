@@ -6,6 +6,8 @@ import type {
   SemanticGraphSettings
 } from "./types.js";
 
+// The default on-disk root name predates the Zharwing rename and stays
+// "AI Memory Root" so existing local stores keep resolving without migration.
 export const DEFAULT_MEMORY_ROOT_NAME = "AI Memory Root";
 
 export const DEFAULT_PROJECT_FILES = [

@@ -16,7 +16,7 @@ function testConfig(overrides: Partial<DaemonConfig> = {}): DaemonConfig {
     port: 0,
     authMode: "token",
     authToken: TEST_TOKEN,
-    memoryRoot: "/tmp/aimem-test-root",
+    memoryRoot: "/tmp/zharwing-test-root",
     agentSurfaceEnabled: false,
     ...overrides
   };
@@ -106,7 +106,7 @@ test("health output is minimal: no memory root path, no auth mode", async (t) =>
   assert.equal(response.status, 200);
   const payload = JSON.parse(response.body) as Record<string, unknown>;
   assert.deepEqual(payload, { status: "ok" });
-  assert.ok(!response.body.includes("aimem-test-root"));
+  assert.ok(!response.body.includes("zharwing-test-root"));
 });
 
 test("oversized request bodies are rejected with 413", async (t) => {
@@ -131,7 +131,7 @@ test("mcp surface is disabled by default with a typed error", async (t) => {
 });
 
 test("token resolution generates and reuses a persisted token", async (t) => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-token-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-token-"));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));
   const file = path.join(dir, "daemon-token");
   const originalToken = process.env.AIMEM_AUTH_TOKEN;

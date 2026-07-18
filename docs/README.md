@@ -1,6 +1,6 @@
-# AI Memory Documentation
+# Zharwing Memory Documentation
 
-This folder contains product and engineering documentation for the AI Memory implementation.
+This folder contains product and engineering documentation for the Zharwing Memory implementation.
 
 ## Core Docs
 
@@ -14,7 +14,7 @@ This folder contains product and engineering documentation for the AI Memory imp
   Daemon JSON-RPC methods, CLI commands, MCP tools, and prompt resources.
 
 - [Agent Protocol](AGENT_PROTOCOL.md)
-  Project-neutral workflow for any AI agent using AI Memory, plus adapter boundaries.
+  Project-neutral workflow for any AI agent using Zharwing Memory, plus adapter boundaries.
 
 - [Agent Automation](AGENT_AUTOMATION.md)
   MCP setup, repo bootstrap files, skill template, and automatic session workflow.

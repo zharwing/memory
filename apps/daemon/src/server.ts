@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import http from "node:http";
-import { handleMcpJsonRpcPayload, MEMORY_TOOLS, type McpToolCall } from "@aimem/mcp-tools";
+import { handleMcpJsonRpcPayload, MEMORY_TOOLS, type McpToolCall } from "@zharwing/memory-mcp";
 import { dispatchAgentRpc } from "./agent-facade.js";
 import { isLoopbackHost, type DaemonConfig } from "./config.js";
 import { MemoryService } from "./memory-service.js";
@@ -41,7 +41,7 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
     if (request.method === "GET" && request.url === "/") {
       response.end(JSON.stringify({
         status: "ok",
-        service: "AI Memory daemon",
+        service: "Zharwing Memory daemon",
         message: "This is the local daemon API, not the desktop UI.",
         endpoints: {
           health: "/health",
@@ -71,7 +71,7 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
         ok: false,
         error: {
           code: "AGENT_SURFACE_DISABLED",
-          message: "Agent surfaces are disabled until the privacy facade is complete. Set AIMEM_AGENT_SURFACE=enabled to opt in."
+          message: "Agent surfaces are disabled until the privacy facade is complete. Set ZHARWING_MEMORY_AGENT_SURFACE=enabled to opt in."
         }
       }));
       return;
