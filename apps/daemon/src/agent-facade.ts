@@ -3,11 +3,10 @@ import type { ContextBundle, ContextIncludedItem } from "@zharwing/memory-core";
 import type { MemoryService } from "./memory-service.js";
 import type { RpcRequest, RpcResponse } from "./rpc.js";
 
-// The emitted schema ID stays "aimem.bundle.v1" until the harness-side
-// companion adapter migrates to "zharwing.memory.bundle.v1" (rename wave 6);
-// the ID is a cross-service contract declared in the harness ecosystem lock,
-// so the writer must not switch before its reader does.
-export const MEMORY_BUNDLE_SCHEMA = "aimem.bundle.v1";
+// Canonical bundle schema (Zharwing rename wave 6, 2026-07-18). The
+// harness-side companion adapter accepts both this and the pre-rename
+// "aimem.bundle.v1"; the ID is declared in the harness ecosystem lock.
+export const MEMORY_BUNDLE_SCHEMA = "zharwing.memory.bundle.v1";
 export const DEFAULT_BUNDLE_TOKEN_BUDGET = 4000;
 
 /**
