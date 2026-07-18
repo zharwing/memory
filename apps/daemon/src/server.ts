@@ -1,17 +1,29 @@
+import crypto from "node:crypto";
 import http from "node:http";
 import { handleMcpJsonRpcPayload, MEMORY_TOOLS, type McpToolCall } from "@aimem/mcp-tools";
 import { isLoopbackHost, type DaemonConfig } from "./config.js";
 import { MemoryService } from "./memory-service.js";
 import { dispatchRpc, type RpcRequest } from "./rpc.js";
 
+export const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+
 export function createDaemonServer(config: DaemonConfig, service = new MemoryService({ memoryRoot: config.memoryRoot })) {
   return http.createServer(async (request, response) => {
-    if (!setCorsHeaders(config, request, response)) {
+    response.setHeader("content-type", "application/json; charset=utf-8");
+
+    // DNS-rebinding defense: a loopback daemon only answers requests whose
+    // Host header still names a loopback address.
+    if (!hasLoopbackHostHeader(request)) {
+      response.statusCode = 403;
+      response.end(JSON.stringify({ ok: false, error: { message: "Host not allowed" } }));
+      return;
+    }
+
+    if (!setCorsHeaders(request, response)) {
       response.statusCode = 403;
       response.end(JSON.stringify({ ok: false, error: { message: "Origin not allowed" } }));
       return;
     }
-    response.setHeader("content-type", "application/json; charset=utf-8");
 
     if (request.method === "OPTIONS") {
       response.statusCode = 204;
@@ -19,8 +31,9 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
       return;
     }
 
+    // Health stays unauthenticated but minimal: no paths, no configuration.
     if (request.method === "GET" && request.url === "/health") {
-      response.end(JSON.stringify({ status: "ok", memoryRoot: config.memoryRoot, authMode: config.authMode }));
+      response.end(JSON.stringify({ status: "ok" }));
       return;
     }
 
@@ -50,6 +63,19 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
       return;
     }
 
+    // Agent-facing reads stay disabled until the privacy facade gate passes.
+    if (request.url === "/mcp" && !config.agentSurfaceEnabled) {
+      response.statusCode = 403;
+      response.end(JSON.stringify({
+        ok: false,
+        error: {
+          code: "AGENT_SURFACE_DISABLED",
+          message: "Agent surfaces are disabled until the privacy facade is complete. Set AIMEM_AGENT_SURFACE=enabled to opt in."
+        }
+      }));
+      return;
+    }
+
     try {
       const body = await readRequestBody(request);
       if (request.url === "/mcp") {
@@ -69,6 +95,11 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
       response.statusCode = rpcResponse.ok ? 200 : 400;
       response.end(JSON.stringify(rpcResponse));
     } catch (error) {
+      if (error instanceof BodyTooLargeError) {
+        response.statusCode = 413;
+        response.end(JSON.stringify({ ok: false, error: { message: "Request body too large" } }));
+        return;
+      }
       response.statusCode = 500;
       response.end(JSON.stringify({
         ok: false,
@@ -99,14 +130,29 @@ async function dispatchMcpTool(service: MemoryService, call: McpToolCall): Promi
 
 function isAuthorized(config: DaemonConfig, request: http.IncomingMessage): boolean {
   if (config.authMode === "none") return true;
+  if (!config.authToken) return false;
   const auth = request.headers.authorization?.replace(/^Bearer\s+/i, "");
-  return Boolean(config.authToken && auth === config.authToken);
+  if (!auth || auth.length !== config.authToken.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(auth), Buffer.from(config.authToken));
 }
 
-function setCorsHeaders(config: DaemonConfig, request: http.IncomingMessage, response: http.ServerResponse): boolean {
+function hasLoopbackHostHeader(request: http.IncomingMessage): boolean {
+  const host = request.headers.host;
+  if (!host) return false;
+  try {
+    return isLoopbackHost(new URL(`http://${host}`).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Browser callers must come from a loopback origin regardless of auth mode;
+// arbitrary origins are never reflected back.
+function setCorsHeaders(request: http.IncomingMessage, response: http.ServerResponse): boolean {
   const origin = request.headers.origin;
-  if (config.authMode === "none" && origin && !isLocalOrigin(origin)) return false;
-  response.setHeader("access-control-allow-origin", origin || (config.authMode === "none" ? "null" : "*"));
+  if (!origin) return true;
+  if (!isLocalOrigin(origin)) return false;
+  response.setHeader("access-control-allow-origin", origin);
   response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
   response.setHeader("access-control-allow-headers", "content-type,authorization");
   response.setHeader("access-control-max-age", "86400");
@@ -123,12 +169,18 @@ function isLocalOrigin(origin: string): boolean {
   }
 }
 
+class BodyTooLargeError extends Error {}
+
 function readRequestBody(request: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
     request.setEncoding("utf8");
     request.on("data", (chunk) => {
       body += chunk;
+      if (body.length > MAX_REQUEST_BODY_BYTES) {
+        reject(new BodyTooLargeError());
+        request.destroy();
+      }
     });
     request.on("end", () => resolve(body || "{}"));
     request.on("error", reject);

@@ -10,7 +10,9 @@ export class AimemClient {
   constructor(options: AimemClientOptions = {}) {
     const env = runtimeEnv();
     this.baseUrl = options.baseUrl || env.AIMEM_DAEMON_URL || "http://127.0.0.1:37841";
-    this.authToken = options.authToken || env.AIMEM_AUTH_TOKEN || "local-dev-token";
+    // No fallback credential: an unset token means requests fail closed with
+    // 401 until the operator supplies the daemon token.
+    this.authToken = options.authToken || env.AIMEM_AUTH_TOKEN || "";
   }
 
   async call<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
