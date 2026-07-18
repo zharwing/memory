@@ -1,0 +1,21 @@
+{
+  "schema": "aimem.bundle.v1",
+  "status": "ok",
+  "projectId": "project-fixture",
+  "created": "2026-07-17T00:00:00.000Z",
+  "idempotencyKey": "task-fixture:run-1:attempt-1",
+  "budget": { "maxTokens": 4000, "usedTokens": 120, "truncated": false },
+  "sections": [
+    {
+      "id": "item-1",
+      "type": "document",
+      "title": "Project conventions",
+      "mode": "summary",
+      "content": "Sessions are checkpointed before close; proposals route through review.",
+      "tokenEstimate": 120
+    }
+  ],
+  "excludedCount": 1,
+  "redactionsCount": 0,
+  "safetyStatus": "clean"
+}

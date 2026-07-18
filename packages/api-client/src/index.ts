@@ -16,9 +16,21 @@ export class AimemClient {
   }
 
   async call<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+    return this.callEndpoint("/rpc", method, params);
+  }
+
+  /**
+   * Agent-surface call: routed through the daemon's audience-checked privacy
+   * facade. MCP and any other agent-facing client must use this, never call().
+   */
+  async callAgent<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+    return this.callEndpoint("/agent-rpc", method, params);
+  }
+
+  private async callEndpoint<T>(endpoint: string, method: string, params: Record<string, unknown>): Promise<T> {
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/rpc`, {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

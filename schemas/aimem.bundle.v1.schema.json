@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aimem.bundle.v1",
+  "title": "AI Memory agent context bundle, major version 1",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schema", "status", "projectId", "created", "budget", "sections", "excludedCount", "redactionsCount", "safetyStatus"],
+      "properties": {
+        "schema": { "const": "aimem.bundle.v1" },
+        "status": { "const": "ok" },
+        "projectId": { "type": "string", "minLength": 1 },
+        "sessionId": { "type": "string" },
+        "created": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "budget": {
+          "type": "object",
+          "required": ["maxTokens", "usedTokens", "truncated"],
+          "properties": {
+            "maxTokens": { "type": "integer", "minimum": 1 },
+            "usedTokens": { "type": "integer", "minimum": 0 },
+            "truncated": { "type": "boolean" }
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "title", "mode", "content", "tokenEstimate"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string" },
+              "title": { "type": "string" },
+              "mode": { "enum": ["raw", "summary", "metadata"] },
+              "content": { "type": "string" },
+              "tokenEstimate": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "excludedCount": { "type": "integer", "minimum": 0 },
+        "redactionsCount": { "type": "integer", "minimum": 0 },
+        "safetyStatus": { "enum": ["clean", "needs-review", "blocked", "index-stale"] }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["schema", "status", "projectId", "approvalRef", "message"],
+      "properties": {
+        "schema": { "const": "aimem.bundle.v1" },
+        "status": { "const": "approval_required" },
+        "projectId": { "type": "string", "minLength": 1 },
+        "approvalRef": { "type": "string", "pattern": "^aimem-approval-[0-9a-f]{16}$" },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  ]
+}
