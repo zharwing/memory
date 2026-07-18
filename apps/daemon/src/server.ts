@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import http from "node:http";
 import { handleMcpJsonRpcPayload, MEMORY_TOOLS, type McpToolCall } from "@aimem/mcp-tools";
+import { dispatchAgentRpc } from "./agent-facade.js";
 import { isLoopbackHost, type DaemonConfig } from "./config.js";
 import { MemoryService } from "./memory-service.js";
 import { dispatchRpc, type RpcRequest } from "./rpc.js";
@@ -51,7 +52,7 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
       return;
     }
 
-    if (request.method !== "POST" || !["/rpc", "/mcp"].includes(request.url || "")) {
+    if (request.method !== "POST" || !["/rpc", "/mcp", "/agent-rpc"].includes(request.url || "")) {
       response.statusCode = 404;
       response.end(JSON.stringify({ ok: false, error: { message: "Not found" } }));
       return;
@@ -64,7 +65,7 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
     }
 
     // Agent-facing reads stay disabled until the privacy facade gate passes.
-    if (request.url === "/mcp" && !config.agentSurfaceEnabled) {
+    if (["/mcp", "/agent-rpc"].includes(request.url || "") && !config.agentSurfaceEnabled) {
       response.statusCode = 403;
       response.end(JSON.stringify({
         ok: false,
@@ -91,7 +92,12 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
       }
 
       const rpcRequest = JSON.parse(body) as RpcRequest;
-      const rpcResponse = await dispatchRpc(service, rpcRequest);
+      // /agent-rpc goes through the audience-checked facade; /rpc remains the
+      // authenticated control-plane surface for the desktop app and CLI.
+      const rpcResponse =
+        request.url === "/agent-rpc"
+          ? await dispatchAgentRpc(service, rpcRequest)
+          : await dispatchRpc(service, rpcRequest);
       response.statusCode = rpcResponse.ok ? 200 : 400;
       response.end(JSON.stringify(rpcResponse));
     } catch (error) {
@@ -112,7 +118,9 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
 async function dispatchMcpTool(service: MemoryService, call: McpToolCall): Promise<unknown> {
   const tool = MEMORY_TOOLS.find((candidate) => candidate.name === call.name);
   if (!tool) throw new Error(`Unknown memory tool: ${call.name}`);
-  const response = await dispatchRpc(service, {
+  // MCP is an agent surface: every tool call goes through the audience-checked
+  // facade, never straight into control-plane dispatch.
+  const response = await dispatchAgentRpc(service, {
     id: Date.now(),
     method: tool.rpcMethod,
     params: call.arguments || {}
