@@ -76,9 +76,9 @@ Keep the pointer file when unlinking:
 zharwing-memory unlink-repo <repo-root> --project <project-id> --keep-pointer
 ```
 
-## MCP
+## Daemon Control Plane
 
-Agents can use:
+The UI and authenticated daemon JSON-RPC surface support:
 
 - `memory.list_project_repos`
 - `memory.link_repo`
@@ -93,6 +93,10 @@ repo's `.zharwing/memory.json` pointer file by default.
 
 `memory.delete_repo` removes the repo link from the active project and stores
 the repo-link payload in Trash. It does not delete the source-code checkout.
+
+Repository administration is intentionally not advertised through the focused
+MCP daily-memory surface. Use the UI or CLI to create, link, unlink, or delete
+repository entries.
 
 ## Pointer Files
 

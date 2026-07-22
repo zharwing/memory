@@ -1,23 +1,19 @@
-import { createHash } from "node:crypto";
-import type { ContextBundle, ContextIncludedItem } from "@zharwing/memory-core";
+import type { ContextBundle, ContextIncludedItem, SearchResult } from "@zharwing/memory-core";
+import { MEMORY_TOOLS } from "@zharwing/memory-mcp";
+import { applyPrivacyGate } from "@zharwing/memory-privacy";
 import type { MemoryService } from "./memory-service.js";
-import type { RpcRequest, RpcResponse } from "./rpc.js";
+import { dispatchRpc, type RpcRequest, type RpcResponse } from "./rpc.js";
 
-// Canonical bundle schema (Zharwing rename wave 6, 2026-07-18). The
-// harness-side companion adapter accepts both this and the pre-rename
-// "aimem.bundle.v1"; the ID is declared in the harness ecosystem lock.
 export const MEMORY_BUNDLE_SCHEMA = "zharwing.memory.bundle.v1";
 export const DEFAULT_BUNDLE_TOKEN_BUDGET = 4000;
 
-/**
- * Agent-facing sections of a context bundle. Deliberately narrower than the
- * control-plane ContextBundle: no source paths, no excluded-item titles,
- * no audit log path, no redaction details — counts only.
- */
 export interface AgentBundleSection {
   id: string;
   type: ContextIncludedItem["type"];
   title: string;
+  sourcePath?: string;
+  visibility: ContextIncludedItem["visibility"];
+  reason: string;
   mode: ContextIncludedItem["mode"];
   content: string;
   tokenEstimate: number;
@@ -37,87 +33,108 @@ export interface AgentBundle {
   safetyStatus: ContextBundle["safetyStatus"];
 }
 
-export interface AgentApprovalRequired {
-  schema: typeof MEMORY_BUNDLE_SCHEMA;
-  status: "approval_required";
-  projectId: string;
-  approvalRef: string;
-  message: string;
-}
-
-type AgentHandler = (service: MemoryService, params: Record<string, unknown>) => Promise<unknown>;
+const AGENT_SAFE_METHODS = new Set(MEMORY_TOOLS.map((tool) => tool.rpcMethod));
 
 /**
- * The complete agent-safe surface. Every method is opted in explicitly with
- * its own projected handler; anything absent here — existing, new, or
- * unknown — is control-plane-only and denied for agents by default.
+ * MCP is the normal AI memory surface, not a second restricted data model.
+ * The selected project's sessions, paths, and routine metadata are visible by
+ * default. The context/search paths still honor explicit visibility exclusions,
+ * never-send patterns, and secret redaction.
  */
-const AGENT_SAFE_HANDLERS: Record<string, AgentHandler> = {
-  "memory.health": async () => ({ status: "ok" }),
-  "memory.get_context_bundle": (service, params) => getAgentContextBundle(service, params)
-};
-
 export function agentSafeMethods(): string[] {
-  return Object.keys(AGENT_SAFE_HANDLERS);
+  return [...AGENT_SAFE_METHODS];
 }
 
 export function isAgentSafeMethod(method: string): boolean {
-  return Object.prototype.hasOwnProperty.call(AGENT_SAFE_HANDLERS, method);
+  return AGENT_SAFE_METHODS.has(method);
 }
 
 export async function dispatchAgentRpc(service: MemoryService, request: RpcRequest): Promise<RpcResponse> {
-  const handler = AGENT_SAFE_HANDLERS[request.method];
-  if (!handler) {
+  if (!isAgentSafeMethod(request.method)) {
     return {
       id: request.id,
       ok: false,
       error: {
-        message: `CONTROL_PLANE_ONLY: ${sanitizeMethodName(request.method)} is not available to agents. Agent-safe methods: ${agentSafeMethods().join(", ")}`
+        message: `CONTROL_PLANE_ONLY: ${sanitizeMethodName(request.method)} is not available through MCP. Supported methods: ${agentSafeMethods().join(", ")}`
       }
     };
   }
+
   try {
-    const result = await handler(service, request.params || {});
-    return { id: request.id, ok: true, result };
+    if (request.method === "memory.health") {
+      return { id: request.id, ok: true, result: { status: "ok" } };
+    }
+    if (request.method === "memory.search") {
+      return { id: request.id, ok: true, result: await searchAgentMemory(service, request.params || {}) };
+    }
+    if (request.method === "memory.preview_context_bundle") {
+      return { id: request.id, ok: true, result: await getAgentContextBundle(service, request.params || {}, false) };
+    }
+    if (request.method === "memory.get_context_bundle") {
+      return { id: request.id, ok: true, result: await getAgentContextBundle(service, request.params || {}, true) };
+    }
+
+    return sanitizeRpcResponse(await dispatchRpc(service, request));
   } catch (error) {
-    // Agent-visible errors carry a stable code and message class only:
-    // no stacks, no filesystem paths, no raw internals.
-    return { id: request.id, ok: false, error: { message: sanitizeAgentError(error) } };
+    return {
+      id: request.id,
+      ok: false,
+      error: { message: sanitizeAgentError(error) }
+    };
   }
+}
+
+async function searchAgentMemory(
+  service: MemoryService,
+  params: Record<string, unknown>
+): Promise<SearchResult[]> {
+  const projectId = requiredString(params, "projectId");
+  const query = requiredString(params, "query");
+  const project = await service.getProject(projectId);
+  const results = await service.search({ projectId, query });
+  const visible: SearchResult[] = [];
+
+  for (const result of results) {
+    const decision = applyPrivacyGate(
+      {
+        id: result.id,
+        projectId,
+        type: result.type,
+        title: result.title,
+        sourcePath: result.path,
+        visibility: result.visibility || "ai-eligible",
+        content: JSON.stringify({ title: result.title, snippet: result.snippet })
+      },
+      project.privacyPolicy
+    );
+    if (!decision.allowed) continue;
+
+    const projected = JSON.parse(decision.content) as { title: string; snippet: string };
+    visible.push({ ...result, title: projected.title, snippet: projected.snippet });
+  }
+
+  return visible;
 }
 
 async function getAgentContextBundle(
   service: MemoryService,
-  params: Record<string, unknown>
-): Promise<AgentBundle | AgentApprovalRequired> {
-  const projectId = String(params.projectId || "");
-  if (!projectId) throw new AgentInputError("projectId is required");
-  const maxTokens = normalizeBudget(params.maxTokens);
-
-  const project = await service.getProject(projectId);
-  if (!project) throw new AgentInputError("unknown project");
-
-  if (project.privacyPolicy?.requireApprovalBeforeServingContext) {
-    return {
-      schema: MEMORY_BUNDLE_SCHEMA,
-      status: "approval_required",
-      projectId,
-      approvalRef: approvalRef(projectId, params),
-      message: "The project requires operator approval before memory context is served to agents."
-    };
-  }
-
-  // Preview (not get) keeps agent reads idempotent: no bundle artifact is
-  // persisted per request.
-  const bundle = await service.previewContextBundle({
+  params: Record<string, unknown>,
+  persist: boolean
+): Promise<AgentBundle> {
+  const projectId = requiredString(params, "projectId");
+  const request = {
     projectId,
-    sessionId: params.sessionId ? String(params.sessionId) : undefined,
-    taskText: params.taskText ? String(params.taskText) : undefined,
-    requestedBy: "agent"
-  });
+    sessionId: optionalString(params.sessionId),
+    taskText: optionalString(params.taskText),
+    requestedBy: optionalString(params.requestedBy) || "agent"
+  };
+  const bundle = persist
+    ? await service.getContextBundle(request)
+    : await service.previewContextBundle(request);
+
   return projectBundleForAgent(bundle, {
-    maxTokens,
-    idempotencyKey: params.idempotencyKey ? String(params.idempotencyKey) : undefined
+    maxTokens: normalizeBudget(params.maxTokens),
+    idempotencyKey: optionalString(params.idempotencyKey)
   });
 }
 
@@ -138,6 +155,9 @@ export function projectBundleForAgent(
       id: item.id,
       type: item.type,
       title: item.title,
+      sourcePath: item.sourcePath,
+      visibility: item.visibility,
+      reason: item.reason,
       mode: item.mode,
       content: item.content,
       tokenEstimate
@@ -159,19 +179,31 @@ export function projectBundleForAgent(
   };
 }
 
+function sanitizeRpcResponse(response: RpcResponse): RpcResponse {
+  if (response.ok) return response;
+  return {
+    id: response.id,
+    ok: false,
+    error: { message: sanitizeAgentError(new Error(response.error?.message || "request failed")) }
+  };
+}
+
 class AgentInputError extends Error {}
+
+function requiredString(params: Record<string, unknown>, key: string): string {
+  const value = optionalString(params[key]);
+  if (!value) throw new AgentInputError(`${key} is required`);
+  return value;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
 
 function normalizeBudget(value: unknown): number {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) return DEFAULT_BUNDLE_TOKEN_BUDGET;
   return Math.min(parsed, 32_000);
-}
-
-function approvalRef(projectId: string, params: Record<string, unknown>): string {
-  const digest = createHash("sha256")
-    .update(JSON.stringify({ projectId, sessionId: params.sessionId ?? null, taskText: params.taskText ?? null }))
-    .digest("hex");
-  return `zharwing-approval-${digest.slice(0, 16)}`;
 }
 
 function sanitizeMethodName(method: string): string {

@@ -1,12 +1,12 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { AimemClient } from "@zharwing/memory-api-client";
+import { ZharwingMemoryClient } from "@zharwing/memory-api-client";
 
 export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
 
 const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
 
 export class RootStore {
-  client = new AimemClient();
+  client = new ZharwingMemoryClient();
   projects: any[] = [];
   selectedProjectId = "";
   daemonHealth: any = undefined;

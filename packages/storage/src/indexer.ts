@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { MemoryDocument, Project, ProposedMemoryUpdate, Session, Workstream } from "@zharwing/memory-core";
+import { nowIso, type MemoryDocument, type Project, type ProposedMemoryUpdate, type Session, type Workstream } from "@zharwing/memory-core";
 import { writeJson } from "./fs.js";
 import { listProjectDocuments } from "./documents.js";
 import { listProposedUpdates } from "./inbox.js";
@@ -17,6 +17,8 @@ export interface RebuildIndexResult {
   };
 }
 
+export const PROJECT_INDEX_SCHEMA = "zharwing.memory.index.v1";
+
 export async function rebuildProjectIndex(project: Project): Promise<RebuildIndexResult> {
   const sessions = await listProjectSessions(project);
   const documents = await listProjectDocuments(project);
@@ -24,7 +26,15 @@ export async function rebuildProjectIndex(project: Project): Promise<RebuildInde
   const proposals = await listProposedUpdates(project);
   const indexPath = path.join(project.memoryRoot, "generated", "index.json");
   await writeJson(indexPath, {
+    schema: PROJECT_INDEX_SCHEMA,
     projectId: project.id,
+    generatedAt: nowIso(),
+    counts: {
+      sessions: sessions.length,
+      documents: documents.length,
+      workstreams: workstreams.length,
+      proposals: proposals.length
+    },
     workstreams: workstreams.map(workstreamIndex),
     sessions: sessions.map(sessionIndex),
     documents: documents.map(documentIndex),

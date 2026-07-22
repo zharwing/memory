@@ -24,7 +24,7 @@ export function getAssistantStatus(project: Project): AssistantStatus {
       state: "unavailable",
       runtimeType: project.assistantPolicy.runtimeType,
       modelName: project.assistantPolicy.modelName,
-      message: "App-managed local model is enabled but no model path is configured.",
+      message: "Legacy app-managed llama.cpp mode is not supported. Configure an external llama.cpp, LM Studio, or Ollama endpoint.",
       jobsAvailable: ["deterministic-session-tldr", "deterministic-return-summary", "document-classification"]
     };
   }

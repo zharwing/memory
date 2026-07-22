@@ -66,8 +66,10 @@ project files and report that Zharwing Memory was unavailable.
 6. Route updates to Memory Inbox only when review mode or update risk calls for
    it.
 
-## Privacy And Boundaries
+## AI Visibility And Boundaries
 
+- Treat memory in the selected project as AI-visible by default, including
+  sessions, file paths, and routine metadata.
 - Do not ingest secrets, credentials, local credential caches, `.env` files, raw
   private keys, tokens, or unrelated runtime logs.
 - Respect document visibility. Do not send `private`, `human-only`, or
@@ -91,20 +93,11 @@ adding project-specific policy.
 
 ## Required Capabilities
 
-An adapter is complete enough for routine work when it can:
-
-- detect or select a project
-- list linked repos
-- list and create workstreams
-- start or resume sessions
-- save checkpoints
-- close sessions
-- search memory
-- preview or get context bundles
-- create docs directly or Memory Inbox proposals when review is enabled
-- import existing docs or sessions when explicitly requested
-- propose graph-rule updates for review when imported memory needs better
-  context graph organization
+An MCP adapter is complete enough for routine coding work when it can resolve
+startup state, read latest/recent sessions, start sessions, search project
+memory, preview/load context, save checkpoints, and close sessions. Project
+administration, imports, backups, graph settings, and Trash are control-plane
+operations handled by the UI or CLI.
 
 ## Project Profiles
 

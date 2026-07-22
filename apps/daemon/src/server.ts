@@ -64,14 +64,14 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
       return;
     }
 
-    // Agent-facing reads stay disabled until the privacy facade gate passes.
+    // Agent-facing access requires an explicit local opt-in.
     if (["/mcp", "/agent-rpc"].includes(request.url || "") && !config.agentSurfaceEnabled) {
       response.statusCode = 403;
       response.end(JSON.stringify({
         ok: false,
         error: {
           code: "AGENT_SURFACE_DISABLED",
-          message: "Agent surfaces are disabled until the privacy facade is complete. Set ZHARWING_MEMORY_AGENT_SURFACE=enabled to opt in."
+          message: "Set ZHARWING_MEMORY_AGENT_SURFACE=enabled to allow authenticated AI memory access."
         }
       }));
       return;

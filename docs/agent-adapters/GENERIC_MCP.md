@@ -1,18 +1,20 @@
 # Generic MCP Adapter
 
-Use this adapter when an agent has AI Memory MCP tools.
+Use this adapter when an agent has Zharwing Memory MCP tools.
+
+The daily-memory surface is complete and intentionally limited to ten tools.
+Administrative daemon methods are not missing MCP capabilities; they belong to
+the UI and CLI control plane.
 
 ## Startup
 
 1. Call `memory.get_startup_state` with the current working directory or project
    id.
 2. Read the latest relevant previous session with `memory.get_latest_session`,
-   `memory.get_recent_sessions`, or `memory.list_project_sessions`.
+   or `memory.get_recent_sessions`.
 3. Carry forward unfinished tasks, next steps, blockers, touched files, and
    important decisions.
 4. Call `memory.start_session` for a new daily/work-round session by default.
-   Use `memory.start_or_resume_session` only when the user explicitly asks to
-   continue an existing session or project policy says to reuse active sessions.
 5. Call `memory.search` with the task, feature, error, or file names involved.
 6. Call `memory.preview_context_bundle` before placing prior context into a
    prompt.
@@ -21,14 +23,10 @@ Use this adapter when an agent has AI Memory MCP tools.
 ## During Work
 
 - Use `memory.save_checkpoint` after meaningful progress.
-- Use `memory.list_workstreams` and `memory.get_workstream_detail` when the task
-  belongs to a multi-day topic.
-- Use `memory.create_doc` for routine durable memory when review mode is off.
-- Use `memory.propose_memory_update` when review mode is enabled or the update is
-  risky, uncertain, or needs human judgment.
-- Use `memory.propose_graph_update` when imported memory needs better graph
-  organization. Use `memory.update_graph_rules` only after explicit user
-  approval.
+- Treat sessions, file paths, and routine metadata in the selected project as
+  normal AI-visible memory.
+- Use the UI or CLI for project administration, imports, graph settings,
+  backups, Trash, or durable document editing.
 
 ## Closeout
 
@@ -39,5 +37,4 @@ Call `memory.close_session` with:
 - blockers, if any
 - touched files, if known
 
-Write canonical memory directly by default. Do not write canonical memory
-directly when review mode is the project policy path.
+The MCP surface is intentionally limited to the daily coding-memory loop.

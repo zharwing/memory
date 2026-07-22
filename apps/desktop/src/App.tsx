@@ -1,29 +1,27 @@
-import { useEffect } from "react";
+import { lazy, Suspense, type ComponentType, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import { Shell } from "./components/Shell.js";
 import { useStore } from "./stores/store-context.js";
 import { projectIdFromPathname } from "./utils/routes.js";
-import {
-  AssistantScreen,
-  BackupsScreen,
-  ContextScreen,
-  CurrentWorkScreen,
-  DashboardScreen,
-  DiagramsScreen,
-  DocsScreen,
-  GraphScreen,
-  ImportScreen,
-  InboxScreen,
-  ProjectsScreen,
-  RepositoriesScreen,
-  SearchScreen,
-  SessionsScreen,
-  SetupScreen,
-  SettingsScreen,
-  TrashScreen,
-  WorkstreamsScreen
-} from "./screens/index.js";
+const AssistantScreen = lazyScreen(() => import("./screens/AssistantScreen.js"), "AssistantScreen");
+const BackupsScreen = lazyScreen(() => import("./screens/BackupsScreen.js"), "BackupsScreen");
+const ContextScreen = lazyScreen(() => import("./screens/ContextScreen.js"), "ContextScreen");
+const CurrentWorkScreen = lazyScreen(() => import("./screens/CurrentWorkScreen.js"), "CurrentWorkScreen");
+const DashboardScreen = lazyScreen(() => import("./screens/DashboardScreen.js"), "DashboardScreen");
+const DiagramsScreen = lazyScreen(() => import("./screens/DiagramsScreen.js"), "DiagramsScreen");
+const DocsScreen = lazyScreen(() => import("./screens/DocsScreen.js"), "DocsScreen");
+const GraphScreen = lazyScreen(() => import("./screens/graph/GraphScreen.js"), "GraphScreen");
+const ImportScreen = lazyScreen(() => import("./screens/ImportScreen.js"), "ImportScreen");
+const InboxScreen = lazyScreen(() => import("./screens/InboxScreen.js"), "InboxScreen");
+const ProjectsScreen = lazyScreen(() => import("./screens/ProjectsScreen.js"), "ProjectsScreen");
+const RepositoriesScreen = lazyScreen(() => import("./screens/RepositoriesScreen.js"), "RepositoriesScreen");
+const SearchScreen = lazyScreen(() => import("./screens/SearchScreen.js"), "SearchScreen");
+const SessionsScreen = lazyScreen(() => import("./screens/SessionsScreen.js"), "SessionsScreen");
+const SetupScreen = lazyScreen(() => import("./screens/SetupScreen.js"), "SetupScreen");
+const SettingsScreen = lazyScreen(() => import("./screens/SettingsScreen.js"), "SettingsScreen");
+const TrashScreen = lazyScreen(() => import("./screens/TrashScreen.js"), "TrashScreen");
+const WorkstreamsScreen = lazyScreen(() => import("./screens/WorkstreamsScreen.js"), "WorkstreamsScreen");
 
 export const App = observer(function App() {
   const store = useStore();
@@ -42,7 +40,8 @@ export const App = observer(function App() {
 
   return (
     <Shell>
-      <Routes>
+      <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
+        <Routes>
         <Route path="/" element={<Navigate to="/projects" replace />} />
         <Route path="/setup" element={<SetupScreen />} />
         <Route path="/projects" element={<ProjectsScreen />} />
@@ -83,7 +82,18 @@ export const App = observer(function App() {
         <Route path="/p/:projectId/settings/assistant" element={<AssistantScreen />} />
         <Route path="/p/:projectId/settings/backups" element={<BackupsScreen />} />
         <Route path="/p/:projectId/trash" element={<TrashScreen />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </Shell>
   );
 });
+
+function lazyScreen<T extends Record<K, ComponentType>, K extends keyof T>(
+  loader: () => Promise<T>,
+  exportName: K
+) {
+  return lazy(async () => {
+    const module = await loader();
+    return { default: module[exportName] };
+  });
+}

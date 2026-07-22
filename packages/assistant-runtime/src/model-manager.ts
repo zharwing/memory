@@ -8,6 +8,7 @@ export interface LocalModelRecord {
 
 export interface RuntimeInstallPlan {
   runtime: "llama.cpp-compatible";
+  supported: boolean;
   willDownloadRuntime: boolean;
   willDownloadModel: boolean;
   modelId?: string;
@@ -18,10 +19,11 @@ export interface RuntimeInstallPlan {
 export function previewRuntimeInstall(args: { installRoot: string; modelId?: string }): RuntimeInstallPlan {
   return {
     runtime: "llama.cpp-compatible",
-    willDownloadRuntime: true,
-    willDownloadModel: Boolean(args.modelId),
+    supported: false,
+    willDownloadRuntime: false,
+    willDownloadModel: false,
     modelId: args.modelId,
     installRoot: args.installRoot,
-    note: "Preview only. Runtime/model download is intentionally not performed by this implementation without explicit dependency/network work."
+    note: "App-managed downloads are not supported. Configure LM Studio, Ollama, llama.cpp server, or another provider endpoint instead."
   };
 }

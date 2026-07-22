@@ -1,12 +1,12 @@
 [package]
-name = "aimem-desktop"
+name = "zharwing-memory-desktop"
 version = "0.1.0"
-description = "AI Memory desktop control plane"
-authors = ["AI Memory"]
+description = "Zharwing Memory desktop control plane"
+authors = ["Zharwing Memory contributors"]
 edition = "2021"
 
 [lib]
-name = "aimem_desktop_lib"
+name = "zharwing_memory_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]

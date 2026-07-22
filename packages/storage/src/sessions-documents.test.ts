@@ -127,7 +127,7 @@ test("documents round-trip Markdown body and metadata", async (t) => {
 });
 
 async function createTempProject(t: TestContext, name: string) {
-  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "aimem-storage-test-"));
+  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-storage-test-"));
   t.after(() => fs.rm(memoryRoot, { recursive: true, force: true }));
 
   const registry = new ProjectRegistry(memoryRoot);

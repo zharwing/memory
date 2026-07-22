@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "zharwing.memory.bundle.v1",
-  "title": "AI Memory agent context bundle, major version 1",
+  "title": "Zharwing Memory agent context bundle, major version 1",
   "oneOf": [
     {
       "type": "object",
@@ -31,6 +31,9 @@
               "id": { "type": "string", "minLength": 1 },
               "type": { "type": "string" },
               "title": { "type": "string" },
+              "sourcePath": { "type": "string" },
+              "visibility": { "enum": ["ai-eligible", "ai-pinned", "human-only", "private", "never-send"] },
+              "reason": { "type": "string" },
               "mode": { "enum": ["raw", "summary", "metadata"] },
               "content": { "type": "string" },
               "tokenEstimate": { "type": "integer", "minimum": 0 }
@@ -51,7 +54,7 @@
         "schema": { "const": "zharwing.memory.bundle.v1" },
         "status": { "const": "approval_required" },
         "projectId": { "type": "string", "minLength": 1 },
-        "approvalRef": { "type": "string", "pattern": "^aimem-approval-[0-9a-f]{16}$" },
+        "approvalRef": { "type": "string", "pattern": "^zharwing-approval-[0-9a-f]{16}$" },
         "message": { "type": "string" }
       },
       "additionalProperties": false

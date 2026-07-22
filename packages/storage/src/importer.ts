@@ -403,7 +403,7 @@ async function commitSession(args: {
       scalar(parsed.frontmatter.working_directory) || args.project.repos[0]?.path || args.plan.sourceRoot,
     branch: scalar(parsed.frontmatter.branch),
     agent: scalar(parsed.frontmatter.agent) || "import",
-    client: scalar(parsed.frontmatter.client) || "aimem-importer",
+    client: scalar(parsed.frontmatter.client) || "zharwing-memory-importer",
     status,
     started,
     updated: scalar(parsed.frontmatter.updated) || scalar(parsed.frontmatter.closed) || started,

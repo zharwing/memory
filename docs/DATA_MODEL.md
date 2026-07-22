@@ -38,7 +38,14 @@ repos:
 created: 2026-06-08T00:00:00.000Z
 updated: 2026-06-08T00:00:00.000Z
 lastOpened: 2026-06-08T00:00:00.000Z
-privacyPolicy: {}
+privacyPolicy:
+  defaultVisibility: ai-eligible
+  ignorePatterns: [<default-ignore-patterns>]
+  neverSendPatterns: [<default-never-send-patterns>]
+  redactSecrets: true
+  blockOnHighRiskSecrets: true
+  allowCrossProjectContext: false
+  requireApprovalBeforeServingContext: false
 contextPolicy: {}
 assistantPolicy: {}
 memoryWritePolicy:
@@ -62,6 +69,12 @@ written directly or routed to Memory Inbox. The default is `off`, which allows
 direct agent writes. `risky-only` keeps routine updates direct and reserves the
 inbox for risky or uncertain updates. `all` disables direct document writes and
 routes durable memory changes through proposals.
+
+The default privacy policy makes memory inside the selected project
+AI-visible (`ai-eligible`) and does not require approval before serving
+context. The remaining fields are scope and secret-safety controls: they keep
+context inside the selected project, honor explicit exclusions, and avoid
+passing credential-shaped content to an agent.
 
 `graphRules` is optional project configuration for deriving useful context graph
 nodes from imported folder layouts. It belongs in `project.json`, not in
@@ -105,7 +118,7 @@ repo_path: <repo-root>
 working_directory: <repo-root>
 branch: main
 agent: codex
-client: aimem-cli
+client: zharwing-memory-cli
 status: active
 started: 2026-06-08T00:00:00.000Z
 updated: 2026-06-08T00:00:00.000Z
@@ -474,7 +487,8 @@ structured or very large document sets.
 
 ## Index Model
 
-The current implementation writes a dependency-free JSON index:
+The current implementation writes a versioned, dependency-free JSON project
+manifest:
 
 ```text
 generated/index.json
@@ -482,8 +496,13 @@ generated/index.json
 
 It contains compact projections of:
 
+- schema version, generation timestamp, and collection counts
 - sessions
 - documents
+- workstreams
 - proposals
 
-This is the placeholder boundary for SQLite/FTS5 once native dependency work is allowed.
+This is the supported rebuildable index for normal project sizes. Search still
+operates over Markdown-backed records, so deleting the index never loses source
+data. SQLite/FTS5 can be added later as an optional acceleration layer for very
+large stores without changing the source-of-truth model.

@@ -2,7 +2,8 @@
 
 ## Runtime requirements
 
-- Node `22.21.0` (pinned in `.node-version`; `engines` allows `>=22.21.0 <23`).
+- Node `22.21.0` (pinned in `.node-version`) or Node 24 LTS. The engine range is
+  `>=22.21.0 <23 || >=24.0.0 <25`; CI stays pinned to Node 22 for reproducibility.
 - pnpm `9.0.0` via corepack (`packageManager` field). Run commands as
   `corepack pnpm <command>` so the pinned version is used.
 
@@ -14,7 +15,12 @@ corepack pnpm check:source-artifacts  # fail if generated files sit under src/
 corepack pnpm typecheck               # tsc -b across the workspace
 corepack pnpm test                    # clean-compile + run all tests
 corepack pnpm test:coverage           # same, with Node coverage thresholds
+corepack pnpm test:desktop            # desktop routing and workflow contracts
+corepack pnpm test:desktop-browser    # real headless Chrome/Edge route smoke after build
+corepack pnpm test:live-provider      # opt-in check against a configured provider
 corepack pnpm build                   # TypeScript build + desktop web build
+corepack pnpm check:bundle-size       # enforce startup and lazy-chunk size budgets
+corepack pnpm build:desktop           # packaged native desktop executable
 ```
 
 `corepack pnpm test` owns test compilation: it cleans TypeScript output,
@@ -53,8 +59,8 @@ either OS, but do not mix `node_modules` between them.
 
 - Backend tests use `node:test` + `node:assert/strict`, live next to the code
   as `src/**/*.test.ts`, and run compiled from `dist`.
-- The desktop workspace is `noEmit` and currently has no unit runner; the test
-  runner fails loudly if desktop tests are added before a browser/TSX runner
-  exists. See `docs/TESTING_PLAN.md`.
+- The desktop workspace is `noEmit`. Pure routing and workflow contracts run
+  through `test:desktop`; the built app shell runs through a real Chromium
+  browser with `test:desktop-browser`.
 - Filesystem tests must create their own temp roots under `os.tmpdir()` and
   clean up after themselves.

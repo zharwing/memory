@@ -132,6 +132,8 @@ pnpm dev:cli search --project my-app "settings save"
 
 ## MCP Startup Flow
 
+Status: implemented. The following is the supported daily Codex/MCP flow.
+
 An external agent should call:
 
 ```text
@@ -141,15 +143,19 @@ memory.get_startup_state
 Then:
 
 ```text
-memory.prepare_project_creation
-memory.create_project
 memory.get_latest_session
 memory.start_session
+memory.search
 memory.preview_context_bundle
 memory.get_context_bundle
 memory.save_checkpoint
 memory.close_session
-memory.propose_memory_update
 ```
 
+If startup reports an unregistered repo, create or link it through the UI or
+CLI, then retry. Project creation and durable-memory administration are not MCP
+tools.
+
 Normal session and context calls are project-scoped by default.
+Project memory is AI-visible by default; explicit exclusions and secret checks
+still apply.

@@ -1,5 +1,7 @@
 Use Zharwing Memory as the durable project memory, session history, search, and context layer for this repo.
 
+Treat memory in this selected project as AI-visible by default, including sessions, file paths, and routine metadata. Respect only explicit visibility exclusions and never-send rules.
+
 Resolve the active project from this directory or the linked .zharwing/memory.json pointer before work.
 Read the latest relevant previous session first, including the last weekday session after weekends or gaps.
 Create a new session for today's work round by default; resume an existing session only when the user explicitly asks to continue it.

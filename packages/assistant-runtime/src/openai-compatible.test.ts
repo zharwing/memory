@@ -67,7 +67,7 @@ test("callAiProviderJson uses LM Studio json_schema response format", async (t) 
 
   assert.equal(result.value.ok, true);
   assert.equal(requestBody.response_format.type, "json_schema");
-  assert.equal(requestBody.response_format.json_schema.name, "aimem_json_response");
+  assert.equal(requestBody.response_format.json_schema.name, "zharwing_memory_json_response");
   assert.equal(requestBody.response_format.json_schema.schema.type, "object");
 });
 

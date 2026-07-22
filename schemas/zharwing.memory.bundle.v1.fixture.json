@@ -10,6 +10,9 @@
       "id": "item-1",
       "type": "document",
       "title": "Project conventions",
+      "sourcePath": "/repo/docs/project-conventions.md",
+      "visibility": "ai-eligible",
+      "reason": "Relevant project memory",
       "mode": "summary",
       "content": "Sessions are checkpointed before close; proposals route through review.",
       "tokenEstimate": 120

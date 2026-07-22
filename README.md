@@ -1,8 +1,8 @@
 # Zharwing Memory
 
-Zharwing Memory is a local-first project context manager for AI-assisted coding workflows. It is not the coding agent. External agents such as Codex, Claude Code, Gemini CLI, Ollama-based tools, LM Studio workflows, and future MCP-capable clients do the engineering work. Zharwing Memory provides the durable local memory layer those agents can use safely.
+Zharwing Memory is a local-first project context manager for AI-assisted coding workflows. It is not the coding agent. External agents such as Codex, Claude Code, Gemini CLI, Ollama-based tools, LM Studio workflows, and future MCP-capable clients do the engineering work. Zharwing Memory provides their durable, project-scoped memory layer.
 
-The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the desktop app to understand current work, review what context would be sent to an AI, inspect the graph, search previous work, and enable approval gates only when they want them.
+The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the desktop app to understand current work, inspect AI context, inspect the graph, search previous work, and enable review workflows only when wanted.
 
 ## Current Implementation Status
 
@@ -21,7 +21,8 @@ Implemented:
 - Project registry and `.zharwing/memory.json` pointer support.
 - Project-scoped sessions and workstreams.
 - Context bundle generation with inclusion/exclusion reasons.
-- Privacy gates, visibility rules, secret redaction, and high-risk blocking.
+- AI-visible project memory with explicit visibility exclusions, never-send rules,
+  secret redaction, and high-risk blocking.
 - Optional Memory Inbox proposals for review-mode or risky updates.
 - Docs, diagrams, graph, search, backup snapshot, and rebuildable index boundaries.
 - Optional local Memory Assistant boundary with deterministic jobs and reviewable proposal support.
@@ -37,6 +38,23 @@ Implemented:
   review/approval, accepted AI-reviewed graph overlays, and local
   OpenAI-compatible providers.
 
+The Codex/MCP daily-memory loop is complete. The supported capabilities map to
+the focused MCP surface as follows:
+
+| Capability | Supported MCP tool |
+| --- | --- |
+| Resolve startup state | `memory.get_startup_state` |
+| Read previous work | `memory.get_latest_session`, `memory.get_recent_sessions` |
+| Start today's work record | `memory.start_session` |
+| Search decisions, fixes, commands, and notes | `memory.search` |
+| Save progress | `memory.save_checkpoint` |
+| Record completion and next steps | `memory.close_session` |
+
+Context preview/load and health checks complete the ten-tool surface. Project
+creation, repository linking, imports, graph settings, backups, and destructive
+operations remain UI/CLI control-plane actions by design; they are not missing
+daily-memory features.
+
 Validated in the current workspace:
 
 - Workspace TypeScript build-mode validation passes.
@@ -50,13 +68,20 @@ Validated in the current workspace:
 - Graph context map, context, session, docs, import, inbox, backup, and trash
   workflows do not require an AI provider.
 
-Not yet performed:
+Validation still outstanding (separate from the completed Codex daily-memory
+surface):
 
 - Broad end-to-end test coverage across all desktop workflows.
-- Automated tests against real local or remote AI provider processes.
-- Fresh production build validation in shared Windows/WSL checkouts where
-  native dependencies may have been installed for the other operating system.
-- Windows packaged `.exe` build.
+- Running the opt-in live-provider smoke against each provider configuration
+  the project intends to support.
+- Installer generation and installer-level smoke testing; the packaged Windows
+  `.exe` build itself has passed.
+
+Current Windows-checkout validation includes TypeScript typecheck, the complete
+test suite and coverage thresholds, desktop contract tests, the Vite production
+build with bundle budgets, a real Edge app-shell smoke, Rust tests, a packaged
+Windows executable, source-artifact checks, and a live ten-tool MCP doctor
+check.
 
 ## Product Principles
 
@@ -64,13 +89,17 @@ Not yet performed:
    Sessions, docs, graph, search, context, and startup state all resolve to the current project unless the user explicitly asks for all-project behavior.
 
 2. Markdown is the source of truth.
-   SQLite/FTS-style indexes are represented by rebuildable package boundaries. The current implementation uses dependency-free JSON indexes until native dependencies are allowed.
+   The supported index is a versioned, dependency-free JSON projection rebuilt
+   from Markdown. SQLite/FTS5 remains an optional future optimization for very
+   large stores, not unfinished core functionality.
 
-3. UI, CLI, and MCP share behavior.
-   The daemon owns project/session/context logic. Adapters call the same API instead of reimplementing rules.
+3. UI, CLI, and MCP share daemon behavior.
+   The daemon owns project/session/context logic. Each adapter exposes its
+   intended surface without reimplementing the underlying rules; MCP stays
+   focused on the daily agent-memory loop.
 
-4. Privacy beats convenience.
-   Context generation applies visibility rules, never-send rules, ignore patterns, secret scanning, redaction, blocking, and audit metadata.
+4. AI-visible by default.
+   Memory in the selected project is available to the coding agent by default, including sessions, paths, and routine metadata. Explicit visibility exclusions, never-send patterns, and secret scanning remain safety rails.
 
 5. Memory writes are direct by default.
    External AI agents can write routine session progress and durable project memory directly. Memory Inbox review is an optional project setting for teams that want approval gates or for risky/uncertain updates.
@@ -153,7 +182,9 @@ For the native desktop app, run:
 corepack pnpm dev:desktop
 ```
 
-The desktop shell starts or reuses the local daemon automatically. Browser mode
+In a source checkout, the desktop shell starts or reuses the local daemon
+automatically. A copied release executable reuses an already-running daemon or
+uses `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND` when configured. Browser mode
 keeps the normal separate daemon + web server flow.
 
 Open `http://localhost:5174/`, create a project, then link repos from
@@ -200,7 +231,7 @@ This is project configuration, not application hardcoding. Zharwing Memory match
 rules against imported relative paths and derives context graph nodes from them.
 Use Graph for memory relationships; use Diagrams for runtime architecture and
 service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
-and AI/MCP workflow.
+and AI-assisted control-plane workflow.
 
 For AI-assisted relationship cleanup, use the optional semantic graph workflow.
 Graph works without a model and shows trusted saved relationships. AI review
@@ -234,7 +265,7 @@ The daemon owns:
 - project creation/linking
 - session start/resume/list/checkpoint/close
 - context bundle preview and generation
-- privacy checks
+- project scope, explicit visibility exclusions, and secret checks
 - Memory Inbox proposals
 - docs and diagrams
 - search
@@ -292,7 +323,7 @@ their own linked repos should be committed or kept local.
 1. Create or link a project.
 2. Read the latest relevant previous session.
 3. Start a fresh project-scoped session for the current day or work round.
-4. Preview the AI context bundle.
+4. Preview or load the AI context bundle when prior context is useful.
 5. External AI performs coding work.
 6. AI saves checkpoints after meaningful progress.
 7. AI closes the session with next steps.
@@ -363,34 +394,26 @@ zharwing-memory assistant return-summary --project my-app
 zharwing-memory assistant classify-doc --project my-app --doc doc-id
 ```
 
-## MCP Tool Families
+## MCP Tools
 
-The MCP adapter exposes project-scoped tools for:
+The MCP adapter exposes exactly ten project-scoped tools for the daily
+coding-memory loop:
 
-- startup state
-- project detection and creation
-- multi-repo project links
-- workstreams
-- sessions
-- context bundles
-- checkpoints
-- close-session
-- search
-- docs
-- import profiles and folder import
-- Memory Inbox
-- graph and graph rules
-- backups
-- trash and restore
-- validation
-- assistant proposals
+- `memory.health`
+- `memory.get_startup_state`
+- `memory.get_latest_session`
+- `memory.get_recent_sessions`
+- `memory.start_session`
+- `memory.search`
+- `memory.preview_context_bundle`
+- `memory.get_context_bundle`
+- `memory.save_checkpoint`
+- `memory.close_session`
 
-See [API Reference](docs/API_REFERENCE.md) for the full list.
-
-For AI clients, graph changes should normally be proposed through
-`memory.propose_graph_update` so a human can review them in the Memory Inbox.
-Use `memory.update_graph_rules` only after explicit user approval or from a
-manual settings action.
+The full daemon API is intentionally broader. Use the desktop UI or CLI for
+project administration, repository links, workstreams, document editing,
+imports, graph settings, backups, Trash, and other control-plane operations.
+See [API Reference](docs/API_REFERENCE.md) for both surfaces.
 
 ## Desktop UI
 
@@ -446,4 +469,6 @@ Start here:
   Vite/Rollup/esbuild optional package.
 - Mermaid diagrams are stored as Markdown and are intended to render in Mermaid-capable viewers.
 - The assistant runtime can generate searchable session TLDR metadata through a configured local OpenAI-compatible endpoint, with deterministic fallback. It does not download or run a model.
-- The JSON index is a rebuildable placeholder for SQLite/FTS5 once native dependencies are allowed.
+- The versioned JSON index is a supported rebuildable project manifest. Search
+  continues to read Markdown-backed project records; SQLite/FTS5 is optional
+  future scaling work.

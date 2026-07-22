@@ -233,7 +233,9 @@ export const AssistantScreen = observer(function AssistantScreen() {
                     <option value="openai">OpenAI API</option>
                     <option value="anthropic">Claude API</option>
                     <option value="custom-openai-compatible">OpenAI-compatible API</option>
-                    <option value="app-managed-llamacpp">App-managed local model</option>
+                    {selectedProvider === "app-managed-llamacpp" ? (
+                      <option value="app-managed-llamacpp" disabled>Legacy app-managed local model (unsupported)</option>
+                    ) : null}
                   </select>
                 </label>
                 <label>
@@ -414,7 +416,7 @@ function providerLabel(runtimeType: string): string {
   if (runtimeType === "openai") return "OpenAI API";
   if (runtimeType === "anthropic") return "Claude API";
   if (runtimeType === "custom-openai-compatible") return "OpenAI-compatible API";
-  if (runtimeType === "app-managed-llamacpp") return "App-managed local model";
+  if (runtimeType === "app-managed-llamacpp") return "Legacy app-managed local model (unsupported)";
   return "Disabled";
 }
 
@@ -431,7 +433,7 @@ function endpointForProviderSelection(runtimeType: string, currentEndpoint: stri
 }
 
 function modelCanBeDetected(runtimeType: string): boolean {
-  return runtimeType === "lm-studio" || runtimeType === "ollama" || runtimeType === "llama-cpp" || runtimeType === "app-managed-llamacpp";
+  return runtimeType === "lm-studio" || runtimeType === "ollama" || runtimeType === "llama-cpp";
 }
 
 function providerMayUseApiKey(runtimeType: string): boolean {

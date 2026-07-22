@@ -11,7 +11,7 @@ import { isForbiddenArtifact, scanSourceArtifacts } from "./artifact-scan.mjs";
 const GUARD_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "check-source-artifacts.mjs");
 
 function makeFixtureRepo() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "aimem-guard-fixture-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "zharwing-guard-fixture-"));
   const src = path.join(root, "packages", "lib", "src");
   mkdirSync(src, { recursive: true });
   writeFileSync(path.join(root, "packages", "lib", "package.json"), JSON.stringify({ name: "@fixture/lib" }));
@@ -87,7 +87,7 @@ test("scan skips symlinked directories", { skip: process.platform === "win32" },
   const { symlinkSync } = await import("node:fs");
   const { root, src } = makeFixtureRepo();
   try {
-    const outside = mkdtempSync(path.join(os.tmpdir(), "aimem-guard-outside-"));
+    const outside = mkdtempSync(path.join(os.tmpdir(), "zharwing-guard-outside-"));
     writeFileSync(path.join(outside, "linked.js"), "");
     symlinkSync(outside, path.join(src, "linked"), "dir");
     try {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { AimemClient } from "@zharwing/memory-api-client";
+import { ZharwingMemoryClient } from "@zharwing/memory-api-client";
 import { doctorMcpSetup, installMcpAuto, installMcpClient, serveMcpStdio, type McpClientTarget, type McpInstallTarget, type McpInstallTransport } from "@zharwing/memory-mcp";
 import {
   defaultInstructionFile,
@@ -12,7 +12,7 @@ import { flagBool, flagString, parseArgs } from "./args.js";
 import { printHelp, printJson, printTable } from "./format.js";
 
 const args = parseArgs(process.argv.slice(2));
-const client = new AimemClient();
+const client = new ZharwingMemoryClient();
 
 try {
   await run();

@@ -890,7 +890,7 @@ function openAiCompatibleJsonResponseFormat(config: OpenAiCompatibleProviderConf
       response_format: {
         type: "json_schema",
         json_schema: {
-          name: "aimem_json_response",
+          name: "zharwing_memory_json_response",
           strict: false,
           schema: {
             type: "object",

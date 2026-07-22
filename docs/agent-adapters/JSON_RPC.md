@@ -1,7 +1,7 @@
 # JSON-RPC Adapter
 
-Use this adapter when MCP and the CLI are unavailable but the local AI Memory
-daemon is reachable.
+Use this adapter when MCP and the CLI are unavailable but the local Zharwing
+Memory daemon is reachable.
 
 ## Endpoint
 

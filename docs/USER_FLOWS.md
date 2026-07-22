@@ -38,8 +38,10 @@ No deep codebase scan happens during project creation.
    and important decisions.
 5. User runs `zharwing-memory start "task title"` or the agent calls
    `memory.start_session` to create today's project-scoped session.
-6. User previews the context bundle.
-7. External AI receives context through MCP, CLI, or clipboard/export.
+6. Agent previews or loads a context bundle when prior context is useful; the
+   user can inspect the same bundle in the UI.
+7. External AI receives project-scoped context through MCP, CLI, or
+   clipboard/export without a normal per-request approval step.
 8. External AI does coding work.
 9. External AI saves checkpoints after meaningful progress.
 10. External AI closes the session with next steps.
@@ -50,14 +52,13 @@ No deep codebase scan happens during project creation.
 1. Agent calls `memory.get_startup_state`.
 2. If project is resolved, server returns active/latest/recent project sessions.
 3. If project is unregistered, server recommends project creation.
-4. Agent calls `memory.prepare_project_creation`.
-5. User approves project creation through an allowed path.
-6. Agent calls `memory.create_project`.
-7. Agent reads the latest relevant previous session and extracts carry-forward
+4. Agent asks the user to create or link the project through the UI or CLI.
+5. User completes project setup and restarts/retries from the linked repo.
+6. Agent reads the latest relevant previous session and extracts carry-forward
    work.
-8. Agent calls `memory.start_session` for today's work round by default.
-9. Agent calls `memory.preview_context_bundle`.
-10. Agent continues with the coding task.
+7. Agent calls `memory.start_session` for today's work round by default.
+8. Agent calls `memory.preview_context_bundle`.
+9. Agent continues with the coding task.
 
 ## Return To Project
 
@@ -72,9 +73,11 @@ No deep codebase scan happens during project creation.
 1. User opens Context Preview.
 2. Context engine loads project-scoped sessions/docs.
 3. It selects canonical docs, active session, recent relevant sessions, pinned docs, and relevant diagrams.
-4. Privacy gate excludes or redacts unsafe items.
+4. Scope and secret-safety checks exclude explicitly blocked items and redact
+   detected secrets.
 5. UI shows included items, excluded items, reasons, token estimate, redactions, and safety state.
-6. User copies/exports/sends context only after inspection.
+6. User can inspect, copy, or export the result. MCP clients may consume the
+   same eligible project context directly.
 
 ## Memory Inbox Review
 

@@ -7,21 +7,22 @@ CLI commands, MCP startup, sessions, docs, context preview, import, inbox,
 backup, trash, search, and the saved Graph context map do not require LM Studio,
 Ollama, llama.cpp, or a remote provider.
 
-Current automated validation covers workspace TypeScript build-mode validation
-and a deterministic test spine for privacy gates, Markdown storage round-trips,
+Current automated validation covers workspace TypeScript build-mode validation,
+a deterministic test spine for privacy gates, Markdown storage round-trips,
 context privacy integration, daemon lifecycle, graph overlays, semantic graph
-policy, and fake-provider semantic graph analysis. Broad desktop end-to-end
-coverage and automated tests against real AI provider processes are not yet
-present.
+policy, fake-provider semantic graph analysis, desktop route/workflow contracts,
+bundle budgets, and a real browser app-shell smoke. A live-provider smoke runner
+is opt-in because it requires an explicitly configured endpoint. Broad desktop
+end-to-end coverage is not yet present.
 
 The Vite production build uses native Rollup/esbuild optional packages. A
 checkout shared between Windows and WSL must install dependencies in the same
 operating system that will run the build; otherwise Vite can fail with a missing
 or wrong-platform native package.
 
-Native Tauri/Rust validation depends on a local Rust toolchain. Windows
-`cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` has passed in
-prior validation. A packaged desktop build has not been run.
+Native Tauri/Rust validation depends on a local Rust toolchain. Windows Rust
+tests and a release build have passed; the release executable is written to
+`apps/desktop/src-tauri/target/release/zharwing-memory-desktop.exe`.
 
 ## Environment Variables
 
@@ -40,6 +41,8 @@ ZHARWING_MEMORY_HOST=127.0.0.1
 ZHARWING_MEMORY_PORT=37841
 ZHARWING_MEMORY_AUTH_TOKEN=local-dev-token
 ZHARWING_MEMORY_ROOT=<memory-root>
+ZHARWING_MEMORY_AGENT_SURFACE=enabled
+ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=true
 ```
 
 `ZHARWING_MEMORY_ROOT` stores private project memory, sessions, docs, imports,
@@ -51,6 +54,28 @@ API client:
 ZHARWING_MEMORY_DAEMON_URL=http://127.0.0.1:37841
 ZHARWING_MEMORY_AUTH_TOKEN=local-dev-token
 ```
+
+Optional desktop-shell overrides use
+`ZHARWING_MEMORY_DESKTOP_PROJECT_ROOT`,
+`ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND`, and
+`ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON`. Canonical
+`ZHARWING_MEMORY_*` variables always win. The previous `AIMEM_*` names remain
+fallback-only for one compatibility window.
+
+## Rename Compatibility
+
+New configuration, generated MCP files, logs, schemas, skill metadata, and
+runtime metadata use the Zharwing Memory name. A small set of legacy identifiers
+is retained deliberately so existing installations do not lose data or become
+separate applications:
+
+- `AIMEM_*` environment variables are read only as deprecated fallbacks.
+- `aimem` remains a CLI alias during the transition.
+- `.ai-memory.json` remains a readable legacy pointer filename.
+- `AI Memory Root`, `local.aimem.desktop`, and existing `aimem.*` browser
+  storage keys remain stable compatibility identifiers.
+
+Do not use those legacy identifiers in new examples or generated configuration.
 
 ## Intended Startup
 
@@ -80,8 +105,11 @@ Desktop/web UI workflows currently include setup, project selection, project
 delete, repo links, import preview/commit, workstreams, sessions, docs, search,
 context preview, inbox, graph, backup management, and Trash restore/purge. The
 browser UI calls the daemon API, so the daemon must be running first in browser
-mode. The native Tauri desktop app starts or reuses the local daemon
-automatically.
+mode. The native Tauri desktop app reuses a healthy local daemon. In a source
+checkout it also starts the repository daemon automatically. A copied release
+executable needs either an already-running daemon or
+`ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND` set to a command that starts one; the
+daemon is not embedded in the desktop executable.
 
 When opened as a native Tauri window, the Setup, Repositories, and Import
 screens use OS folder pickers for path fields. Browser dev mode leaves those
@@ -98,6 +126,16 @@ Native Tauri dev window:
 ```text
 corepack pnpm dev:desktop
 ```
+
+Packaged desktop build:
+
+```text
+corepack pnpm build:desktop
+```
+
+On Windows this produces
+`apps/desktop/src-tauri/target/release/zharwing-memory-desktop.exe`. The current
+repository config does not build an installer.
 
 MCP:
 
@@ -129,7 +167,12 @@ Production packaging should:
 - bind daemon to localhost by default
 - allow `ZHARWING_MEMORY_AUTH_MODE=none` only for loopback-only personal setups
 - keep remote access disabled by default
-- require explicit approval for project creation, repo linking, context serving, and canonical memory writes only when review mode or safety policy requires it
+- require confirmation for project creation, repo linking, and destructive
+  control-plane operations
+- serve selected-project memory to AI by default without per-request approval;
+  keep explicit visibility exclusions, never-send patterns, and secret checks
+- route canonical memory writes through review only when the project enables
+  review mode or the update is risky or uncertain
 - log sensitive operations without storing raw secrets
 
 ## Backups And Trash
@@ -157,19 +200,21 @@ directory. Trash items can be restored until permanently purged.
 
 ## Indexing
 
-Current index behavior writes:
+Current index behavior writes a versioned project manifest:
 
 ```text
 generated/index.json
 ```
 
-The index is rebuildable from Markdown/frontmatter and JSON proposal files.
+The index includes its schema version, generation time, collection counts, and
+compact record projections. It is rebuildable from Markdown/frontmatter and
+JSON proposal files and is the supported default for normal project sizes.
 
-Future work:
+Optional scaling work:
 
 - add SQLite registry/index database
 - add SQLite FTS5 keyword search
-- add rebuild-from-Markdown command with validation report
+- extend the existing `rebuild-index` command with a richer validation report
 
 ## Local Assistant
 
@@ -177,21 +222,24 @@ Current assistant behavior:
 
 - status reporting
 - recommended model metadata
-- runtime install preview
 - automatic close-session TLDR generation
 - manual one-session TLDR generation
 - bulk missing/all session TLDR generation
 - deterministic return summary proposal
 - deterministic document classification proposal
 
-Not implemented yet:
+Deliberately out of scope:
 
-- downloading llama.cpp
+- downloading or launching llama.cpp
 - downloading GGUF models
-- starting llama-server
-- GPU acceleration
+- managing GPU acceleration
 - prompt logs
 - remote session TLDR approval flow
+
+The UI supports configured LM Studio, Ollama, llama.cpp server, OpenAI,
+Anthropic, and custom OpenAI-compatible endpoints. It does not advertise an
+app-managed download/runtime path. Persisted legacy `app-managed-llamacpp`
+settings remain readable and show a migration message.
 
 ## AI Provider Smoke Testing
 
@@ -240,16 +288,18 @@ under Graph Details **Advanced**.
 
 ## Known Constraints
 
-- JSON index is a placeholder for SQLite/FTS5.
+- The JSON project manifest is the supported default. SQLite/FTS5 remains an
+  optional scaling layer for very large stores.
 - MCP adapter is dependency-free and does not use the official SDK yet.
 - Desktop UI uses hand-authored components instead of shadcn scaffolding.
 - Runtime validation currently covers workspace TypeScript build-mode
   validation, privacy gates, Markdown storage round-trips, context privacy,
-  daemon lifecycle, graph overlays, semantic graph policy, and fake-provider
-  semantic graph analysis.
+  daemon lifecycle, graph overlays, semantic graph policy, fake-provider
+  semantic graph analysis, desktop contracts, bundle budgets, and a real Edge
+  app-shell smoke.
 - The root test command runs a meaningful deterministic spine, but coverage
   remains narrow relative to the full testing plan.
-- Real AI-provider tests are manual smoke tests; they are not part of the
-  default automated test command.
-- Native Tauri `cargo check` has passed through the Windows toolchain, but full Tauri dev smoke testing and packaging have not been completed.
-- A packaged Windows desktop build has not been produced yet.
+- The live AI-provider smoke runner is opt-in and is not part of the default
+  automated test command.
+- Windows Rust tests and release packaging have passed. Installer generation
+  and broad native desktop workflow smoke testing remain future work.

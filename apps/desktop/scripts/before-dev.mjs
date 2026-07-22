@@ -21,12 +21,12 @@ async function readExistingServer() {
 const existing = await readExistingServer();
 if (existing) {
   if (existing.ok && existing.body.includes(expectedTitle)) {
-    console.log(`Using existing AI Memory web dev server at ${devUrl}`);
+    console.log(`Using existing Zharwing Memory web dev server at ${devUrl}`);
     process.exit(0);
   }
 
-  console.error(`Port ${new URL(devUrl).port} is already in use, but it does not look like AI Memory.`);
-  console.error("Stop that process, or set AIMEM_DESKTOP_DEV_URL to another AI Memory dev server URL.");
+  console.error(`Port ${new URL(devUrl).port} is already in use, but it does not look like Zharwing Memory.`);
+  console.error("Stop that process, or set ZHARWING_MEMORY_DESKTOP_DEV_URL to another Zharwing Memory dev server URL.");
   process.exit(1);
 }
 

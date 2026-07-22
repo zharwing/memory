@@ -1,13 +1,13 @@
-export interface AimemClientOptions {
+export interface ZharwingMemoryClientOptions {
   baseUrl?: string;
   authToken?: string;
 }
 
-export class AimemClient {
+export class ZharwingMemoryClient {
   readonly baseUrl: string;
   readonly authToken: string;
 
-  constructor(options: AimemClientOptions = {}) {
+  constructor(options: ZharwingMemoryClientOptions = {}) {
     const env = runtimeEnv();
     this.baseUrl = options.baseUrl || env.DAEMON_URL || "http://127.0.0.1:37841";
     // No fallback credential: an unset token means requests fail closed with
@@ -51,7 +51,7 @@ export class AimemClient {
       error?: { message: string };
     };
     if (!payload.ok) {
-      throw new Error(payload.error?.message || `AIMEM RPC failed: ${method}`);
+      throw new Error(payload.error?.message || `Zharwing Memory RPC failed: ${method}`);
     }
     return payload.result as T;
   }
@@ -128,6 +128,12 @@ export class AimemClient {
     return this.call("memory.accept_semantic_edges_proposal", params);
   }
 }
+
+/** @deprecated Use ZharwingMemoryClientOptions. */
+export type AimemClientOptions = ZharwingMemoryClientOptions;
+
+/** @deprecated Use ZharwingMemoryClient. */
+export const AimemClient = ZharwingMemoryClient;
 
 function runtimeEnv(): { DAEMON_URL?: string; AUTH_TOKEN?: string } {
   const processEnv = typeof process !== "undefined" && process.env ? process.env : {};

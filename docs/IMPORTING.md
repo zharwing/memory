@@ -108,9 +108,9 @@ The desktop/web UI exposes these as presets:
 The `Profile` dropdown also exposes `generic-markdown` for loose folders that
 are not specifically memory folders or session-history folders.
 
-Profiles are data, not code. RPC and MCP callers can pass a custom profile
-object with include/exclude globs, default kind, visibility, status, and path
-rules.
+Profiles are data, not code. Authenticated daemon JSON-RPC clients can pass a
+custom profile object with include/exclude globs, default kind, visibility,
+status, and path rules.
 
 ## UI Workflow
 
@@ -161,9 +161,9 @@ List available profiles:
 zharwing-memory import-profiles
 ```
 
-## MCP Workflow
+## Daemon JSON-RPC Workflow
 
-Agents should call:
+The UI or an authenticated control-plane client can call:
 
 1. `memory.list_import_profiles`
 2. `memory.prepare_import`
@@ -182,6 +182,9 @@ Recommended safety default:
 }
 ```
 
+Imports are intentionally not exposed through the focused MCP daily-memory
+surface. Use the UI or CLI for preview and commit.
+
 ## After Import: Graph Rules
 
 Imports preserve original relative paths under `docs/imported/<profile>/...` or
@@ -190,8 +193,7 @@ create useful context hubs such as packages, services, domains, teams, or
 diagram groups.
 
 If the Graph page is too flat after an import, add project graph rules manually
-in **Settings -> Project -> Graph Rules**, or ask an AI client to create a
-reviewable `memory.propose_graph_update` proposal. See [Graph Rules](GRAPH_RULES.md).
+in **Settings -> Project -> Graph Rules**. See [Graph Rules](GRAPH_RULES.md).
 
 ## Notes
 

@@ -17,10 +17,14 @@ An agent should be able to start inside a linked repo and automatically:
 7. At end-of-day or work-round closeout, save final progress and close the
    session or leave next steps.
 
+This daily-memory workflow is implemented. The focused MCP adapter exposes all
+of these capabilities; broader project administration stays in the UI and CLI.
+
 ## Required Pieces
 
 - Local daemon running with `ZHARWING_MEMORY_ROOT` and either token auth or
   localhost-only no-auth mode.
+- `ZHARWING_MEMORY_AGENT_SURFACE=enabled` in the daemon/MCP environment.
 - MCP config for each AI client, or CLI access as a fallback.
 - Linked source repos with `.zharwing/memory.json` pointer files when auto-detection
   is wanted.
@@ -61,6 +65,10 @@ Manual templates remain available in `templates/mcp/`:
 
 The MCP endpoint exposes `memory.*` tools and calls the local daemon. It does
 not store project data by itself.
+
+The selected project is AI-visible by default. MCP returns normal sessions,
+paths, search results, and context without per-request approval. Only explicit
+visibility exclusions, never-send rules, and secret detection limit results.
 
 For full setup details, including `--transport stdio`, token-auth config,
 desktop installer buttons, and Windows/WSL reachability, see
@@ -142,7 +150,7 @@ today's sessions/checkpoints, identifying touched repos, and recording final
 artifacts such as commit hashes, PR links, deploy targets, external task ids,
 blockers, and next steps.
 
-## Privacy
+## Scope And Secret Safety
 
 Do not send or store secrets, `.env` files, private keys, credential caches, or
 unrelated private logs. Keep context project-scoped unless the user explicitly

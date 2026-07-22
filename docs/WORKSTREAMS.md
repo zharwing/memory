@@ -69,9 +69,9 @@ zharwing-memory workstream huddle --project <project-id>
 zharwing-memory start "Huddle service contract pass" --project <project-id> --workstream <workstream-id>
 ```
 
-## MCP
+## Daemon Control Plane
 
-Agents can use:
+The UI and authenticated daemon JSON-RPC surface support:
 
 - `memory.list_workstreams`
 - `memory.create_workstream`
@@ -79,5 +79,5 @@ Agents can use:
 - `memory.update_workstream_status`
 - `memory.delete_workstream`
 
-Agents should attach new sessions to a workstream when the task is part of a
-known multi-day focus area.
+The focused MCP daily-memory surface can attach known workstream ids when
+starting a session, but workstream administration remains a UI/CLI operation.

@@ -39,6 +39,11 @@ The installer updates client MCP config and creates a timestamped backup when
 replacing an existing file. Stdio configs use the running CLI entrypoint instead
 of a hardcoded checkout path.
 
+Generated token-auth configuration uses the canonical
+`ZHARWING_MEMORY_AUTH_TOKEN` and `ZHARWING_MEMORY_DAEMON_URL` names. Existing
+configs that reference legacy `AIMEM_*` names continue to work during the
+compatibility window, but rerunning the installer migrates generated entries.
+
 Specific client installs remain available:
 
 ```text
@@ -71,8 +76,8 @@ Use `--config <path>` when a client stores config somewhere else.
 ## Auth Modes
 
 Tokens are not required by MCP itself. Zharwing Memory uses token auth by default
-because the daemon exposes write-capable local methods such as session creation,
-document updates, graph rules, and delete operations.
+because the MCP surface can create sessions and write checkpoints/closeouts, and
+because the same daemon also hosts the broader authenticated control plane.
 
 Default mode:
 
@@ -95,19 +100,53 @@ For token mode, make the AI client process inherit `ZHARWING_MEMORY_AUTH_TOKEN` 
 installer's generated environment-variable reference. Do not write real tokens
 into repo files.
 
+## Agent Surface
+
+Enable the authenticated daily-memory surface in the daemon and stdio adapter:
+
+```text
+ZHARWING_MEMORY_AGENT_SURFACE=enabled
+```
+
+The MCP server exposes exactly ten tools: health, startup state, latest/recent
+sessions, session start, project search, context preview/load, checkpoint, and
+closeout. Administrative and destructive daemon methods are not advertised.
+
+Current status: all daily-memory capabilities are implemented.
+
+| What Codex needs | Tool |
+| --- | --- |
+| Determine the opened project and prior state | `memory.get_startup_state` |
+| Read the last work summaries, tasks, and blockers | `memory.get_latest_session`, `memory.get_recent_sessions` |
+| Create a memory record for this work round | `memory.start_session` |
+| Find earlier decisions, fixes, commands, and notes | `memory.search` |
+| Preview or load relevant context | `memory.preview_context_bundle`, `memory.get_context_bundle` |
+| Save progress while working | `memory.save_checkpoint` |
+| Record completion, blockers, and next steps | `memory.close_session` |
+
+Project creation, repo linking, imports, graph settings, backups, Trash, and
+other administration are intentionally UI/CLI operations. Their absence from
+`tools/list` is expected and does not mean the Codex memory workflow is
+incomplete.
+
+Zharwing Memory is AI-visible by default inside the selected project. Sessions,
+file paths, and routine memory metadata are available to Codex without a
+per-request approval prompt. Explicit exclusions and secret scanning still
+apply to search and generated context.
+
 ## Manual Codex Config
 
 No-auth localhost HTTP config:
 
 ```toml
-[mcp_servers.aimem]
+[mcp_servers.zharwing-memory]
 url = "http://127.0.0.1:37841/mcp"
 ```
 
 Token-auth localhost HTTP config:
 
 ```toml
-[mcp_servers.aimem]
+[mcp_servers.zharwing-memory]
 url = "http://127.0.0.1:37841/mcp"
 bearer_token_env_var = "ZHARWING_MEMORY_AUTH_TOKEN"
 ```
@@ -128,7 +167,7 @@ No-auth localhost HTTP config:
 ```json
 {
   "mcpServers": {
-    "aimem": {
+    "zharwing-memory": {
       "type": "http",
       "url": "http://127.0.0.1:37841/mcp"
     }
@@ -141,7 +180,7 @@ Token-auth localhost HTTP config:
 ```json
 {
   "mcpServers": {
-    "aimem": {
+    "zharwing-memory": {
       "type": "http",
       "url": "http://127.0.0.1:37841/mcp",
       "headers": {

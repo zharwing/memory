@@ -308,7 +308,7 @@ sequenceDiagram
     MCP-->>Agent: startup state
   else unregistered repo
     Daemon-->>MCP: offer_create_project
-    MCP-->>Agent: ask user or prepare creation
+    MCP-->>Agent: ask user to create or link through UI / CLI
   end
 ```
 
@@ -317,7 +317,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant User as User
-  participant Client as UI / CLI / MCP client
+  participant Client as UI / CLI
   participant Daemon as Daemon
   participant Storage as Storage
   participant Registry as Registry
@@ -372,7 +372,6 @@ sequenceDiagram
   participant MCP as MCP adapter
   participant Daemon as Daemon
   participant SessionFile as Session Markdown
-  participant Inbox as Memory Inbox
 
   Agent->>MCP: memory.save_checkpoint
   MCP->>Daemon: RPC save_checkpoint
@@ -383,10 +382,8 @@ sequenceDiagram
   Agent->>MCP: memory.close_session
   MCP->>Daemon: RPC close_session
   Daemon->>SessionFile: status closed, summary, next steps
-  Agent->>MCP: memory.propose_memory_update
-  MCP->>Daemon: RPC propose_memory_update
-  Daemon->>Inbox: write proposal JSON
-  Daemon-->>MCP: proposal pending
+  Daemon-->>MCP: closed session
+  MCP-->>Agent: closeout saved
 ```
 
 ## Memory Inbox Review Flow

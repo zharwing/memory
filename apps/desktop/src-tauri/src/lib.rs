@@ -12,7 +12,7 @@ use std::{
 pub fn run() {
     let mut daemon = DaemonManager::from_environment();
     if let Err(error) = daemon.ensure_running() {
-        eprintln!("AI Memory desktop could not start the local daemon: {error}");
+        eprintln!("Zharwing Memory desktop could not start the local daemon: {error}");
     }
 
     tauri::Builder::default()
@@ -20,7 +20,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .run(tauri::generate_context!())
-        .expect("failed to run AI Memory desktop app");
+        .expect("failed to run Zharwing Memory desktop app");
 }
 
 struct DaemonManager {
@@ -102,13 +102,18 @@ impl DaemonConfig {
     fn from_environment() -> Self {
         let workspace_root = workspace_root();
         let file_env = read_dotenv(&workspace_root.join(".env"));
-        let host = env_value(&file_env, "AIMEM_HOST").unwrap_or_else(|| "127.0.0.1".to_string());
-        let port = env_value(&file_env, "AIMEM_PORT")
+        let host = canonical_or_legacy_env_value(&file_env, "ZHARWING_MEMORY_HOST", "AIMEM_HOST")
+            .unwrap_or_else(|| "127.0.0.1".to_string());
+        let port = canonical_or_legacy_env_value(&file_env, "ZHARWING_MEMORY_PORT", "AIMEM_PORT")
             .and_then(|value| value.parse::<u16>().ok())
             .unwrap_or(37841);
-        let autostart_disabled = env_value(&file_env, "AIMEM_DESKTOP_AUTOSTART_DAEMON")
-            .map(|value| matches!(value.as_str(), "0" | "false" | "off" | "no"))
-            .unwrap_or(false);
+        let autostart_disabled = canonical_or_legacy_env_value(
+            &file_env,
+            "ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON",
+            "AIMEM_DESKTOP_AUTOSTART_DAEMON",
+        )
+        .map(|value| matches!(value.as_str(), "0" | "false" | "off" | "no"))
+        .unwrap_or(false);
 
         Self {
             host,
@@ -120,7 +125,9 @@ impl DaemonConfig {
 }
 
 fn workspace_root() -> PathBuf {
-    if let Ok(root) = env::var("AIMEM_DESKTOP_PROJECT_ROOT") {
+    if let Some(root) = process_env_value("ZHARWING_MEMORY_DESKTOP_PROJECT_ROOT")
+        .or_else(|| process_env_value("AIMEM_DESKTOP_PROJECT_ROOT"))
+    {
         return PathBuf::from(root);
     }
 
@@ -133,7 +140,9 @@ fn workspace_root() -> PathBuf {
 }
 
 fn daemon_command(workspace_root: &Path) -> Result<Command, String> {
-    if let Ok(command) = env::var("AIMEM_DESKTOP_DAEMON_COMMAND") {
+    if let Some(command) = process_env_value("ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND")
+        .or_else(|| process_env_value("AIMEM_DESKTOP_DAEMON_COMMAND"))
+    {
         let mut parts = command.split_whitespace();
         if let Some(program) = parts.next() {
             let mut cmd = Command::new(program);
@@ -220,4 +229,48 @@ fn env_value(file_env: &HashMap<String, String>, key: &str) -> Option<String> {
         .ok()
         .filter(|value| !value.trim().is_empty())
         .or_else(|| file_env.get(key).cloned())
+}
+
+fn canonical_or_legacy_env_value(
+    file_env: &HashMap<String, String>,
+    canonical: &str,
+    legacy: &str,
+) -> Option<String> {
+    env_value(file_env, canonical).or_else(|| env_value(file_env, legacy))
+}
+
+fn process_env_value(key: &str) -> Option<String> {
+    env::var(key).ok().filter(|value| !value.trim().is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonical_desktop_environment_wins_over_legacy_alias() {
+        let canonical = "ZHARWING_MEMORY_TEST_CANONICAL";
+        let legacy = "ZHARWING_MEMORY_TEST_LEGACY";
+        let mut file_env = HashMap::new();
+        file_env.insert(canonical.to_string(), "canonical".to_string());
+        file_env.insert(legacy.to_string(), "legacy".to_string());
+
+        assert_eq!(
+            canonical_or_legacy_env_value(&file_env, canonical, legacy),
+            Some("canonical".to_string())
+        );
+    }
+
+    #[test]
+    fn legacy_desktop_environment_remains_a_fallback() {
+        let canonical = "ZHARWING_MEMORY_TEST_MISSING_CANONICAL";
+        let legacy = "ZHARWING_MEMORY_TEST_PRESENT_LEGACY";
+        let mut file_env = HashMap::new();
+        file_env.insert(legacy.to_string(), "legacy".to_string());
+
+        assert_eq!(
+            canonical_or_legacy_env_value(&file_env, canonical, legacy),
+            Some("legacy".to_string())
+        );
+    }
 }

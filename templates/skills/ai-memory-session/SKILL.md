@@ -13,6 +13,10 @@ leave durable progress updates for future agents. Never hardcode a project id;
 resolve it from the working directory, pointer file, user selection, or tool
 response.
 
+Memory in the selected project is AI-visible by default, including sessions,
+file paths, and routine metadata. Respect explicit visibility exclusions and
+never-send rules; do not add a per-request approval ceremony to normal memory.
+
 ## Startup
 
 Prefer MCP tools when available. If MCP is unavailable, use the `zharwing-memory` CLI. If
@@ -22,15 +26,13 @@ not reachable.
 1. Call `memory.get_startup_state` with the current working directory and client
    name.
 2. Read the latest relevant prior session before starting today's session. Use
-   `memory.get_latest_session`, `memory.get_recent_sessions`, or
-   `memory.list_project_sessions` to find the last work session, including the
+   `memory.get_latest_session` or `memory.get_recent_sessions` to find the last work session, including the
    last weekday session after weekends or gaps.
 3. Extract carry-forward context: unfinished task, next steps, blockers, touched
    files, and important decisions.
 4. Create a new session for the current day or work round with
-   `memory.start_session`. Use `memory.start_or_resume_session` only when the
-   user explicitly says to resume/continue the existing session or when the same
-   session is still clearly active.
+   `memory.start_session`. If the user explicitly asks to continue the existing
+   session, keep using the active session returned by startup state.
 5. Search memory for the task, feature, error, file names, or workstream names.
 6. Preview context before using it in a prompt. Persist the context bundle only
    when it is actually used.

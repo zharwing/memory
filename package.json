@@ -6,7 +6,7 @@
   "type": "module",
   "packageManager": "pnpm@9.0.0",
   "engines": {
-    "node": ">=22.21.0 <23",
+    "node": ">=22.21.0 <23 || >=24.0.0 <25",
     "pnpm": "9.0.0"
   },
   "scripts": {
@@ -15,13 +15,18 @@
     "dev:mcp": "node --env-file-if-exists=.env --import tsx apps/mcp-server/src/index.ts",
     "dev:web": "vite --config apps/desktop/vite.config.ts",
     "dev:desktop": "node scripts/tauri-dev.mjs",
+    "build:desktop": "node scripts/tauri-build.mjs",
     "build:ts": "tsc -b",
-    "build:web": "vite build --config apps/desktop/vite.config.ts",
-    "build": "tsc -b && vite build --config apps/desktop/vite.config.ts",
+    "build:web": "vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs",
+    "build": "tsc -b && vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs",
     "typecheck": "tsc -b --pretty false",
     "test:compile": "tsc -b --clean && tsc -b --force --pretty false",
     "test": "tsc -b --clean && tsc -b --force --pretty false && node scripts/run-tests.mjs",
     "test:coverage": "tsc -b --clean && tsc -b --force --pretty false && node scripts/run-tests.mjs --coverage",
+    "test:desktop": "node --test scripts/desktop-contracts.test.mjs",
+    "test:desktop-browser": "node scripts/desktop-browser-smoke.mjs",
+    "test:live-provider": "tsc -b --pretty false && node scripts/live-provider-smoke.mjs",
+    "check:bundle-size": "node scripts/check-bundle-size.mjs",
     "check:source-artifacts": "node scripts/check-source-artifacts.mjs"
   },
   "workspaces": [

@@ -99,8 +99,12 @@ Role:
 - shares MCP request handling with the daemon HTTP `/mcp` endpoint
 - maps MCP tool calls to daemon behavior
 - exposes prompt/resource text for startup and checkpoint behavior
+- advertises only health, startup state, latest/recent sessions, session start,
+  search, context preview/load, checkpoints, and closeout
 
-The adapter is intentionally thin.
+The adapter is intentionally thin and focused. Project administration,
+document editing, imports, graph settings, backups, and Trash remain in the UI,
+CLI, and authenticated daemon control plane.
 
 ## Shared Packages
 
@@ -180,7 +184,12 @@ Context generation follows this pipeline:
 13. Render Markdown bundle.
 14. Persist bundle and audit metadata when requested.
 
-## Privacy Architecture
+## AI Visibility And Secret Safety
+
+Memory is AI-visible by default inside the selected project. Sessions, file
+paths, and routine metadata are normal agent context; the privacy layer is an
+explicit-exclusion and accidental-secret safety rail, not an approval gate for
+ordinary memory access.
 
 Visibility values:
 
@@ -226,27 +235,29 @@ All-project search should remain an explicit advanced mode.
 The TypeScript workspace typechecks and the root test command runs a
 deterministic spine covering privacy gates, Markdown storage round-trips,
 context privacy integration, daemon lifecycle, graph overlays, semantic graph
-policy, and fake-provider semantic graph analysis. Runtime validation is still
-narrower than the product surface: broad desktop end-to-end coverage, automated
-tests against real AI provider processes, and packaged desktop builds are not
-yet complete.
+policy, and fake-provider semantic graph analysis. Desktop contracts, bundle
+budgets, a real Edge app-shell smoke, Rust tests, and a packaged Windows
+executable have also passed. Runtime validation remains narrower than the full
+product surface: broad desktop end-to-end coverage and configured live-provider
+smokes are still opt-in work.
 
 Vite build validation depends on native Rollup/esbuild optional packages being
 installed for the operating system running the command. Shared Windows/WSL
 checkouts should reinstall dependencies in the active environment before
 treating build failures as product regressions.
 
-## Important Follow-Up Work
+## Remaining Productization Work
 
-Important follow-up work:
+The dependency install, typecheck, test, production web build, daemon/CLI smoke
+workflow, Rust check, and MCP doctor flow have been completed in the shared
+Windows checkout. Remaining productization work is narrower:
 
-1. Install dependencies.
-2. Run typecheck.
-3. Run tests.
-4. Build packages.
-5. Start daemon.
-6. Run CLI smoke workflow.
-7. Start desktop app.
-8. Replace JSON index with SQLite/FTS5 where appropriate.
-9. Wire official MCP SDK if desired.
-10. Add real llama.cpp runtime management.
+1. Extend browser-level desktop UI coverage from the app-shell smoke to
+   critical workflows.
+2. Run the opt-in live-provider smoke for each supported deployment profile.
+3. Add and smoke-test a Windows installer if distribution requires one; the
+   release executable build already passes.
+4. Decide whether the rebuildable JSON index remains sufficient or should be
+   supplemented by SQLite/FTS5.
+5. Treat app-managed llama.cpp download/launch as an optional future runtime,
+   not a prerequisite for normal Zharwing Memory or MCP operation.

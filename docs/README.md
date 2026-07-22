@@ -5,7 +5,7 @@ This folder contains product and engineering documentation for the Zharwing Memo
 ## Core Docs
 
 - [Architecture](ARCHITECTURE.md)
-  System boundaries, runtime structure, package responsibilities, and privacy flow.
+  System boundaries, runtime structure, package responsibilities, and context safety flow.
 
 - [Data Model](DATA_MODEL.md)
   Project, session, document, proposal, context bundle, graph, and storage entities.
@@ -24,7 +24,7 @@ This folder contains product and engineering documentation for the Zharwing Memo
   and troubleshooting.
 
 - [Repositories](REPOSITORIES.md)
-  Flexible multi-repo project links, names, descriptions, pointer files, CLI commands, and MCP tools.
+  Flexible multi-repo project links, names, descriptions, pointer files, CLI commands, and daemon control-plane methods.
 
 - [Workstreams](WORKSTREAMS.md)
   Multi-day topic/epic grouping for related sessions, docs, and imported memory.
@@ -48,10 +48,10 @@ This folder contains product and engineering documentation for the Zharwing Memo
   Manual LM Studio/Ollama/llama.cpp-style provider checks, session TLDR tests, and semantic graph smoke tests.
 
 - [Importing](IMPORTING.md)
-  Generic Markdown import profiles, preview/commit workflow, CLI examples, and MCP usage.
+  Generic Markdown import profiles, preview/commit workflow, CLI examples, and daemon control-plane usage.
 
 - [Graph Rules](GRAPH_RULES.md)
-  Manual and AI/MCP workflows for mapping imported folder layouts into useful context graph nodes.
+  Manual and AI-assisted control-plane workflows for mapping imported folder layouts into useful context graph nodes.
 
 - [Semantic Graph Analysis](SEMANTIC_GRAPH.md)
   Optional LLM-assisted relationship analysis, review modes, local provider setup, approval flow, and storage.
@@ -82,5 +82,7 @@ This folder contains product and engineering documentation for the Zharwing Memo
 
 - Diagrams are Mermaid-first so they remain editable Markdown.
 - Storage documentation treats Markdown as durable source of truth.
-- Any generated or assistant-proposed documentation should be reviewed before becoming canonical.
+- Generated or assistant-proposed documentation follows the project's memory
+  write mode: direct by default, with Memory Inbox review available when the
+  project enables it or the update is risky or uncertain.
 - Project-scoped behavior should be documented explicitly whenever a feature could otherwise be confused with global behavior.

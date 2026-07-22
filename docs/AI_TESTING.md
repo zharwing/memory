@@ -57,6 +57,7 @@ corepack pnpm install
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm test:desktop
 ```
 
 The build step runs Vite and uses native Rollup/esbuild optional packages. If a
@@ -71,6 +72,23 @@ For a fast local loop after dependencies are already installed:
 pnpm typecheck
 pnpm test
 ```
+
+After `corepack pnpm build`, run the real browser smoke on a machine with Edge
+or Chrome:
+
+```text
+corepack pnpm test:desktop-browser
+```
+
+The smoke launches the built Vite preview, opens the Projects route in a
+headless browser, and verifies that the React shell and Zharwing branding
+render. Set `ZHARWING_MEMORY_BROWSER_PATH` when the browser is not installed in
+a standard location.
+
+The build also enforces a 450 KB raw startup-entry budget and a 1.2 MB raw
+maximum lazy-chunk budget. Override these only for deliberate investigation
+with `ZHARWING_MEMORY_ENTRY_BUDGET_BYTES` or
+`ZHARWING_MEMORY_CHUNK_BUDGET_BYTES`; CI uses the defaults.
 
 ## Start Zharwing Memory
 
@@ -167,8 +185,22 @@ Pass criteria:
 - The response includes the expected endpoint and model.
 - Latency is reasonable for the selected local model.
 
+The repository also includes an opt-in automated live-provider smoke path. It
+is intentionally excluded from default CI because it requires a configured
+provider process and, for remote providers, credentials:
+
+```text
+ZHARWING_MEMORY_LIVE_PROVIDER_ENDPOINT=<provider-endpoint>
+ZHARWING_MEMORY_LIVE_PROVIDER_MODEL=<model-name>
+ZHARWING_MEMORY_LIVE_PROVIDER_KIND=<lm-studio|ollama|llama-cpp|openai|anthropic|custom-openai-compatible>
+corepack pnpm test:live-provider
+```
+
+Set `ZHARWING_MEMORY_LIVE_PROVIDER_API_KEY` only in the local process
+environment when required. The smoke script never prints it.
+
 If the provider rejects OpenAI `response_format`, add `--no-json-mode` to the
-CLI command or call the RPC/MCP method with `jsonMode: false`.
+CLI command or call the authenticated daemon RPC method with `jsonMode: false`.
 
 ## Semantic Graph Smoke Test
 
@@ -323,15 +355,15 @@ Then have the client call these tools:
 memory.get_startup_state
 memory.get_latest_session
 memory.start_session
+memory.search
 memory.preview_context_bundle
 memory.save_checkpoint
 memory.close_session
-memory.check_semantic_graph_provider
-memory.preview_semantic_graph_analysis
-memory.analyze_semantic_graph
 ```
 
-Use preview and dry-run modes before review or auto mode.
+Run semantic graph provider checks and analysis through the UI or CLI. Those
+administrative operations are intentionally outside the focused MCP surface;
+use preview and dry-run modes before review or auto mode.
 
 ## Troubleshooting
 
@@ -342,7 +374,7 @@ Use preview and dry-run modes before review or auto mode.
   increase `--timeout-ms`.
 - Invalid JSON: choose a model with stronger instruction following or lower the
   scope size. If the provider rejects OpenAI JSON mode, add `--no-json-mode` or
-  pass `jsonMode: false` through RPC/MCP.
+  pass `jsonMode: false` through the control-plane RPC.
 - Remote endpoint rejected: local endpoints are allowed by default; remote
   endpoints require `remoteProvidersEnabled`.
 - Vite or build reports a missing or wrong-platform Rollup/esbuild optional

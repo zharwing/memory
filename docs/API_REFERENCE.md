@@ -1,6 +1,9 @@
 # API Reference
 
-Zharwing Memory exposes one behavioral API through the daemon. CLI and MCP adapters call that API.
+Zharwing Memory keeps behavior in the daemon. The CLI exposes broad operator
+workflows, while MCP intentionally exposes only the ten tools needed for an AI
+agent's daily memory loop. A daemon method appearing below does not
+automatically make it an MCP tool.
 
 ## Daemon
 
@@ -71,6 +74,9 @@ Error shape:
 
 ## Daemon Methods
 
+This is the full authenticated JSON-RPC control plane used by the UI and CLI.
+See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
+
 ### Health
 
 - `memory.health`
@@ -88,6 +94,7 @@ Error shape:
 - `memory.delete_project`
 - `memory.get_project_summary`
 - `memory.update_memory_write_policy`
+- `memory.update_assistant_policy`
 - `memory.update_graph_rules`
 - `memory.ensure_project`
 - `memory.list_project_repos`
@@ -139,8 +146,9 @@ Preview does not persist bundle/audit files. Get persists the bundle and audit m
 
 `memory.import_doc` currently routes to document creation in the daemon dispatch.
 `memory.create_doc` writes directly when project memory write policy allows
-direct agent writes. If review mode is set to review every memory update,
-callers should use `memory.propose_memory_update` instead.
+direct agent writes. If review mode is set to review every memory update, UI,
+CLI, or authenticated daemon clients should use
+`memory.propose_memory_update` instead.
 `memory.update_doc` rewrites the existing Markdown document body/title in place
 and preserves its file path and existing metadata.
 
@@ -312,82 +320,28 @@ zharwing-memory semantic-graph edges --project <id> --status accepted,auto-accep
 
 ## MCP Tools
 
-The MCP adapter exposes the same behavior with `memory.*` tool names over the
-daemon HTTP endpoint or the stdio adapter.
+The MCP adapter intentionally exposes only the daily AI-memory workflow over
+the daemon HTTP endpoint or stdio adapter. Daemon administration, project
+creation, deletion, imports, backups, graph settings, and Trash remain UI/CLI
+control-plane operations.
 
-Core tools:
+Supported MCP tools:
 
+- `memory.health`
 - `memory.get_startup_state`
-- `memory.list_projects`
-- `memory.detect_project`
-- `memory.prepare_project_creation`
-- `memory.create_project`
-- `memory.delete_project`
-- `memory.get_project_summary`
-- `memory.update_memory_write_policy`
-- `memory.list_project_repos`
-- `memory.link_repo`
-- `memory.unlink_repo`
-- `memory.delete_repo`
-- `memory.list_workstreams`
-- `memory.create_workstream`
-- `memory.get_workstream_detail`
-- `memory.update_workstream_status`
-- `memory.delete_workstream`
-- `memory.get_active_session`
 - `memory.get_latest_session`
 - `memory.get_recent_sessions`
-- `memory.list_project_sessions`
 - `memory.start_session`
-- `memory.start_or_resume_session`
+- `memory.search`
 - `memory.preview_context_bundle`
 - `memory.get_context_bundle`
 - `memory.save_checkpoint`
 - `memory.close_session`
-- `memory.generate_session_summary`
-- `memory.generate_session_summaries`
-- `memory.delete_session`
-- `memory.search`
-- `memory.create_doc`
-- `memory.update_doc`
-- `memory.delete_doc`
-- `memory.list_import_profiles`
-- `memory.prepare_import`
-- `memory.commit_import`
-- `memory.propose_memory_update`
-- `memory.propose_graph_update`
-- `memory.list_inbox`
-- `memory.update_inbox_status`
-- `memory.delete_inbox_item`
-- `memory.get_graph`
-- `memory.update_graph_rules`
-- `memory.get_semantic_graph_settings`
-- `memory.update_semantic_graph_settings`
-- `memory.get_semantic_graph_status`
-- `memory.list_semantic_edges`
-- `memory.update_semantic_edge_status`
-- `memory.list_semantic_graph_runs`
-- `memory.get_semantic_graph_run`
-- `memory.preview_semantic_graph_analysis`
-- `memory.analyze_semantic_graph`
-- `memory.check_semantic_graph_provider`
-- `memory.propose_semantic_edges`
-- `memory.accept_semantic_edges_proposal`
-- `memory.backup_project`
-- `memory.list_backups`
-- `memory.delete_backup`
-- `memory.list_trash`
-- `memory.restore_trash_item`
-- `memory.purge_trash_item`
-- `memory.empty_trash`
-- `memory.validate_project`
-- `memory.rebuild_index`
-- `memory.assistant_status`
-- `memory.summarize_session`
-- `memory.generate_session_summary`
-- `memory.generate_session_summaries`
-- `memory.prepare_return_summary`
-- `memory.classify_imported_doc`
+
+Memory in the selected project is AI-visible by default. Normal session data,
+file paths, and search metadata are returned to the coding agent. Explicit
+visibility exclusions, never-send patterns, and secret detection remain in the
+search/context pipeline.
 
 ## MCP Prompt Resources
 

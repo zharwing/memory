@@ -1,3 +1,3 @@
 fn main() {
-    aimem_desktop_lib::run();
+    zharwing_memory_desktop_lib::run();
 }

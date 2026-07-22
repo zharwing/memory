@@ -39,7 +39,7 @@ export async function handleMcpRequest(
       protocolVersion: "2024-11-05",
       serverInfo: { name: "zharwing-memory", version: "0.1.0" },
       capabilities: { tools: {}, prompts: {}, resources: {} },
-      instructions: "Use Zharwing Memory only for the active project. Resolve startup state first, then read relevant sessions, start a fresh work session, save checkpoints, and avoid storing secrets."
+      instructions: "Zharwing Memory is AI-visible by default inside the active project. Resolve startup state first, read relevant sessions, start a fresh work session, save checkpoints, and never store secrets."
     });
   }
 

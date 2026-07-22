@@ -90,7 +90,8 @@ export interface McpDoctorResult {
     client: McpClientTarget;
     configPath: string;
     exists: boolean;
-    hasAimem: boolean;
+    hasZharwingMemory: boolean;
+    hasLegacyCliAlias: boolean;
   }>;
 }
 
@@ -252,7 +253,8 @@ export async function doctorMcpSetup(options: { daemonUrl?: string; workingDirec
       client,
       configPath,
       exists: text !== undefined,
-      hasAimem: Boolean(text && (text.includes("zharwing-memory") || text.includes("aimem")))
+      hasZharwingMemory: Boolean(text?.includes("zharwing-memory")),
+      hasLegacyCliAlias: Boolean(text?.includes("aimem"))
     };
   }));
   return { daemon: health, stdio, configs };
@@ -364,21 +366,31 @@ function windowsPathToLocalPath(windowsPath: string): string | undefined {
 
 async function runtimeCliEntry(cliEntryPath?: string): Promise<string> {
   const candidate = cliEntryPath || process.argv[1] || fileURLToPath(import.meta.url);
+  let resolved: string;
   try {
-    return await fs.realpath(candidate);
+    resolved = await fs.realpath(candidate);
   } catch {
-    return path.resolve(candidate);
+    resolved = path.resolve(candidate);
   }
+
+  if (path.basename(resolved) === "index.ts" && path.basename(path.dirname(resolved)) === "src") {
+    const compiled = path.join(path.dirname(path.dirname(resolved)), "dist", "index.js");
+    if (!existsSync(compiled)) {
+      throw new Error("Stdio MCP setup requires the compiled CLI. Run `pnpm build:ts` first.");
+    }
+    return fs.realpath(compiled);
+  }
+  return resolved;
 }
 
 function httpServerConfig(client: McpClientTarget, url: string, authMode: "none" | "token"): Record<string, unknown> {
   if (client === "codex") {
     return authMode === "token"
-      ? { url, bearer_token_env_var: "AIMEM_AUTH_TOKEN" }
+      ? { url, bearer_token_env_var: "ZHARWING_MEMORY_AUTH_TOKEN" }
       : { url };
   }
   return authMode === "token"
-    ? { type: "http", url, headers: { Authorization: "Bearer ${AIMEM_AUTH_TOKEN}" } }
+    ? { type: "http", url, headers: { Authorization: "Bearer ${ZHARWING_MEMORY_AUTH_TOKEN}" } }
     : { type: "http", url };
 }
 
@@ -389,31 +401,38 @@ function stdioServerConfig(
   daemonUrl: string,
   authMode: "none" | "token"
 ): Record<string, unknown> {
-  const env: Record<string, string> = { AIMEM_DAEMON_URL: daemonUrl };
-  if (authMode === "token") env.AIMEM_AUTH_TOKEN = "${AIMEM_AUTH_TOKEN}";
+  const env: Record<string, string> = { ZHARWING_MEMORY_DAEMON_URL: daemonUrl };
+  if (authMode === "token") env.ZHARWING_MEMORY_AUTH_TOKEN = "${ZHARWING_MEMORY_AUTH_TOKEN}";
   if (client === "codex") {
     return authMode === "token"
-      ? { command, args, env: { AIMEM_DAEMON_URL: daemonUrl }, env_vars: ["AIMEM_AUTH_TOKEN"] }
-      : { command, args, env: { AIMEM_DAEMON_URL: daemonUrl } };
+      ? { command, args, env: { ZHARWING_MEMORY_DAEMON_URL: daemonUrl }, env_vars: ["ZHARWING_MEMORY_AUTH_TOKEN"] }
+      : { command, args, env: { ZHARWING_MEMORY_DAEMON_URL: daemonUrl } };
   }
   return { type: "stdio", command, args, env };
 }
 
 function updateCodexConfig(existing: string, serverName: string, config: Record<string, unknown>): string {
+  const migrated = serverName === "zharwing-memory" ? removeCodexMcpTable(existing, "aimem") : existing;
   const tableHeader = `[mcp_servers.${serverName}]`;
   const tableBody = `${tableHeader}\n${tomlEntries(config)}\n`;
   const pattern = new RegExp(`(^|\\n)\\[mcp_servers\\.${escapeRegExp(serverName)}\\][\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`);
-  if (pattern.test(existing)) {
-    return ensureTrailingNewline(existing.replace(pattern, `$1${tableBody.trimEnd()}`));
+  if (pattern.test(migrated)) {
+    return ensureTrailingNewline(migrated.replace(pattern, `$1${tableBody.trimEnd()}`));
   }
-  return ensureTrailingNewline(`${existing.trimEnd()}\n\n${tableBody}`.trimStart());
+  return ensureTrailingNewline(`${migrated.trimEnd()}\n\n${tableBody}`.trimStart());
 }
 
 function updateJsonMcpConfig(existing: string, serverName: string, config: Record<string, unknown>): string {
   const parsed = existing.trim() ? JSON.parse(existing) as Record<string, any> : {};
   parsed.mcpServers = parsed.mcpServers && typeof parsed.mcpServers === "object" ? parsed.mcpServers : {};
+  if (serverName === "zharwing-memory") delete parsed.mcpServers.aimem;
   parsed.mcpServers[serverName] = config;
   return `${JSON.stringify(parsed, null, 2)}\n`;
+}
+
+function removeCodexMcpTable(config: string, serverName: string): string {
+  const pattern = new RegExp(`(^|\\n)\\[mcp_servers\\.${escapeRegExp(serverName)}\\][\\s\\S]*?(?=\\n\\[[^\\n]+\\]|$)`);
+  return config.replace(pattern, "$1").replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
 function tomlEntries(config: Record<string, unknown>): string {

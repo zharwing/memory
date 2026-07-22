@@ -120,19 +120,19 @@ Examples:
 ]
 ```
 
-## AI And MCP Use
+## AI-Assisted Control-Plane Use
 
 AI clients should not silently rewrite graph rules unless the user asked for a
 direct settings change. The safer workflow is:
 
-1. Read project data with `memory.get_project`, `memory.list_docs`, and
-   `memory.get_graph`.
+1. Read project data through the UI, CLI, or authenticated daemon methods such
+   as `memory.get_project`, `memory.list_docs`, and `memory.get_graph`.
 2. Inspect imported paths, topics, repo names, and noisy/missing graph areas.
 3. Propose a JSON rules array with `memory.propose_graph_update`.
 4. Human reviews the Memory Inbox item.
 5. Human applies the graph rules from the Inbox or edits them in Settings.
 
-MCP proposal example:
+Authenticated daemon proposal example:
 
 ```json
 {
@@ -144,7 +144,7 @@ MCP proposal example:
 }
 ```
 
-Direct MCP settings update, only when the user explicitly approves it:
+Direct daemon JSON-RPC settings update, only when the user explicitly approves it:
 
 ```json
 {
@@ -161,6 +161,9 @@ Use:
 - `memory.propose_graph_update` for reviewed AI suggestions.
 - `memory.update_graph_rules` for explicit manual or approved changes.
 - `memory.get_graph` to inspect the resulting projection.
+
+These are control-plane RPC methods, not focused daily-memory MCP tools. Use the
+UI or CLI for normal graph-rule administration.
 
 ## What Not To Use Graph Rules For
 

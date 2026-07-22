@@ -11,7 +11,7 @@ import { discoverWorkspaceTests, mapSourceToCompiled } from "./test-discovery.mj
 const RUNNER_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "run-tests.mjs");
 
 function makeFixtureRepo() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "aimem-runner-fixture-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "zharwing-runner-fixture-"));
   mkdirSync(path.join(root, "apps"), { recursive: true });
   mkdirSync(path.join(root, "packages"), { recursive: true });
   return root;
@@ -139,7 +139,7 @@ test("discovery skips symlinked directories", { skip: process.platform === "win3
   try {
     const dir = addWorkspace(root, "packages/lib");
     writeFileSync(path.join(dir, "src", "real.test.ts"), "");
-    const outside = mkdtempSync(path.join(os.tmpdir(), "aimem-runner-outside-"));
+    const outside = mkdtempSync(path.join(os.tmpdir(), "zharwing-runner-outside-"));
     writeFileSync(path.join(outside, "linked.test.ts"), "");
     symlinkSync(outside, path.join(dir, "src", "linked"), "dir");
     try {

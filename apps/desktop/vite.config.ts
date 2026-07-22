@@ -17,5 +17,10 @@ export default defineConfig({
   server: {
     port: 5174,
     strictPort: true
+  },
+  build: {
+    // The editor and graph engines are intentionally lazy-loaded feature chunks.
+    // scripts/check-bundle-size.mjs enforces both startup and maximum chunk budgets.
+    chunkSizeWarningLimit: 1200
   }
 });

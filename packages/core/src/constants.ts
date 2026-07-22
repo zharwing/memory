@@ -100,7 +100,7 @@ export const DEFAULT_PRIVACY_POLICY: PrivacyPolicy = {
   redactSecrets: true,
   blockOnHighRiskSecrets: true,
   allowCrossProjectContext: false,
-  requireApprovalBeforeServingContext: true
+  requireApprovalBeforeServingContext: false
 };
 
 export const DEFAULT_CONTEXT_POLICY: ContextPolicy = {

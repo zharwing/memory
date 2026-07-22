@@ -1,4 +1,4 @@
-import { AimemClient } from "@zharwing/memory-api-client";
+import { ZharwingMemoryClient } from "@zharwing/memory-api-client";
 import { MEMORY_TOOLS } from "./tools.js";
 
 export interface McpToolCall {
@@ -6,7 +6,7 @@ export interface McpToolCall {
   arguments?: Record<string, unknown>;
 }
 
-export async function dispatchMemoryTool(call: McpToolCall, client = new AimemClient()) {
+export async function dispatchMemoryTool(call: McpToolCall, client = new ZharwingMemoryClient()) {
   const tool = MEMORY_TOOLS.find((candidate) => candidate.name === call.name);
   if (!tool) throw new Error(`Unknown memory tool: ${call.name}`);
   // Stdio MCP is an agent surface: every call goes through the daemon's

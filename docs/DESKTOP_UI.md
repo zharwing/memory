@@ -28,7 +28,9 @@ pnpm dev:desktop
 
 `dev:web` starts only the browser UI and expects a separately running daemon.
 `dev:desktop` starts the Tauri desktop window, runs the same React app inside
-it, and starts or reuses the local daemon automatically. Set
+it, and starts or reuses the local daemon automatically from the source
+checkout. A copied release executable needs an already-running daemon or an
+explicit `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND`. Set
 `ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=false` to disable desktop daemon autostart for
 debugging.
 
