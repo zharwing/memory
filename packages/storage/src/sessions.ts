@@ -152,6 +152,7 @@ export async function saveCheckpoint(args: {
   blockers?: string[];
   touchedFiles?: string[];
   proposedUpdateIds?: string[];
+  workstreamIds?: WorkstreamId[];
 }): Promise<Session> {
   const session = await getSession(args.project, args.sessionId);
   if (!session) throw new Error(`Session not found: ${args.sessionId}`);
@@ -173,6 +174,7 @@ export async function saveCheckpoint(args: {
     nextSteps: mergeUnique(session.nextSteps, checkpoint.nextSteps),
     blockers: mergeUnique(session.blockers, checkpoint.blockers),
     touchedFiles: mergeUnique(session.touchedFiles, checkpoint.touchedFiles),
+    workstreamIds: mergeUnique(session.workstreamIds, args.workstreamIds || []),
     checkpoints: [...session.checkpoints, checkpoint],
     body: appendCheckpointToBody(session.body ?? sessionToBody(session), checkpoint)
   };
@@ -186,6 +188,7 @@ export async function closeSession(args: {
   sessionId: SessionId;
   summary?: string;
   nextSteps?: string[];
+  workstreamIds?: WorkstreamId[];
   topics?: string[];
   summaryGeneratedAt?: string;
   summarySource?: Session["summarySource"];
@@ -203,6 +206,7 @@ export async function closeSession(args: {
     summarySource: args.summarySource || (args.summary ? "manual" : session.summarySource),
     summaryModel: args.summaryModel || session.summaryModel,
     nextSteps: mergeUnique(session.nextSteps, args.nextSteps || []),
+    workstreamIds: mergeUnique(session.workstreamIds, args.workstreamIds || []),
     updated: now,
     closed: now,
     body: appendCloseToBody(session.body ?? sessionToBody(session), {

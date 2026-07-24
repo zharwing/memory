@@ -431,7 +431,8 @@ async function checkpoint(): Promise<void> {
     summary,
     nextSteps: listFlag("next"),
     blockers: listFlag("blocker"),
-    touchedFiles: listFlag("file")
+    touchedFiles: listFlag("file"),
+    workstreamIds: listFlag("workstream")
   });
   printJson(result);
 }
@@ -442,6 +443,7 @@ async function close(): Promise<void> {
     sessionId: requireSessionId(),
     summary: args.positional.join(" ") || undefined,
     nextSteps: listFlag("next"),
+    workstreamIds: listFlag("workstream"),
     autoSummarize: !flagBool(args.flags, "no-auto-summary")
   });
   printJson(result);

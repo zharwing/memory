@@ -33,6 +33,9 @@ not reachable.
 4. Create a new session for the current day or work round with
    `memory.start_session`. If the user explicitly asks to continue the existing
    session, keep using the active session returned by startup state.
+   Startup state lists the project's open workstreams; when the task belongs to
+   one of them, pass its id in `workstreamIds`. Do not guess ids and do not ask
+   to create workstreams — creation is a human control-plane action.
 5. Search memory for the task, feature, error, file names, or workstream names.
 6. Preview context before using it in a prompt. Persist the context bundle only
    when it is actually used.
@@ -82,6 +85,8 @@ Include:
 - blockers
 - touched files when known
 - workstream ids when the task belongs to a multi-day topic
+  (`memory.save_checkpoint` and `memory.close_session` accept `workstreamIds`,
+  so attach mid-session if the workstream only became clear after start)
 
 Use durable docs for reusable project facts, decisions, commands, gotchas, and
 architecture notes. Use Memory Inbox proposals when review mode is enabled or an

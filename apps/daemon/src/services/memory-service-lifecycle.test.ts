@@ -38,22 +38,47 @@ test("MemoryService runs a project session and memory update lifecycle", async (
   });
   assert.equal(graphIncluded.includeInGraph, true);
 
+  const workstream = await service.createWorkstream({
+    projectId: project.id,
+    name: "Lifecycle Lane"
+  });
+  const closedWorkstream = await service.createWorkstream({
+    projectId: project.id,
+    name: "Finished Lane"
+  });
+  await service.updateWorkstreamStatus({
+    projectId: project.id,
+    workstreamId: closedWorkstream.id,
+    status: "done"
+  });
+  const stateWithWorkstreams = await service.getStartupState({
+    projectId: project.id,
+    workingDirectory: memoryRoot,
+    clientName: "node-test"
+  });
+  assert.equal(stateWithWorkstreams.workstreams.some((entry) => entry.id === workstream.id), true);
+  assert.equal(stateWithWorkstreams.workstreams.some((entry) => entry.id === closedWorkstream.id), false);
+
   const checkpointed = await service.saveCheckpoint({
     projectId: project.id,
     sessionId: session.id,
     summary: "Saved lifecycle checkpoint.",
     nextSteps: ["Close the session."],
-    touchedFiles: ["apps/daemon/src/memory-service.ts"]
+    touchedFiles: ["apps/daemon/src/memory-service.ts"],
+    workstreamIds: [workstream.id]
   });
   assert.equal(checkpointed.checkpoints.length, 1);
+  assert.deepEqual(checkpointed.workstreamIds, [workstream.id]);
 
   const closed = await service.closeSession({
     projectId: project.id,
     sessionId: session.id,
     summary: "Lifecycle completed.",
-    nextSteps: ["Review inbox proposal."]
+    nextSteps: ["Review inbox proposal."],
+    workstreamIds: [workstream.id]
   });
   assert.equal(closed.status, "closed");
+  assert.deepEqual(closed.workstreamIds, [workstream.id]);
 
   const doc = await service.createDocument({
     projectId: project.id,

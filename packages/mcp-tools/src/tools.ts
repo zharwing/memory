@@ -18,7 +18,7 @@ export interface McpToolDefinition {
  */
 export const MEMORY_TOOLS: McpToolDefinition[] = [
   tool("memory.health", "Check that the local Zharwing Memory service is available.", {}),
-  tool("memory.get_startup_state", "Resolve the current project and return its active, latest, and recent sessions.", {
+  tool("memory.get_startup_state", "Resolve the current project and return its active, latest, and recent sessions plus the open workstreams available for session attachment.", {
     workingDirectory: { type: "string" },
     projectId: { type: "string" },
     clientName: { type: "string" }
@@ -68,13 +68,15 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     nextSteps: { type: "array", items: { type: "string" } },
     blockers: { type: "array", items: { type: "string" } },
     touchedFiles: { type: "array", items: { type: "string" } },
-    proposedUpdateIds: { type: "array", items: { type: "string" } }
+    proposedUpdateIds: { type: "array", items: { type: "string" } },
+    workstreamIds: { type: "array", items: { type: "string" } }
   }, ["projectId", "sessionId", "summary"]),
   tool("memory.close_session", "Close a session with its outcome and concrete next steps.", {
     projectId: { type: "string" },
     sessionId: { type: "string" },
     summary: { type: "string" },
     nextSteps: { type: "array", items: { type: "string" } },
+    workstreamIds: { type: "array", items: { type: "string" } },
     autoSummarize: { type: "boolean" }
   }, ["projectId", "sessionId"])
 ];

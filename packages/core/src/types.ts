@@ -446,6 +446,7 @@ export interface StartupState {
   activeSession?: Session;
   latestSession?: Session;
   recentSessions: Session[];
+  workstreams: Workstream[];
   recommendedAction:
     | "resume-active"
     | "resume-latest"

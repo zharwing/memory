@@ -97,6 +97,7 @@ export class SessionService {
     blockers?: string[];
     touchedFiles?: string[];
     proposedUpdateIds?: string[];
+    workstreamIds?: string[];
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     return saveCheckpoint({ project, ...params });
@@ -119,6 +120,7 @@ export class SessionService {
     sessionId: string;
     summary?: string;
     nextSteps?: string[];
+    workstreamIds?: string[];
     autoSummarize?: boolean;
   }) {
     const project = await resolveProject(this.registry, params.projectId);

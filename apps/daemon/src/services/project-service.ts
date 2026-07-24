@@ -63,6 +63,7 @@ export class ProjectService {
         repoRoot: detected?.repoRoot,
         detectedBranch: detected?.detectedBranch,
         recentSessions: [],
+        workstreams: [],
         recommendedAction: "offer-create-project",
         contextReadiness: "needs-project",
         safetyStatus: "clean",
@@ -74,6 +75,10 @@ export class ProjectService {
     const sessions = await listProjectSessions(project);
     const activeSession = await getActiveSession(project);
     const latestSession = sessions[0];
+    // Open lanes only: closed/archived workstreams are not attachment targets.
+    const workstreams = (await listProjectWorkstreams(project)).filter(
+      (workstream) => workstream.status === "active" || workstream.status === "paused"
+    );
     const recommendedAction = activeSession
       ? "resume-active"
       : latestSession && project.contextPolicy.startupMode !== "always-start-new-session"
@@ -89,6 +94,7 @@ export class ProjectService {
       activeSession,
       latestSession,
       recentSessions: sessions.slice(0, 10),
+      workstreams,
       recommendedAction,
       contextReadiness: activeSession || latestSession ? "ready" : "needs-session",
       safetyStatus: "clean",

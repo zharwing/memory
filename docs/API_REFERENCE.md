@@ -136,6 +136,14 @@ graph.
 Workstreams group related sessions and documents for multi-day topics or epics.
 Repo roles/categories used by workstreams are free-form metadata.
 
+Workstream creation and administration stay in the UI/CLI control plane, but
+agents can still attach sessions to existing lanes:
+`memory.get_startup_state` returns the project's open (active or paused)
+workstreams, and `memory.start_session`, `memory.save_checkpoint`, and
+`memory.close_session` all accept a `workstreamIds` array. Checkpoint and close
+merge the ids into the session, so a session can be attached mid-work when the
+topic becomes clear, not only at start.
+
 ### Context
 
 - `memory.preview_context_bundle`
@@ -291,8 +299,8 @@ zharwing-memory start "task title" --project <id> --agent codex --workstream <wo
 zharwing-memory resume --project <id>
 zharwing-memory sessions --project <id>
 zharwing-memory context --project <id> --preview
-zharwing-memory checkpoint --project <id> --session <id> "summary"
-zharwing-memory close --project <id> --session <id> "summary"
+zharwing-memory checkpoint --project <id> --session <id> "summary" --workstream <workstream-id>
+zharwing-memory close --project <id> --session <id> "summary" --workstream <workstream-id>
 zharwing-memory assistant generate-session-summary --project <id> --session <id>
 zharwing-memory assistant generate-session-summaries --project <id>
 zharwing-memory assistant generate-session-summaries --project <id> --all
@@ -344,6 +352,11 @@ Supported MCP tools:
 - `memory.get_context_bundle`
 - `memory.save_checkpoint`
 - `memory.close_session`
+
+`memory.get_startup_state` includes the open workstreams so an agent can attach
+its session to an existing lane; `memory.start_session`,
+`memory.save_checkpoint`, and `memory.close_session` accept `workstreamIds`.
+Workstream creation remains a control-plane operation.
 
 Memory in the selected project is AI-visible by default. Normal session data,
 file paths, and search metadata are returned to the coding agent. Explicit
