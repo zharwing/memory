@@ -188,9 +188,11 @@ surface. Use the UI or CLI for preview and commit.
 ## After Import: Graph Rules
 
 Imports preserve original relative paths under `docs/imported/<profile>/...` or
-`sessions/imported/<profile>/...`. The graph projection can use those paths to
-create useful context hubs such as packages, services, domains, teams, or
-diagram groups.
+`sessions/imported/<profile>/...`. The graph projection can use document paths
+to create useful context hubs such as packages, services, domains, teams, or
+diagram groups. Imported sessions default to **Include in graph** off, so their
+paths and other session-derived relationships contribute only after a user
+explicitly enables the session from **Work -> Sessions**.
 
 If the Graph page is too flat after an import, add project graph rules manually
 in **Settings -> Project -> Graph Rules**. See [Graph Rules](GRAPH_RULES.md).
@@ -201,6 +203,8 @@ in **Settings -> Project -> Graph Rules**. See [Graph Rules](GRAPH_RULES.md).
   `sessions/imported/<profile>/...`.
 - Imported sessions are closed by default unless an import profile explicitly
   says otherwise.
+- Imported sessions default to `include_in_graph: false` and remain out of the
+  graph until a user opts them in individually.
 - The importer does not bulk-load old session bodies as active sessions. It
   imports them as searchable, readable historical sessions.
 - The importer does not replace external task systems. It is a durable local

@@ -103,6 +103,8 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.getContextBundle(requireParams(params, method));
     case "memory.save_checkpoint":
       return service.saveCheckpoint(requireParams(params, method));
+    case "memory.update_session_graph_visibility":
+      return service.updateSessionGraphVisibility(requireParams(params, method));
     case "memory.close_session":
       return service.closeSession(requireParams(params, method));
     case "memory.generate_session_summary":

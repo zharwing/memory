@@ -113,6 +113,7 @@ classDiagram
     +string workingDirectory
     +string branch
     +string taskTitle
+    +boolean includeInGraph
     +SessionStatus status
     +SessionCheckpoint[] checkpoints
   }
@@ -218,6 +219,7 @@ erDiagram
     string project_id FK
     string status
     string task_title
+    boolean include_in_graph
     string branch
     string agent
     string started

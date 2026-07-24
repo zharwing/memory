@@ -23,7 +23,9 @@ of stacking duplicate approvals in Inbox.
 Sessions are not shown as normal graph nodes by default. A session is activity
 history and provenance, not durable project structure. Closed sessions should
 receive searchable TLDR metadata, and durable docs/relationships should carry
-the long-lived project knowledge.
+the long-lived project knowledge. A user can explicitly enable **Include in
+graph** for an important session; only then are its node and derived
+relationships added to the normal graph.
 
 The URL keeps the active project, library section, and focus, for example:
 
@@ -237,7 +239,8 @@ Sessions are summarized separately from graph relationships. On close, Zharwing 
 generates a compact searchable TLDR for the session when a local assistant
 provider is configured. If no safe local provider is available, it writes a
 deterministic metadata summary instead. The summary is stored on the session
-frontmatter/body, not as a graph node.
+frontmatter/body, not as a graph node. Generating a TLDR does not opt the session
+into Graph; the separate **Include in graph** setting controls that projection.
 
 Session TLDR metadata includes:
 

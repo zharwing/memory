@@ -79,6 +79,7 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   "memory.update_memory_write_policy": ["projectId"],
   "memory.update_semantic_edge_status": ["projectId", "edgeIds", "status"],
   "memory.update_semantic_graph_settings": ["projectId", "settings"],
+  "memory.update_session_graph_visibility": ["projectId", "sessionId", "includeInGraph"],
   "memory.update_workstream_status": ["projectId", "workstreamId", "status"],
   "memory.validate_project": ["projectId"],
 };

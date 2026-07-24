@@ -41,7 +41,22 @@ export const SessionsScreen = observer(function SessionsScreen() {
               <KeyValue label="TLDR source" value={selectedSession.summarySource || "Not generated"} />
               <KeyValue label="Generated" value={selectedSession.summaryGeneratedAt || "Never"} />
               <KeyValue label="Topics" value={selectedSession.topics?.join(", ") || "None"} />
+              <KeyValue label="Graph" value={selectedSession.includeInGraph ? "Included" : "Not included"} />
             </div>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(selectedSession.includeInGraph)}
+                disabled={store.loading}
+                onChange={(event) =>
+                  void store.updateSessionGraphVisibility(selectedSession.id, event.target.checked)
+                }
+              />
+              <span>Include in graph</span>
+            </label>
+            <p className="panel-help">
+              Keep this off for routine history. Turn it on only when the session is important enough to appear in the project graph.
+            </p>
             <p>{selectedSession.summary || "No searchable session TLDR has been generated yet."}</p>
             <div className="button-row">
               <button

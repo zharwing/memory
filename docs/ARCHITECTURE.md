@@ -48,7 +48,7 @@ Role:
 - project switcher and project management
 - dashboard
 - repo linking
-- session management
+- session management, including human-controlled graph visibility
 - workstream management
 - context preview
 - inbox review
@@ -229,6 +229,11 @@ Default behavior is project-scoped everywhere:
 - assistant jobs
 
 All-project search should remain an explicit advanced mode.
+
+Session history and graph projection are intentionally separate concerns. All
+sessions remain stored and searchable, while the deterministic graph builder
+projects only sessions with `include_in_graph: true`. The desktop control plane
+owns that opt-in; the focused MCP tool surface does not expose it.
 
 ## Current Validation Boundary
 

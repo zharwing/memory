@@ -104,6 +104,13 @@ check.
 5. Memory writes are direct by default.
    External AI agents can write routine session progress and durable project memory directly. Memory Inbox review is an optional project setting for teams that want approval gates or for risky/uncertain updates.
 
+6. Session graph visibility is opt-in.
+   Every session remains available in Session History, search, and eligible AI
+   context. Routine sessions do not create graph nodes. A user can enable
+   **Include in graph** from **Work -> Sessions** when a session is important
+   enough to belong in the durable project map; its derived relationships are
+   included with it.
+
 ## Repository Layout
 
 ```text
@@ -229,6 +236,9 @@ save a JSON array such as:
 
 This is project configuration, not application hardcoding. Zharwing Memory matches
 rules against imported relative paths and derives context graph nodes from them.
+Imported documents participate normally. Imported sessions remain searchable
+history and default to **Include in graph** off; enable it per session before
+session metadata or its imported path contributes to the graph.
 Use Graph for memory relationships; use Diagrams for runtime architecture and
 service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
 and AI-assisted control-plane workflow.
@@ -313,7 +323,8 @@ Repos may contain:
 .zharwing/memory.json
 ```
 
-That pointer file contains only project identity and memory location.
+That pointer file contains project identity, the machine-local memory location,
+and compact context-selection limits used during project detection.
 Because the memory location is machine-local, `.zharwing/memory.json` is ignored by
 this app repo by default. Teams can decide separately whether pointer files in
 their own linked repos should be committed or kept local.
@@ -337,6 +348,8 @@ For automatic session behavior in Codex, Claude, or local agents:
 1. Start the daemon.
 2. Register the MCP adapter with `zharwing-memory mcp install auto`.
 3. Link source repos from the UI or CLI.
+   For multi-repo projects, keep **Write pointer file** enabled for every repo
+   and open a separate Codex workspace for each repo being actively changed.
 4. Generate repo bootstrap files from `templates/bootstrap/`.
 5. Optionally install `templates/skills/ai-memory-session` as a generic Codex
    skill or translate it into another agent's custom instruction format.
@@ -344,7 +357,9 @@ For automatic session behavior in Codex, Claude, or local agents:
 Agents should call `memory.get_startup_state`, read the latest previous session,
 start a fresh daily/work-round session, search memory, load context when useful,
 save checkpoints during work, and close or checkpoint at the end. See
-[Agent Automation](docs/AGENT_AUTOMATION.md).
+[Agent Automation](docs/AGENT_AUTOMATION.md). See
+[Repository Links](docs/REPOSITORIES.md#using-one-memory-project-from-several-codex-workspaces)
+for the shared-memory, separate-workspace multi-repo pattern.
 
 For localhost-only personal setups, `ZHARWING_MEMORY_AUTH_MODE=none` lets MCP clients use
 `http://127.0.0.1:37841/mcp` without a bearer token. The daemon refuses no-auth

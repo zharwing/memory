@@ -2,8 +2,8 @@
 
 The Graph page is a context map, not a storage inventory and not a service
 architecture diagram. Its job is to show which repos, workstreams, topics,
-services, packages, diagram groups, sessions, docs, and files are connected by
-usable project memory.
+services, packages, diagram groups, important sessions, docs, and files are
+connected by usable project memory.
 
 Storage ownership links such as `doc -> project` are kept for audit/debugging,
 but they are intentionally hidden from the normal context view because they only
@@ -15,7 +15,7 @@ Zharwing Memory builds the graph from deterministic project data:
 
 - linked repo metadata
 - workstream metadata
-- session metadata
+- session metadata only when the session has `include_in_graph: true`
 - document metadata
 - document topics
 - imported file paths
@@ -25,6 +25,12 @@ Zharwing Memory builds the graph from deterministic project data:
 No AI processing is required for the default graph. AI can help propose better
 rules, but those suggestions should go through the Memory Inbox unless a human
 explicitly applies them.
+
+Routine sessions stay in searchable Session History and do not create graph
+nodes. On the Sessions screen, enable **Include in graph** for a session that is
+important enough to belong in the durable project map. The setting also controls
+all task, touched-file, repo, workstream, and document relationships derived from
+that session.
 
 ## Manual Use
 

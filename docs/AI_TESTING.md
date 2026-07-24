@@ -219,7 +219,8 @@ limits, and provider JSON mode are under **Advanced**.
 ## Session TLDR Smoke Test
 
 Session TLDR generation is separate from semantic graph relationships. It keeps
-sessions searchable without showing sessions as normal graph nodes.
+sessions searchable while graph visibility remains controlled by the session's
+**Include in graph** flag.
 
 From the UI:
 
@@ -229,6 +230,10 @@ From the UI:
 4. Open **Work -> Sessions**.
 5. Confirm the selected session has a TLDR source, generated timestamp, topics,
    and summary text.
+6. Confirm **Include in graph** is off by default, then enable it and verify the
+   session appears in Graph. Disable it again and verify its session-derived
+   node and relationships disappear without removing it from Session History or
+   search.
 
 Manual and bulk paths:
 
@@ -253,7 +258,8 @@ Pass criteria:
 
 - The session Markdown frontmatter includes `summary_generated_at`.
 - Search finds the session by generated summary text or generated topics.
-- The main Graph does not show sessions as ordinary relationship nodes.
+- The main Graph excludes a session while **Include in graph** is off and shows
+  it, together with its derived relationships, while the flag is on.
 - If no safe local provider is configured, the session still gets a
   deterministic TLDR instead of failing closeout.
 

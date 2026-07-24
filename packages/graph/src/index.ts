@@ -26,6 +26,9 @@ export function buildProjectGraph(input: BuildGraphInput): ProjectGraph {
   const edges: GraphEdge[] = [];
   const repoReferences: RepoGraphReference[] = [];
   const graphRules = graphRulesForProject(input.project);
+  const includedSessionIds = new Set(
+    input.sessions.filter((session) => session.includeInGraph).map((session) => session.id)
+  );
 
   addNode(nodes, {
     id: `project:${input.project.id}`,
@@ -66,6 +69,7 @@ export function buildProjectGraph(input: BuildGraphInput): ProjectGraph {
   }
 
   for (const session of input.sessions) {
+    if (!session.includeInGraph) continue;
     const sessionId = `session:${session.id}`;
     addNode(nodes, {
       id: sessionId,
@@ -171,6 +175,7 @@ export function buildProjectGraph(input: BuildGraphInput): ProjectGraph {
     }
 
     for (const relatedSession of doc.relatedSessions) {
+      if (!includedSessionIds.has(relatedSession)) continue;
       edges.push(edge(input.project.id, `session:${relatedSession}`, docNodeId, "referenced", "Document metadata links to session"));
     }
     for (const relatedFile of doc.relatedFiles) {

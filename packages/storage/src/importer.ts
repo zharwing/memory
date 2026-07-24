@@ -409,6 +409,7 @@ async function commitSession(args: {
     updated: scalar(parsed.frontmatter.updated) || scalar(parsed.frontmatter.closed) || started,
     closed: status === "closed" ? scalar(parsed.frontmatter.closed) || scalar(parsed.frontmatter.updated) || started : undefined,
     taskTitle: scalar(parsed.frontmatter.task_title) || args.candidate.title,
+    includeInGraph: false,
     goal: scalar(parsed.frontmatter.goal),
     summary: scalar(parsed.frontmatter.summary) || inferSummary(parsed.body),
     topics: arrayOfStrings(parsed.frontmatter.topics),

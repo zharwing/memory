@@ -119,6 +119,14 @@ Import is preview-first:
 Imported docs become project documents. Imported sessions become closed project
 session history.
 
+## Session Graph Visibility
+
+Every session stays in Session History, search, and eligible context whether or
+not it appears in the graph. On the Sessions screen, **Include in graph** is off
+by default. Enable it only for an important session that should become a visible
+graph node. The session's derived task, touched-file, repo, workstream, and
+document relationships are included or excluded with it.
+
 ## Docs Library Editing
 
 Docs is table-first. The table is the document navigation surface, with filters

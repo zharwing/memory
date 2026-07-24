@@ -29,6 +29,14 @@ test("MemoryService runs a project session and memory update lifecycle", async (
     agent: "node-test"
   });
   assert.equal(session.status, "active");
+  assert.equal(session.includeInGraph, false);
+
+  const graphIncluded = await service.updateSessionGraphVisibility({
+    projectId: project.id,
+    sessionId: session.id,
+    includeInGraph: true
+  });
+  assert.equal(graphIncluded.includeInGraph, true);
 
   const checkpointed = await service.saveCheckpoint({
     projectId: project.id,

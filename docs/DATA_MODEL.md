@@ -16,7 +16,7 @@ Zharwing Memory stores durable project memory in Markdown and JSON files. The do
 | ProposedMemoryUpdate | Reviewable memory proposal | `inbox/proposed-updates/*.json` |
 | ContextBundle | Exact AI context package | `generated/context-bundles/*.md` |
 | AuditRecord | Bundle metadata without raw secrets | `audit/context-bundles/*.json` |
-| ProjectGraph | Derived metadata graph | generated from project/session/docs |
+| ProjectGraph | Derived metadata graph | generated from project/docs and opted-in sessions |
 | SearchIndex | Rebuildable metadata/search projection | `generated/index.json` |
 | ImportPlan | Preview of a source-folder import before commit | daemon/RPC result |
 | ImportCandidate | One proposed imported file | import plan |
@@ -124,6 +124,7 @@ started: 2026-06-08T00:00:00.000Z
 updated: 2026-06-08T00:00:00.000Z
 closed:
 task_title: Fix settings page save bug
+include_in_graph: false
 goal: Make settings save reliably
 summary:
 next_steps: []
@@ -139,6 +140,12 @@ import_source_hash:
 imported_at:
 import_profile:
 ```
+
+`include_in_graph` defaults to `false`, including for older session files where
+the field is absent. Every session remains available in Session History,
+project search, and context selection. Only sessions explicitly marked `true`
+appear as graph nodes; task, file, repo, workstream, and document relationships
+derived from those sessions follow the same opt-in rule.
 
 Filename format:
 
@@ -410,7 +417,8 @@ Graph edges:
 - `belongs-to`
 - `related`
 
-The graph is derived from project/session/document metadata. It is not the source of truth.
+The graph is derived from project/document metadata and opted-in session
+metadata. It is not the source of truth.
 Graph rules contribute extra context nodes and relationships during projection.
 
 Graph rule shape:

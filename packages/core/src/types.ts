@@ -143,6 +143,7 @@ export interface Session {
   updated: ISODateString;
   closed?: ISODateString;
   taskTitle: string;
+  includeInGraph: boolean;
   goal?: string;
   summary?: string;
   topics: string[];

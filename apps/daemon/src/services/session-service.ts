@@ -8,6 +8,7 @@ import {
   movePathToTrash,
   saveCheckpoint,
   startSession,
+  updateSessionGraphVisibility as storageUpdateSessionGraphVisibility,
   updateSessionSummary
 } from "@zharwing/memory-store";
 import {
@@ -99,6 +100,18 @@ export class SessionService {
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     return saveCheckpoint({ project, ...params });
+  }
+
+  async updateSessionGraphVisibility(params: {
+    projectId: string;
+    sessionId: string;
+    includeInGraph: boolean;
+  }) {
+    if (typeof params.includeInGraph !== "boolean") {
+      throw new Error("includeInGraph must be a boolean");
+    }
+    const project = await resolveProject(this.registry, params.projectId);
+    return storageUpdateSessionGraphVisibility({ project, ...params });
   }
 
   async closeSession(params: {

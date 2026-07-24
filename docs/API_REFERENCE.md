@@ -122,7 +122,14 @@ See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 - `memory.close_session`
 - `memory.generate_session_summary`
 - `memory.generate_session_summaries`
+- `memory.update_session_graph_visibility`
 - `memory.delete_session`
+
+`memory.update_session_graph_visibility` is a UI/control-plane operation with
+`projectId`, `sessionId`, and boolean `includeInGraph` parameters. New and
+legacy sessions default to `false`. This method is intentionally not part of
+the MCP tool list, so an agent cannot opt its own routine sessions into the
+graph.
 
 ### Workstreams
 
@@ -170,8 +177,8 @@ folder/profile pair. Conflict strategy is `skip`, `overwrite`, or `duplicate`.
 
 Search is project-scoped by default.
 `memory.get_graph` returns the derived project context graph. The graph is
-rebuilt from project/session/document metadata and `project.graphRules`; it is
-not the source of truth.
+rebuilt from project/document metadata, explicitly opted-in session metadata,
+and `project.graphRules`; it is not the source of truth.
 
 `memory.update_graph_rules` replaces the project's deterministic graph
 extraction rules. Use it for manual settings saves or explicitly approved

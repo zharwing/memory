@@ -33,7 +33,8 @@ This folder contains product and engineering documentation for the Zharwing Memo
   First-time setup, daily coding, project return, context preview, inbox review, assistant workflows, backup, and recovery.
 
 - [Desktop UI](DESKTOP_UI.md)
-  Browser and Tauri runtime modes, lightweight sidebar model, first-run setup, import workflow, and Trash behavior.
+  Browser and Tauri runtime modes, lightweight sidebar model, first-run setup,
+  import workflow, opt-in session graph visibility, and Trash behavior.
 
 - [Diagrams](DIAGRAMS.md)
   Mermaid diagrams: architecture, UML class diagram, ERD, sequence diagrams, state machines, user flow, context pipeline, storage layout, and backup flow.
@@ -51,7 +52,9 @@ This folder contains product and engineering documentation for the Zharwing Memo
   Generic Markdown import profiles, preview/commit workflow, CLI examples, and daemon control-plane usage.
 
 - [Graph Rules](GRAPH_RULES.md)
-  Manual and AI-assisted control-plane workflows for mapping imported folder layouts into useful context graph nodes.
+  Manual and AI-assisted control-plane workflows for mapping imported folder
+  layouts into useful context graph nodes, including the opt-in rule for
+  session nodes.
 
 - [Semantic Graph Analysis](SEMANTIC_GRAPH.md)
   Optional LLM-assisted relationship analysis, review modes, local provider setup, approval flow, and storage.

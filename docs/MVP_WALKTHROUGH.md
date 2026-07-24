@@ -45,6 +45,8 @@ For a multi-repo product:
 8. Preview old memory folders with `Memory Docs`.
 9. Preview old session folders with `Session History`.
 10. Commit only after the preview counts and samples look right.
+11. Open **Work -> Sessions** and enable **Include in graph** only for imported
+    sessions important enough to belong in the project map.
 
 ## Create Project Memory
 
@@ -111,6 +113,10 @@ pnpm dev:cli checkpoint --project my-app --session session-id "Implemented the s
 ```text
 pnpm dev:cli close --project my-app --session session-id "Save bug fixed; next step is regression coverage"
 ```
+
+Closed sessions remain searchable history. In the UI, **Include in graph** is
+off by default; enable it from **Work -> Sessions** only for sessions that should
+create graph nodes and derived relationships.
 
 ## Review Memory Inbox
 

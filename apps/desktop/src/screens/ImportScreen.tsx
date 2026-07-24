@@ -127,7 +127,9 @@ export const ImportScreen = observer(function ImportScreen() {
           <KeyValue label="Documents" value={store.importResult.documents || 0} />
           <KeyValue label="Sessions" value={store.importResult.sessions || 0} />
           <KeyValue label="Skipped" value={store.importResult.skipped || 0} />
-          <p className="panel-help">Imported items are now available from Sessions, Docs Library, Search, Graph, and Context Preview.</p>
+          <p className="panel-help">
+            Imported items are now available in Session History, Docs Library, Search, and Context Preview. Documents can appear in Graph immediately; imported sessions stay out until you enable Include in graph for each important session.
+          </p>
         </Panel>
       ) : null}
     </Screen>

@@ -738,6 +738,18 @@ export class RootStore {
     });
   }
 
+  async updateSessionGraphVisibility(sessionId: string, includeInGraph: boolean) {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      await this.client.call("memory.update_session_graph_visibility", {
+        projectId: this.selectedProjectId,
+        sessionId,
+        includeInGraph
+      });
+      await this.refreshProject();
+    });
+  }
+
   async deleteDocument(documentId: string) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {

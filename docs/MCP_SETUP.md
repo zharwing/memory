@@ -134,6 +134,13 @@ file paths, and routine memory metadata are available to Codex without a
 per-request approval prompt. Explicit exclusions and secret scanning still
 apply to search and generated context.
 
+For a multi-repo project, write `.zharwing/memory.json` in every linked repo by
+leaving **Write pointer file** enabled when linking it. Codex can then open any
+one of those repos and resolve the same shared memory project. The memory scope
+can span all linked repos, but the Codex workspace and filesystem permissions
+still belong to the folder opened in that Codex window. See
+[Repository Links](REPOSITORIES.md#using-one-memory-project-from-several-codex-workspaces).
+
 ## Manual Codex Config
 
 No-auth localhost HTTP config:

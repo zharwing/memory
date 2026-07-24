@@ -181,6 +181,10 @@ export class MemoryService {
     return this.sessions.saveCheckpoint(params);
   }
 
+  async updateSessionGraphVisibility(params: Parameters<SessionService["updateSessionGraphVisibility"]>[0]) {
+    return this.sessions.updateSessionGraphVisibility(params);
+  }
+
   async closeSession(params: Parameters<SessionService["closeSession"]>[0]) {
     return this.sessions.closeSession(params);
   }

@@ -50,6 +50,7 @@ export async function startSession(args: {
     started: now,
     updated: now,
     taskTitle,
+    includeInGraph: false,
     goal: args.goal,
     topics: [],
     nextSteps: [],
@@ -97,6 +98,7 @@ export async function writeSession(session: Session, body?: string): Promise<voi
       updated: session.updated,
       closed: session.closed,
       task_title: session.taskTitle,
+      include_in_graph: session.includeInGraph,
       goal: session.goal,
       summary: session.summary,
       topics: session.topics,
@@ -245,6 +247,22 @@ export async function updateSessionSummary(args: {
   return next;
 }
 
+export async function updateSessionGraphVisibility(args: {
+  project: Project;
+  sessionId: SessionId;
+  includeInGraph: boolean;
+}): Promise<Session> {
+  const session = await getSession(args.project, args.sessionId);
+  if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+
+  const next: Session = {
+    ...session,
+    includeInGraph: args.includeInGraph
+  };
+  await writeSession(next);
+  return next;
+}
+
 export async function readSession(filePath: string): Promise<Session> {
   const raw = await readText(filePath);
   const parsed = parseMarkdown(raw);
@@ -263,6 +281,7 @@ export async function readSession(filePath: string): Promise<Session> {
     updated: String(fm.updated || fm.started || ""),
     closed: stringOrUndefined(fm.closed),
     taskTitle: String(fm.task_title || path.basename(filePath, ".md")),
+    includeInGraph: fm.include_in_graph === true,
     goal: stringOrUndefined(fm.goal),
     summary: stringOrUndefined(fm.summary),
     topics: arrayOfStrings(fm.topics),

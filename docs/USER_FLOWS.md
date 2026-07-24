@@ -18,6 +18,20 @@ Goal: create a memory project without doing deep codebase analysis.
 
 No deep codebase scan happens during project creation.
 
+## Multi-Repo Codex Project
+
+1. User creates one memory project for the product or program.
+2. User links each Git repo root with **Write pointer file** enabled. A monorepo
+   is linked once at its root.
+3. Each repo receives `.zharwing/memory.json` pointing to the same memory
+   project.
+4. User opens Codex in the repo currently being changed.
+5. Codex resolves the shared memory project from that repo's pointer and can use
+   project-wide sessions, docs, search, and context.
+6. For another repo, user opens a separate Codex window or thread rooted there.
+7. Zharwing shares memory across those sessions, but does not broaden either
+   Codex workspace's filesystem access.
+
 ## Desktop Navigation
 
 1. User selects a project from the project switcher at the top of the sidebar.
@@ -46,6 +60,19 @@ No deep codebase scan happens during project creation.
 9. External AI saves checkpoints after meaningful progress.
 10. External AI closes the session with next steps.
 11. Durable updates are written directly by default. Review-mode or risky updates go to Memory Inbox.
+
+## Session History And Graph Visibility
+
+1. User opens **Work -> Sessions** and selects a session.
+2. Session remains available in history, search, and eligible context regardless
+   of graph visibility.
+3. **Include in graph** is off for new, legacy, and imported sessions by default.
+4. User enables the flag only when the session is important enough for the
+   durable project map.
+5. Graph adds the session node and its task, touched-file, repo, workstream, and
+   document relationships.
+6. User can disable the flag later; Graph removes those session-derived nodes
+   and relationships without deleting the session history.
 
 ## MCP Agent Startup
 

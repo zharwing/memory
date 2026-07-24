@@ -13,6 +13,7 @@ import {
   prepareProjectCreation,
   saveCheckpoint,
   startSession,
+  updateSessionGraphVisibility,
   writeSession
 } from "./index.js";
 
@@ -43,6 +44,18 @@ test("sessions preserve body text while checkpointing and closing", async (t) =>
   assert.ok(afterWrite);
   assert.equal((afterWrite.body || "").includes("Markdown separator that must survive"), true);
   assert.equal((afterWrite.body || "").includes("---"), true);
+  assert.equal(afterWrite.includeInGraph, false);
+
+  const includedInGraph = await updateSessionGraphVisibility({
+    project,
+    sessionId: session.id,
+    includeInGraph: true
+  });
+  assert.equal(includedInGraph.includeInGraph, true);
+  assert.equal(
+    (await listProjectSessions(project)).find((item) => item.id === session.id)?.includeInGraph,
+    true
+  );
 
   const checkpointed = await saveCheckpoint({
     project,
@@ -93,6 +106,23 @@ test("session filenames do not overwrite same-title sessions", async (t) => {
   assert.notEqual(first.filePath, second.filePath);
   assert.ok(second.filePath);
   assert.match(path.basename(second.filePath), /-2\.md$/);
+});
+
+test("legacy sessions without graph visibility metadata stay out of the graph", async (t) => {
+  const { project } = await createTempProject(t, "Legacy Session Graph Visibility");
+  const session = await startSession({
+    project,
+    repoPath: project.memoryRoot,
+    workingDirectory: project.memoryRoot,
+    taskTitle: "Legacy session"
+  });
+  assert.ok(session.filePath);
+
+  const raw = await fs.readFile(session.filePath, "utf8");
+  await fs.writeFile(session.filePath, raw.replace(/^include_in_graph: false\r?\n/m, ""), "utf8");
+
+  const legacy = (await listProjectSessions(project)).find((item) => item.id === session.id);
+  assert.equal(legacy?.includeInGraph, false);
 });
 
 test("documents round-trip Markdown body and metadata", async (t) => {
