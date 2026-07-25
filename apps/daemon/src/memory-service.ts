@@ -177,6 +177,10 @@ export class MemoryService {
     return this.sessions.getLatestSession(params);
   }
 
+  async getSessionDetail(params: Parameters<SessionService["getSessionDetail"]>[0]) {
+    return this.sessions.getSessionDetail(params);
+  }
+
   async saveCheckpoint(params: Parameters<SessionService["saveCheckpoint"]>[0]) {
     return this.sessions.saveCheckpoint(params);
   }

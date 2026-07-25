@@ -61,6 +61,7 @@ test("the MCP surface exposes exactly the daily AI memory loop", () => {
     "memory.get_context_bundle",
     "memory.get_latest_session",
     "memory.get_recent_sessions",
+    "memory.get_session_detail",
     "memory.get_startup_state",
     "memory.health",
     "memory.preview_context_bundle",
@@ -115,6 +116,8 @@ test("MCP supports the complete startup, session, checkpoint, and closeout loop"
   assert.equal(startup.ok, true);
   assert.equal((startup.result as any).project.id, project.id);
   assert.equal((startup.result as any).activeSession.id, session.id);
+  assert.equal("body" in (startup.result as any).activeSession, false);
+  assert.equal("checkpoints" in (startup.result as any).activeSession, false);
 
   const latest = await dispatchAgentRpc(service, {
     id: 4,
@@ -130,8 +133,22 @@ test("MCP supports the complete startup, session, checkpoint, and closeout loop"
   });
   assert.deepEqual((recent.result as any[]).map((item) => item.id), [session.id]);
 
-  const closed = await dispatchAgentRpc(service, {
+  const detail = await dispatchAgentRpc(service, {
     id: 6,
+    method: "memory.get_session_detail",
+    params: {
+      projectId: project.id,
+      sessionId: session.id,
+      sections: ["body", "checkpoints"],
+      checkpointLimit: 1
+    }
+  });
+  assert.equal(detail.ok, true);
+  assert.match((detail.result as any).body, /Startup and session creation work/);
+  assert.equal((detail.result as any).checkpoints.length, 1);
+
+  const closed = await dispatchAgentRpc(service, {
+    id: 7,
     method: "memory.close_session",
     params: { projectId: project.id, sessionId: session.id, summary: "MCP loop complete.", autoSummarize: false }
   });

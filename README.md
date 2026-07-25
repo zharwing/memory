@@ -44,13 +44,14 @@ the focused MCP surface as follows:
 | Capability | Supported MCP tool |
 | --- | --- |
 | Resolve startup state | `memory.get_startup_state` |
-| Read previous work | `memory.get_latest_session`, `memory.get_recent_sessions` |
+| Read compact previous-work summaries | `memory.get_startup_state`, `memory.get_latest_session`, `memory.get_recent_sessions` |
+| Read selected full session history | `memory.get_session_detail` |
 | Start today's work record | `memory.start_session` |
 | Search decisions, fixes, commands, and notes | `memory.search` |
 | Save progress | `memory.save_checkpoint` |
 | Record completion and next steps | `memory.close_session` |
 
-Context preview/load and health checks complete the ten-tool surface. Project
+Context preview/load and health checks complete the eleven-tool surface. Project
 creation, repository linking, imports, graph settings, backups, and destructive
 operations remain UI/CLI control-plane actions by design; they are not missing
 daily-memory features.
@@ -80,7 +81,7 @@ surface):
 Current Windows-checkout validation includes TypeScript typecheck, the complete
 test suite and coverage thresholds, desktop contract tests, the Vite production
 build with bundle budgets, a real Edge app-shell smoke, Rust tests, a packaged
-Windows executable, source-artifact checks, and a live ten-tool MCP doctor
+Windows executable, source-artifact checks, and a live eleven-tool MCP doctor
 check.
 
 ## Product Principles
@@ -354,9 +355,10 @@ For automatic session behavior in Codex, Claude, or local agents:
 5. Optionally install `templates/skills/ai-memory-session` as a generic Codex
    skill or translate it into another agent's custom instruction format.
 
-Agents should call `memory.get_startup_state`, read the latest previous session,
-start a fresh daily/work-round session, search memory, load context when useful,
-save checkpoints during work, and close or checkpoint at the end. See
+Agents should call `memory.get_startup_state` once per work round, use its
+compact carry-forward summaries, start a fresh daily/work-round session, search
+memory, request selected session detail or context only when needed, save
+checkpoints during work, and close or checkpoint at the end. See
 [Agent Automation](docs/AGENT_AUTOMATION.md). See
 [Repository Links](docs/REPOSITORIES.md#using-one-memory-project-from-several-codex-workspaces)
 for the shared-memory, separate-workspace multi-repo pattern.
@@ -383,6 +385,7 @@ zharwing-memory create-workstream "Huddle" --project my-app --topic huddle,realt
 zharwing-memory workstreams --project my-app
 zharwing-memory start "Fix settings page save bug" --project my-app --agent codex
 zharwing-memory sessions --project my-app
+zharwing-memory session session-id --project my-app --section body
 zharwing-memory context --project my-app --preview
 zharwing-memory checkpoint --project my-app --session session-id "Implemented save flow"
 zharwing-memory close --project my-app --session session-id "Save bug fixed"
@@ -411,13 +414,14 @@ zharwing-memory assistant classify-doc --project my-app --doc doc-id
 
 ## MCP Tools
 
-The MCP adapter exposes exactly ten project-scoped tools for the daily
+The MCP adapter exposes exactly eleven project-scoped tools for the daily
 coding-memory loop:
 
 - `memory.health`
 - `memory.get_startup_state`
 - `memory.get_latest_session`
 - `memory.get_recent_sessions`
+- `memory.get_session_detail`
 - `memory.start_session`
 - `memory.search`
 - `memory.preview_context_bundle`

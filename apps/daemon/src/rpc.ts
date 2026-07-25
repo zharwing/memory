@@ -94,6 +94,8 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.getActiveSession(requireParams(params, method));
     case "memory.get_latest_session":
       return service.getLatestSession(requireParams(params, method));
+    case "memory.get_session_detail":
+      return service.getSessionDetail(requireParams(params, method));
     case "memory.get_recent_sessions":
     case "memory.list_project_sessions":
       return service.listSessions(requireParams(params, method));

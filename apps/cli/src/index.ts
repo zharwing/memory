@@ -54,6 +54,8 @@ async function run(): Promise<void> {
       return printJson(await client.call("memory.get_startup_state", { projectId: requireProjectId() }));
     case "sessions":
       return sessions();
+    case "session":
+      return sessionDetail();
     case "context":
       return context();
     case "checkpoint":
@@ -410,6 +412,20 @@ async function sessions(): Promise<void> {
   );
 }
 
+async function sessionDetail(): Promise<void> {
+  const sessionId = args.positional[0] || flagString(args.flags, "session");
+  if (!sessionId) throw new Error("Missing session id.");
+  const sections = optionalListFlag("section") || ["body"];
+  const result = await client.call("memory.get_session_detail", {
+    projectId: requireProjectId(),
+    sessionId,
+    sections,
+    checkpointLimit: numericFlag("limit"),
+    cursor: flagString(args.flags, "cursor")
+  });
+  printJson(result);
+}
+
 async function context(): Promise<void> {
   const method = flagBool(args.flags, "preview") ? "memory.preview_context_bundle" : "memory.get_context_bundle";
   const bundle = (await client.call(method, {
@@ -429,8 +445,8 @@ async function checkpoint(): Promise<void> {
     projectId: requireProjectId(),
     sessionId: requireSessionId(),
     summary,
-    nextSteps: listFlag("next"),
-    blockers: listFlag("blocker"),
+    nextSteps: optionalListFlag("next"),
+    blockers: optionalListFlag("blocker"),
     touchedFiles: listFlag("file"),
     workstreamIds: listFlag("workstream")
   });
@@ -442,7 +458,8 @@ async function close(): Promise<void> {
     projectId: requireProjectId(),
     sessionId: requireSessionId(),
     summary: args.positional.join(" ") || undefined,
-    nextSteps: listFlag("next"),
+    nextSteps: optionalListFlag("next"),
+    blockers: optionalListFlag("blocker"),
     workstreamIds: listFlag("workstream"),
     autoSummarize: !flagBool(args.flags, "no-auto-summary")
   });
@@ -558,6 +575,13 @@ function requireDocId(): string {
 function listFlag(name: string): string[] {
   const value = flagString(args.flags, name);
   return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
+}
+
+function optionalListFlag(name: string): string[] | undefined {
+  if (!(name in args.flags)) return undefined;
+  const value = args.flags[name];
+  if (value === true) return [];
+  return String(value).split(",").map((item) => item.trim()).filter(Boolean);
 }
 
 function numericFlag(name: string): number | undefined {

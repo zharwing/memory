@@ -108,16 +108,18 @@ Enable the authenticated daily-memory surface in the daemon and stdio adapter:
 ZHARWING_MEMORY_AGENT_SURFACE=enabled
 ```
 
-The MCP server exposes exactly ten tools: health, startup state, latest/recent
-sessions, session start, project search, context preview/load, checkpoint, and
-closeout. Administrative and destructive daemon methods are not advertised.
+The MCP server exposes exactly eleven tools: health, compact startup state,
+latest/recent summaries, explicit session detail, session start, project
+search, context preview/load, checkpoint, and closeout. Administrative and
+destructive daemon methods are not advertised.
 
 Current status: all daily-memory capabilities are implemented.
 
 | What Codex needs | Tool |
 | --- | --- |
 | Determine the opened project and prior state | `memory.get_startup_state` |
-| Read the last work summaries, tasks, and blockers | `memory.get_latest_session`, `memory.get_recent_sessions` |
+| Read compact prior-work summaries | `memory.get_startup_state`, `memory.get_latest_session`, `memory.get_recent_sessions` |
+| Read selected body/checkpoint history | `memory.get_session_detail` |
 | Create a memory record for this work round | `memory.start_session` |
 | Find earlier decisions, fixes, commands, and notes | `memory.search` |
 | Preview or load relevant context | `memory.preview_context_bundle`, `memory.get_context_bundle` |
@@ -215,7 +217,8 @@ Common layouts:
   paths through interop.
 - WSL AI client + Windows daemon: first run `zharwing-memory mcp doctor` from WSL. If the
   daemon is not reachable at `127.0.0.1`, run the daemon in WSL or launch a
-  stdio bridge from Windows.
+  stdio bridge from Windows. Startup accepts WSL `/mnt/<drive>/...` working
+  directories and normalizes them before Windows pointer/repository detection.
 - Windows installer + WSL clients: run `zharwing-memory mcp install auto` inside WSL
   separately. A Windows process should not guess a WSL distro, user, or tool
   path.

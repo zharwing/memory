@@ -2,12 +2,12 @@ export const MEMORY_PROMPTS = [
   {
     uri: "memory://prompts/start-project-work",
     name: "Start Project Work",
-    text: "Call memory.get_startup_state. If the repo is registered, read the latest session, start a fresh project-scoped session, preview context, then continue. If it is unregistered, ask the user to create or link it through the UI or CLI."
+    text: "Call memory.get_startup_state once for this work round. Use its compact carry-forward summaries, start a fresh project-scoped session unless the user explicitly asked to resume, search before requesting detail, and preview context only when compact state is insufficient. If the repo is unregistered, ask the user to create or link it through the UI or CLI."
   },
   {
     uri: "memory://prompts/save-progress",
     name: "Save Progress",
-    text: "After meaningful progress, call memory.save_checkpoint with a concise summary, touched files, blockers, and next steps."
+    text: "After meaningful progress, call memory.save_checkpoint with a concise summary and checkpoint-local touched files. Supplied nextSteps and blockers replace current state; an empty array clears it; omission preserves it."
   },
   {
     uri: "memory://prompts/close-session",

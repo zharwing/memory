@@ -23,32 +23,40 @@ Prefer MCP tools when available. If MCP is unavailable, use the `zharwing-memory
 both are unavailable, continue with local files and mention that Zharwing Memory was
 not reachable.
 
-1. Call `memory.get_startup_state` with the current working directory and client
-   name.
-2. Read the latest relevant prior session before starting today's session. Use
-   `memory.get_latest_session` or `memory.get_recent_sessions` to find the last work session, including the
-   last weekday session after weekends or gaps.
-3. Extract carry-forward context: unfinished task, next steps, blockers, touched
-   files, and important decisions.
+1. Call `memory.get_startup_state` once for the current work round with the
+   working directory and client name. Do not repeat startup on each user message.
+   A refresh is justified only when the repository/project changes, app context
+   was lost, the user explicitly asks to reload memory, or the active session was
+   closed or replaced. Pass the prior `revision` as `knownRevision` on a justified
+   refresh.
+2. Use the compact active/latest/recent summaries returned by startup as the
+   normal carry-forward context. Do not call `memory.get_latest_session` when
+   startup already supplies enough context.
+3. Extract unfinished work, current next steps, current blockers, and recently
+   touched files from the compact summaries.
 4. Create a new session for the current day or work round with
    `memory.start_session`. If the user explicitly asks to continue the existing
    session, keep using the active session returned by startup state.
    Startup state lists the project's open workstreams; when the task belongs to
    one of them, pass its id in `workstreamIds`. Do not guess ids and do not ask
    to create workstreams — creation is a human control-plane action.
-5. Search memory for the task, feature, error, file names, or workstream names.
-6. Preview context before using it in a prompt. Persist the context bundle only
-   when it is actually used.
-7. If the working directory is unregistered, ask before creating or linking a
+5. Search memory for the task, feature, error, file names, or workstream names
+   before requesting session detail.
+6. Call `memory.get_session_detail` only when compact summaries and targeted
+   search are insufficient. Request only the needed sections and page checkpoint
+   history; request a full body only when the task explicitly needs it.
+7. Preview a context bundle only when compact summaries and targeted search are
+   insufficient. Persist the bundle only when it is actually used.
+8. If the working directory is unregistered, ask before creating or linking a
    project.
 
 MCP sequence:
 
 ```text
 memory.get_startup_state
-memory.get_latest_session
 memory.start_session
 memory.search
+memory.get_session_detail
 memory.preview_context_bundle
 memory.get_context_bundle
 ```
@@ -58,9 +66,9 @@ CLI fallback:
 ```text
 zharwing-memory detect <working-directory>
 zharwing-memory resume --project <project-id>
-zharwing-memory sessions --project <project-id> --limit 1 --json
 zharwing-memory start "<task>" --project <project-id> --agent <agent-name>
 zharwing-memory search --project <project-id> "<query>"
+zharwing-memory session <session-id> --project <project-id> --section checkpoints
 zharwing-memory context --project <project-id> --preview --task "<task>"
 ```
 
@@ -87,6 +95,14 @@ Include:
 - workstream ids when the task belongs to a multi-day topic
   (`memory.save_checkpoint` and `memory.close_session` accept `workstreamIds`,
   so attach mid-session if the workstream only became clear after start)
+
+Checkpoint `nextSteps` and `blockers` describe current state. When supplied they
+replace the previous current values; an explicit empty array clears the field;
+omission preserves it. Touched files remain local to each checkpoint while the
+session keeps aggregate file metadata for search and graph consumers.
+
+When a workflow also appends a separate local session document, inspect only a
+bounded tail unless the user requests a complete review.
 
 Use durable docs for reusable project facts, decisions, commands, gotchas, and
 architecture notes. Use Memory Inbox proposals when review mode is enabled or an

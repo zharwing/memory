@@ -128,6 +128,7 @@ export interface SessionCheckpoint {
   blockers: string[];
   touchedFiles: string[];
   proposedUpdateIds: ProposedUpdateId[];
+  stateFields?: Array<"nextSteps" | "blockers">;
 }
 
 export interface Session {
@@ -164,6 +165,43 @@ export interface Session {
   importSourceHash?: string;
   importedAt?: ISODateString;
   importProfile?: string;
+  stateSemanticsVersion?: 2;
+}
+
+export interface SessionSummary {
+  id: SessionId;
+  projectId: ProjectId;
+  status: SessionStatus;
+  taskTitle: string;
+  goal?: string;
+  branch?: string;
+  agent?: string;
+  client?: string;
+  started: ISODateString;
+  updated: ISODateString;
+  closed?: ISODateString;
+  summary?: string;
+  topics: string[];
+  summaryGeneratedAt?: ISODateString;
+  summarySource?: Session["summarySource"];
+  nextSteps: string[];
+  blockers: string[];
+  touchedFiles: string[];
+  checkpointCount: number;
+  totalTouchedFiles: number;
+  workstreamIds: WorkstreamId[];
+  includeInGraph: boolean;
+  revision: string;
+}
+
+export type SessionDetailSection = "body" | "checkpoints";
+
+export interface SessionDetail {
+  schema: "zharwing.memory.session-detail.v1";
+  session: SessionSummary;
+  body?: string;
+  checkpoints?: SessionCheckpoint[];
+  nextCursor?: string;
 }
 
 export type DocumentType =
@@ -437,16 +475,44 @@ export interface ProjectCreationPreview {
   created: ISODateString;
 }
 
-export interface StartupState {
+export interface StartupProjectSummary {
+  id: ProjectId;
+  name: string;
+  updated: ISODateString;
+  repoCount: number;
+  repos: Array<Pick<RepoLink, "path" | "name" | "role">>;
+}
+
+export interface StartupWorkstreamSummary {
+  id: WorkstreamId;
+  name: string;
+  slug: string;
+  status: WorkstreamStatus;
+  summary?: string;
+  goal?: string;
+  topics: string[];
+  updated: ISODateString;
+}
+
+export interface StartupStateSnapshot {
+  schema: "zharwing.memory.startup.v2";
+  notModified?: false;
+  revision: string;
   projectStatus: "resolved" | "unregistered" | "ambiguous";
   workingDirectory?: string;
   repoRoot?: string;
   detectedBranch?: string;
-  project?: Project;
-  activeSession?: Session;
-  latestSession?: Session;
-  recentSessions: Session[];
-  workstreams: Workstream[];
+  project?: StartupProjectSummary;
+  activeSession?: SessionSummary;
+  latestSession?: SessionSummary;
+  recentSessions: SessionSummary[];
+  workstreams: StartupWorkstreamSummary[];
+  counts: {
+    sessionsTotal: number;
+    recentSessionsReturned: number;
+    workstreamsTotal: number;
+    workstreamsReturned: number;
+  };
   recommendedAction:
     | "resume-active"
     | "resume-latest"
@@ -457,6 +523,16 @@ export interface StartupState {
   safetyStatus: SafetyStatus;
   messageForClient: string;
 }
+
+export interface StartupStateNotModified {
+  schema: "zharwing.memory.startup.v2";
+  notModified: true;
+  projectId?: ProjectId;
+  sessionId?: SessionId;
+  revision: string;
+}
+
+export type StartupState = StartupStateSnapshot | StartupStateNotModified;
 
 export interface SearchResult {
   id: string;

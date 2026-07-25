@@ -68,6 +68,10 @@ export class ZharwingMemoryClient {
     return this.call("memory.get_startup_state", params);
   }
 
+  getSessionDetail(params: Record<string, unknown>) {
+    return this.call("memory.get_session_detail", params);
+  }
+
   getContextBundle(params: Record<string, unknown>) {
     return this.call("memory.get_context_bundle", params);
   }

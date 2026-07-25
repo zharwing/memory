@@ -2,8 +2,8 @@ import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
   closeSession as storageCloseSession,
   getActiveSession,
-  getLatestSession,
   getSession,
+  listProjectSessionSummaries,
   listProjectSessions,
   movePathToTrash,
   saveCheckpoint,
@@ -20,7 +20,13 @@ import {
   type SessionSummaryDraft
 } from "@zharwing/memory-assistant";
 import { applyPrivacyGate } from "@zharwing/memory-privacy";
-import type { Project, Session } from "@zharwing/memory-core";
+import type {
+  Project,
+  Session,
+  SessionDetail,
+  SessionDetailSection,
+  SessionSummary
+} from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
 
 export class SessionService {
@@ -77,8 +83,8 @@ export class SessionService {
 
   async listSessions(params: { projectId: string; limit?: number }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const sessions = await listProjectSessions(project);
-    return sessions.slice(0, params.limit || sessions.length);
+    const sessions = await listProjectSessionSummaries(project);
+    return sessions.slice(0, normalizeLimit(params.limit, sessions.length, 200));
   }
 
   async getActiveSession(params: { projectId: string }) {
@@ -86,7 +92,46 @@ export class SessionService {
   }
 
   async getLatestSession(params: { projectId: string }) {
-    return getLatestSession(await resolveProject(this.registry, params.projectId));
+    return (await listProjectSessionSummaries(
+      await resolveProject(this.registry, params.projectId)
+    ))[0];
+  }
+
+  async getSessionDetail(params: {
+    projectId: string;
+    sessionId: string;
+    sections?: SessionDetailSection[];
+    checkpointLimit?: number;
+    cursor?: string;
+  }): Promise<SessionDetail> {
+    const project = await resolveProject(this.registry, params.projectId);
+    const summaries = await listProjectSessionSummaries(project);
+    const summary = summaries.find((session) => session.id === params.sessionId);
+    if (!summary) throw new Error(`Session not found: ${params.sessionId}`);
+    const requested = normalizeDetailSections(params.sections);
+    const detail: SessionDetail = {
+      schema: "zharwing.memory.session-detail.v1",
+      session: summary
+    };
+    const fullSession = requested.size > 0
+      ? await getSession(project, params.sessionId)
+      : undefined;
+    if (requested.size > 0 && !fullSession) {
+      throw new Error(`Session not found: ${params.sessionId}`);
+    }
+    if (requested.has("body")) {
+      detail.body = fullSession?.body || "";
+    }
+    if (requested.has("checkpoints")) {
+      const limit = normalizeLimit(params.checkpointLimit, 20, 100);
+      const offset = decodeCheckpointCursor(params.cursor, summary);
+      const checkpoints = [...(fullSession?.checkpoints || [])].reverse();
+      detail.checkpoints = checkpoints.slice(offset, offset + limit);
+      if (offset + limit < checkpoints.length) {
+        detail.nextCursor = encodeCheckpointCursor(offset + limit, summary);
+      }
+    }
+    return detail;
   }
 
   async saveCheckpoint(params: {
@@ -120,6 +165,7 @@ export class SessionService {
     sessionId: string;
     summary?: string;
     nextSteps?: string[];
+    blockers?: string[];
     workstreamIds?: string[];
     autoSummarize?: boolean;
   }) {
@@ -322,5 +368,54 @@ function isLocalProviderEndpoint(endpoint: string): boolean {
     return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".localhost");
   } catch {
     return false;
+  }
+}
+
+function normalizeLimit(value: number | undefined, fallback: number, maximum: number): number {
+  if (value === undefined) return Math.min(fallback, maximum);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error("limit must be a positive integer");
+  }
+  return Math.min(value, maximum);
+}
+
+function normalizeDetailSections(input: SessionDetailSection[] | undefined): Set<SessionDetailSection> {
+  const sections = input || [];
+  const allowed = new Set<SessionDetailSection>(["body", "checkpoints"]);
+  for (const section of sections) {
+    if (!allowed.has(section)) throw new Error(`Unsupported session detail section: ${section}`);
+  }
+  return new Set(sections);
+}
+
+function encodeCheckpointCursor(offset: number, session: SessionSummary): string {
+  return Buffer.from(JSON.stringify({
+    offset,
+    revision: session.revision
+  }), "utf8").toString("base64url");
+}
+
+function decodeCheckpointCursor(cursor: string | undefined, session: SessionSummary): number {
+  if (!cursor) return 0;
+  try {
+    const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+      offset?: unknown;
+      revision?: unknown;
+    };
+    if (decoded.revision !== session.revision) {
+      throw new Error("Session changed while checkpoints were being paginated.");
+    }
+    if (!Number.isInteger(decoded.offset) || Number(decoded.offset) < 0) {
+      throw new Error("Invalid checkpoint cursor.");
+    }
+    return Number(decoded.offset);
+  } catch (error) {
+    if (error instanceof Error && (
+      error.message === "Session changed while checkpoints were being paginated." ||
+      error.message === "Invalid checkpoint cursor."
+    )) {
+      throw error;
+    }
+    throw new Error("Invalid checkpoint cursor.");
   }
 }

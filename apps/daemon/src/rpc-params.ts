@@ -35,6 +35,7 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   "memory.get_project": ["projectId"],
   "memory.get_project_summary": ["projectId"],
   "memory.get_recent_sessions": ["projectId"],
+  "memory.get_session_detail": ["projectId", "sessionId"],
   "memory.get_semantic_graph_run": ["projectId", "runId"],
   "memory.get_semantic_graph_settings": ["projectId"],
   "memory.get_semantic_graph_status": ["projectId"],

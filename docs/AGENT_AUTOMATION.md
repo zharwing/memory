@@ -106,10 +106,9 @@ The skill tells an agent to use Zharwing Memory at session start, during progres
 checkpoints, and at closeout. It should not contain private project names or
 paths.
 
-For users who prefer daily Markdown session files, configure the skill or
-bootstrap instructions to read the latest previous session first and then call
-`memory.start_session` for today's work. Use resume only when the user explicitly
-asks to continue the existing session.
+For users who prefer daily Markdown session files, use the compact carry-forward
+state returned by startup and then call `memory.start_session` for today's work.
+Use resume only when the user explicitly asks to continue the existing session.
 
 ## Agent Workflow
 
@@ -117,9 +116,9 @@ Preferred MCP flow:
 
 ```text
 memory.get_startup_state
-memory.get_latest_session
 memory.start_session
 memory.search
+memory.get_session_detail
 memory.preview_context_bundle
 memory.get_context_bundle
 memory.save_checkpoint
@@ -131,9 +130,9 @@ CLI fallback:
 ```text
 zharwing-memory detect <working-directory>
 zharwing-memory resume --project <project-id>
-zharwing-memory sessions --project <project-id> --limit 1 --json
 zharwing-memory start "<task>" --project <project-id> --agent <agent-name>
 zharwing-memory search --project <project-id> "<query>"
+zharwing-memory session <session-id> --project <project-id> --section checkpoints
 zharwing-memory context --project <project-id> --preview --task "<task>"
 zharwing-memory checkpoint --project <project-id> --session <session-id> "summary"
 zharwing-memory close --project <project-id> --session <session-id> "summary"

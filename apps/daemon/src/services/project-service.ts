@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   DEFAULT_ASSISTANT_POLICY,
@@ -9,16 +10,20 @@ import {
   type Project,
   type ProjectCreationPreview,
   type RepoLink,
-  type StartupState
+  type SessionSummary,
+  type StartupProjectSummary,
+  type StartupState,
+  type StartupStateSnapshot,
+  type StartupWorkstreamSummary
 } from "@zharwing/memory-core";
 import {
   ProjectRegistry,
   createProjectFromPreview,
   detectProject,
   ensureProjectWorkspace,
-  getActiveSession,
   linkProjectRepo,
   listProjectDocuments,
+  listProjectSessionSummaries,
   listProjectSessions,
   listProjectWorkstreams,
   listProposedUpdates,
@@ -49,7 +54,12 @@ export class ProjectService {
     return detectProject({ workingDirectory: params.workingDirectory, registry: this.registry });
   }
 
-  async getStartupState(params: { workingDirectory?: string; projectId?: string; clientName?: string }): Promise<StartupState> {
+  async getStartupState(params: {
+    workingDirectory?: string;
+    projectId?: string;
+    clientName?: string;
+    knownRevision?: string;
+  }): Promise<StartupState> {
     const workingDirectory = params.workingDirectory || process.cwd();
     const detected = params.projectId
       ? undefined
@@ -57,49 +67,70 @@ export class ProjectService {
     const projectId = params.projectId || detected?.projectId;
 
     if (!projectId) {
-      return {
+      const snapshot: Omit<StartupStateSnapshot, "revision"> = {
+        schema: "zharwing.memory.startup.v2",
         projectStatus: "unregistered",
-        workingDirectory,
-        repoRoot: detected?.repoRoot,
-        detectedBranch: detected?.detectedBranch,
+        workingDirectory: boundedString(workingDirectory, 500),
+        repoRoot: detected?.repoRoot ? boundedString(detected.repoRoot, 500) : undefined,
+        detectedBranch: detected?.detectedBranch ? boundedString(detected.detectedBranch, 240) : undefined,
         recentSessions: [],
         workstreams: [],
+        counts: {
+          sessionsTotal: 0,
+          recentSessionsReturned: 0,
+          workstreamsTotal: 0,
+          workstreamsReturned: 0
+        },
         recommendedAction: "offer-create-project",
         contextReadiness: "needs-project",
         safetyStatus: "clean",
         messageForClient: "This repo is not registered in Zharwing Memory. Offer to create or link a project."
       };
+      return withStartupRevision(snapshot, params.knownRevision);
     }
 
     const project = await this.getProject(projectId);
-    const sessions = await listProjectSessions(project);
-    const activeSession = await getActiveSession(project);
-    const latestSession = sessions[0];
+    const allSessionSummaries = await listProjectSessionSummaries(project);
+    const sessions = allSessionSummaries.map(compactStartupSession);
+    const activeSession = sessions.find((session) => session.status === "active");
+    const latestSession = sessions[0]?.id === activeSession?.id ? undefined : sessions[0];
+    const recentSessions = sessions
+      .filter((session) => session.id !== activeSession?.id && session.id !== latestSession?.id)
+      .slice(0, 3);
     // Open lanes only: closed/archived workstreams are not attachment targets.
-    const workstreams = (await listProjectWorkstreams(project)).filter(
+    const allOpenWorkstreams = (await listProjectWorkstreams(project)).filter(
       (workstream) => workstream.status === "active" || workstream.status === "paused"
     );
+    const workstreams = allOpenWorkstreams.slice(0, 12).map(compactWorkstream);
     const recommendedAction = activeSession
       ? "resume-active"
       : latestSession && project.contextPolicy.startupMode !== "always-start-new-session"
         ? "resume-latest"
         : "start-new";
 
-    return {
+    const snapshot: Omit<StartupStateSnapshot, "revision"> = {
+      schema: "zharwing.memory.startup.v2",
       projectStatus: "resolved",
-      workingDirectory,
-      repoRoot: detected?.repoRoot || project.repos[0]?.path,
-      detectedBranch: detected?.detectedBranch,
-      project,
+      workingDirectory: boundedString(workingDirectory, 500),
+      repoRoot: boundedOptionalString(detected?.repoRoot || project.repos[0]?.path, 500),
+      detectedBranch: boundedOptionalString(detected?.detectedBranch, 240),
+      project: compactProject(project),
       activeSession,
       latestSession,
-      recentSessions: sessions.slice(0, 10),
+      recentSessions,
       workstreams,
+      counts: {
+        sessionsTotal: allSessionSummaries.length,
+        recentSessionsReturned: recentSessions.length,
+        workstreamsTotal: allOpenWorkstreams.length,
+        workstreamsReturned: workstreams.length
+      },
       recommendedAction,
       contextReadiness: activeSession || latestSession ? "ready" : "needs-session",
       safetyStatus: "clean",
-      messageForClient: `Resolved Zharwing Memory project ${project.name}.`
+      messageForClient: `Resolved Zharwing Memory project ${boundedString(project.name, 160)}.`
     };
+    return withStartupRevision(snapshot, params.knownRevision);
   }
 
   async prepareProjectCreation(params: {
@@ -380,4 +411,103 @@ function normalizeAssistantRuntimeType(input: unknown, fallback: AssistantRuntim
 function normalizeOptionalString(input: unknown): string | undefined {
   const value = String(input || "").trim();
   return value || undefined;
+}
+
+function compactProject(project: Project): StartupProjectSummary {
+  return {
+    id: project.id,
+    name: boundedString(project.name, 160),
+    updated: project.updated,
+    repoCount: project.repos.length,
+    repos: project.repos.slice(0, 5).map((repo) => ({
+      path: boundedString(repo.path, 500),
+      name: repo.name ? boundedString(repo.name, 160) : undefined,
+      role: boundedString(repo.role, 80)
+    }))
+  };
+}
+
+function compactWorkstream(workstream: Awaited<ReturnType<typeof listProjectWorkstreams>>[number]): StartupWorkstreamSummary {
+  return {
+    id: workstream.id,
+    name: boundedString(workstream.name, 160),
+    slug: boundedString(workstream.slug, 160),
+    status: workstream.status,
+    summary: workstream.summary ? boundedString(workstream.summary, 500) : undefined,
+    goal: workstream.goal ? boundedString(workstream.goal, 500) : undefined,
+    topics: workstream.topics.slice(0, 5).map((topic) => boundedString(topic, 80)),
+    updated: workstream.updated
+  };
+}
+
+function compactStartupSession(session: SessionSummary): SessionSummary {
+  return {
+    ...session,
+    taskTitle: boundedString(session.taskTitle, 160),
+    goal: boundedOptionalString(session.goal, 300),
+    branch: boundedOptionalString(session.branch, 120),
+    agent: boundedOptionalString(session.agent, 120),
+    client: boundedOptionalString(session.client, 120),
+    summary: boundedOptionalString(session.summary, 600),
+    topics: session.topics.slice(0, 5).map((topic) => boundedString(topic, 50)),
+    nextSteps: session.nextSteps.slice(0, 5).map((step) => boundedString(step, 120)),
+    blockers: session.blockers.slice(0, 5).map((blocker) => boundedString(blocker, 120)),
+    touchedFiles: session.touchedFiles.slice(0, 10).map((file) => boundedString(file, 160)),
+    workstreamIds: session.workstreamIds.slice(0, 5).map((id) => boundedString(id, 100))
+  };
+}
+
+function withStartupRevision(
+  snapshot: Omit<StartupStateSnapshot, "revision">,
+  knownRevision?: string
+): StartupState {
+  const fitted: Omit<StartupStateSnapshot, "revision"> = {
+    ...snapshot,
+    recentSessions: [...snapshot.recentSessions],
+    workstreams: [...snapshot.workstreams],
+    project: snapshot.project
+      ? { ...snapshot.project, repos: [...snapshot.project.repos] }
+      : undefined,
+    counts: { ...snapshot.counts }
+  };
+  while (Buffer.byteLength(JSON.stringify(fitted), "utf8") > 15 * 1024 && fitted.recentSessions.length > 0) {
+    fitted.recentSessions.pop();
+    fitted.counts.recentSessionsReturned = fitted.recentSessions.length;
+  }
+  while (Buffer.byteLength(JSON.stringify(fitted), "utf8") > 15 * 1024 && fitted.workstreams.length > 0) {
+    fitted.workstreams.pop();
+    fitted.counts.workstreamsReturned = fitted.workstreams.length;
+  }
+  while (Buffer.byteLength(JSON.stringify(fitted), "utf8") > 15 * 1024 && fitted.project?.repos.length) {
+    fitted.project.repos.pop();
+  }
+  if (
+    Buffer.byteLength(JSON.stringify(fitted), "utf8") > 15 * 1024 &&
+    fitted.activeSession &&
+    fitted.latestSession
+  ) {
+    fitted.latestSession = undefined;
+  }
+  const revision = createHash("sha256")
+    .update(JSON.stringify(fitted))
+    .digest("hex")
+    .slice(0, 24);
+  if (knownRevision === revision) {
+    return {
+      schema: "zharwing.memory.startup.v2",
+      notModified: true,
+      projectId: fitted.project?.id,
+      sessionId: fitted.activeSession?.id || fitted.latestSession?.id,
+      revision
+    };
+  }
+  return { ...fitted, revision };
+}
+
+function boundedString(input: string, maxChars: number): string {
+  return input.length <= maxChars ? input : `${input.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
+function boundedOptionalString(input: string | undefined, maxChars: number): string | undefined {
+  return input ? boundedString(input, maxChars) : undefined;
 }

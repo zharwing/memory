@@ -31,6 +31,7 @@ Commands:
   start "task" --project <id>       Start a project-scoped session
   resume --project <id>            Show latest/active session choice
   sessions --project <id>          List project sessions
+  session <id> --project <id>      Read selected session detail
   context --project <id>           Print context bundle
   checkpoint --project <id> --session <id> "summary"
   close --project <id> --session <id> [summary]
@@ -62,6 +63,8 @@ Commands:
 Flags:
   --json                           Print raw JSON where a command normally formats output
   --preview                        Preview context without persisting bundle
+  --section <body,checkpoints>     Session detail sections
+  --cursor <cursor>                Continue paginated checkpoint history
   --mode <dry-run|review|auto>      Semantic graph analysis mode
   --changed                        Analyze changed docs only
   --node <graph-node-id>            Analyze a focused graph node neighborhood

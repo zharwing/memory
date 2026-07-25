@@ -27,3 +27,8 @@ Content-Type: application/json
 The JSON-RPC adapter should call the same `memory.*` methods listed in the API
 reference. Keep requests project-scoped unless the user explicitly asks for
 cross-project context and policy allows it.
+
+Startup returns compact summaries and a stable revision. A justified refresh
+may pass that value as `knownRevision`; unchanged state returns a minimal
+`notModified` response. Use `memory.get_session_detail` for explicitly selected
+body or paginated checkpoint history.

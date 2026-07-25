@@ -76,15 +76,18 @@ No deep codebase scan happens during project creation.
 
 ## MCP Agent Startup
 
-1. Agent calls `memory.get_startup_state`.
-2. If project is resolved, server returns active/latest/recent project sessions.
+1. Agent calls `memory.get_startup_state` once for the work round.
+2. If project is resolved, server returns bounded active/latest/recent summaries
+   and a startup revision.
 3. If project is unregistered, server recommends project creation.
 4. Agent asks the user to create or link the project through the UI or CLI.
 5. User completes project setup and restarts/retries from the linked repo.
-6. Agent reads the latest relevant previous session and extracts carry-forward
-   work.
+6. Agent extracts carry-forward work from compact summaries, searches when
+   needed, and requests explicit session detail only when summaries are
+   insufficient.
 7. Agent calls `memory.start_session` for today's work round by default.
-8. Agent calls `memory.preview_context_bundle`.
+8. Agent previews a context bundle only when compact state and targeted search
+   are insufficient.
 9. Agent continues with the coding task.
 
 ## Return To Project

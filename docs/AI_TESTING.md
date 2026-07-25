@@ -359,9 +359,9 @@ Then have the client call these tools:
 
 ```text
 memory.get_startup_state
-memory.get_latest_session
 memory.start_session
 memory.search
+memory.get_session_detail
 memory.preview_context_bundle
 memory.save_checkpoint
 memory.close_session

@@ -17,6 +17,7 @@ test("lists only the supported daily memory tools through MCP", async () => {
     "memory.get_startup_state",
     "memory.get_latest_session",
     "memory.get_recent_sessions",
+    "memory.get_session_detail",
     "memory.start_session",
     "memory.search",
     "memory.preview_context_bundle",

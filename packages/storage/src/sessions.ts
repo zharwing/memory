@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   createId,
@@ -7,12 +8,26 @@ import {
   type Project,
   type Session,
   type SessionCheckpoint,
+  type SessionSummary,
   type SessionId,
   type WorkstreamId
 } from "@zharwing/memory-core";
 import { listFiles, pathExists, readText, writeText } from "./fs.js";
 import { formatMarkdown, parseMarkdown } from "./markdown.js";
 import { sessionBodyTemplate } from "./templates.js";
+
+const MAX_SESSION_TITLE_CHARS = 240;
+const MAX_SESSION_GOAL_CHARS = 800;
+const MAX_SESSION_SUMMARY_CHARS = 1600;
+const MAX_STATE_ITEM_CHARS = 300;
+const MAX_PATH_CHARS = 400;
+const MAX_ID_CHARS = 160;
+const MAX_TOPIC_CHARS = 80;
+const SESSION_SUMMARY_CACHE = new Map<string, {
+  mtimeMs: number;
+  size: number;
+  summary: SessionSummary;
+}>();
 
 export async function startSession(args: {
   project: Project;
@@ -61,7 +76,8 @@ export async function startSession(args: {
     relatedTasks: [],
     checkpoints: [],
     filePath,
-    body
+    body,
+    stateSemanticsVersion: 2
   };
 
   await writeSession(session);
@@ -115,33 +131,42 @@ export async function writeSession(session: Session, body?: string): Promise<voi
       import_source_path: session.importSourcePath,
       import_source_hash: session.importSourceHash,
       imported_at: session.importedAt,
-      import_profile: session.importProfile
+      import_profile: session.importProfile,
+      checkpoint_count: session.checkpoints.length,
+      state_semantics_version: session.stateSemanticsVersion
     },
     body ?? session.body ?? sessionToBody(session)
   );
   await writeText(session.filePath, markdown);
+  SESSION_SUMMARY_CACHE.delete(session.filePath);
 }
 
 export async function listProjectSessions(project: Project): Promise<Session[]> {
-  const root = path.join(project.memoryRoot, "sessions");
-  const files = await listFiles(root, (file) => file.endsWith(".md"));
+  const files = await listProjectSessionFiles(project);
   const sessions = await Promise.all(files.map((file) => readSession(file)));
   return sessions.sort((a, b) => b.updated.localeCompare(a.updated));
 }
 
+export async function listProjectSessionSummaries(project: Project): Promise<SessionSummary[]> {
+  const files = await listProjectSessionFiles(project);
+  const summaries = await Promise.all(files.map((file) => readSessionSummary(file)));
+  return summaries.sort((a, b) => b.updated.localeCompare(a.updated));
+}
+
 export async function getSession(project: Project, sessionId: SessionId): Promise<Session | undefined> {
-  const sessions = await listProjectSessions(project);
-  return sessions.find((session) => session.id === sessionId);
+  const filePath = await findSessionFile(project, sessionId);
+  return filePath ? readSession(filePath) : undefined;
 }
 
 export async function getActiveSession(project: Project): Promise<Session | undefined> {
-  const sessions = await listProjectSessions(project);
-  return sessions.find((session) => session.status === "active");
+  const summaries = await listProjectSessionSummaries(project);
+  const active = summaries.find((session) => session.status === "active");
+  return active ? getSession(project, active.id) : undefined;
 }
 
 export async function getLatestSession(project: Project): Promise<Session | undefined> {
-  const sessions = await listProjectSessions(project);
-  return sessions[0];
+  const latest = (await listProjectSessionSummaries(project))[0];
+  return latest ? getSession(project, latest.id) : undefined;
 }
 
 export async function saveCheckpoint(args: {
@@ -164,19 +189,24 @@ export async function saveCheckpoint(args: {
     nextSteps: args.nextSteps || [],
     blockers: args.blockers || [],
     touchedFiles: args.touchedFiles || [],
-    proposedUpdateIds: args.proposedUpdateIds || []
+    proposedUpdateIds: args.proposedUpdateIds || [],
+    stateFields: [
+      ...(args.nextSteps !== undefined ? ["nextSteps" as const] : []),
+      ...(args.blockers !== undefined ? ["blockers" as const] : [])
+    ]
   };
 
   const next: Session = {
     ...session,
     updated: checkpoint.created,
     summary: args.summary,
-    nextSteps: mergeUnique(session.nextSteps, checkpoint.nextSteps),
-    blockers: mergeUnique(session.blockers, checkpoint.blockers),
+    nextSteps: args.nextSteps !== undefined ? mergeUnique([], checkpoint.nextSteps) : session.nextSteps,
+    blockers: args.blockers !== undefined ? mergeUnique([], checkpoint.blockers) : session.blockers,
     touchedFiles: mergeUnique(session.touchedFiles, checkpoint.touchedFiles),
     workstreamIds: mergeUnique(session.workstreamIds, args.workstreamIds || []),
     checkpoints: [...session.checkpoints, checkpoint],
-    body: appendCheckpointToBody(session.body ?? sessionToBody(session), checkpoint)
+    body: appendCheckpointToBody(session.body ?? sessionToBody(session), checkpoint),
+    stateSemanticsVersion: 2
   };
 
   await writeSession(next);
@@ -188,6 +218,7 @@ export async function closeSession(args: {
   sessionId: SessionId;
   summary?: string;
   nextSteps?: string[];
+  blockers?: string[];
   workstreamIds?: WorkstreamId[];
   topics?: string[];
   summaryGeneratedAt?: string;
@@ -205,15 +236,18 @@ export async function closeSession(args: {
     summaryGeneratedAt: args.summaryGeneratedAt || session.summaryGeneratedAt,
     summarySource: args.summarySource || (args.summary ? "manual" : session.summarySource),
     summaryModel: args.summaryModel || session.summaryModel,
-    nextSteps: mergeUnique(session.nextSteps, args.nextSteps || []),
+    nextSteps: args.nextSteps !== undefined ? mergeUnique([], args.nextSteps) : session.nextSteps,
+    blockers: args.blockers !== undefined ? mergeUnique([], args.blockers) : session.blockers,
     workstreamIds: mergeUnique(session.workstreamIds, args.workstreamIds || []),
     updated: now,
     closed: now,
     body: appendCloseToBody(session.body ?? sessionToBody(session), {
       closed: now,
       summary: args.summary,
-      nextSteps: args.nextSteps || []
-    })
+      nextSteps: args.nextSteps,
+      blockers: args.blockers
+    }),
+    stateSemanticsVersion: 2
   };
   await writeSession(next);
   return next;
@@ -238,14 +272,15 @@ export async function updateSessionSummary(args: {
     ...session,
     summary: args.summary,
     topics: mergeUnique(session.topics, args.topics || []),
-    nextSteps: mergeUnique(session.nextSteps, args.nextSteps || []),
-    blockers: mergeUnique(session.blockers, args.blockers || []),
+    nextSteps: args.nextSteps !== undefined ? mergeUnique([], args.nextSteps) : session.nextSteps,
+    blockers: args.blockers !== undefined ? mergeUnique([], args.blockers) : session.blockers,
     touchedFiles: mergeUnique(session.touchedFiles, args.touchedFiles || []),
     summaryGeneratedAt: updated,
     summarySource: args.summarySource || "assistant",
     summaryModel: args.summaryModel || session.summaryModel,
     updated,
-    body: replaceSessionSummarySection(session.body ?? sessionToBody(session), args.summary)
+    body: replaceSessionSummarySection(session.body ?? sessionToBody(session), args.summary),
+    stateSemanticsVersion: 2
   };
   await writeSession(next);
   return next;
@@ -305,10 +340,90 @@ export async function readSession(filePath: string): Promise<Session> {
     importSourcePath: stringOrUndefined(fm.import_source_path),
     importSourceHash: stringOrUndefined(fm.import_source_hash),
     importedAt: stringOrUndefined(fm.imported_at),
-    importProfile: stringOrUndefined(fm.import_profile)
+    importProfile: stringOrUndefined(fm.import_profile),
+    stateSemanticsVersion: fm.state_semantics_version === 2 ? 2 : undefined
   };
 
   return session;
+}
+
+export async function readSessionSummary(filePath: string): Promise<SessionSummary> {
+  const stat = await fs.stat(filePath);
+  const cached = SESSION_SUMMARY_CACHE.get(filePath);
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+    return cached.summary;
+  }
+
+  const raw = await readFrontmatterPrefix(filePath);
+  const fm = parseMarkdown(raw).frontmatter;
+  const touchedFiles = arrayOfStrings(fm.touched_files);
+  const checkpointCount = numericOrUndefined(fm.checkpoint_count)
+    ?? await countCheckpointSections(filePath);
+  const summary: SessionSummary = {
+    id: String(fm.id),
+    projectId: String(fm.project_id),
+    status: (fm.status as Session["status"]) || "closed",
+    taskTitle: truncate(String(fm.task_title || path.basename(filePath, ".md")), MAX_SESSION_TITLE_CHARS),
+    goal: truncateOptional(stringOrUndefined(fm.goal), MAX_SESSION_GOAL_CHARS),
+    branch: truncateOptional(stringOrUndefined(fm.branch), MAX_STATE_ITEM_CHARS),
+    agent: truncateOptional(stringOrUndefined(fm.agent), MAX_STATE_ITEM_CHARS),
+    client: truncateOptional(stringOrUndefined(fm.client), MAX_STATE_ITEM_CHARS),
+    started: String(fm.started || ""),
+    updated: String(fm.updated || fm.started || ""),
+    closed: stringOrUndefined(fm.closed),
+    summary: truncateOptional(stringOrUndefined(fm.summary), MAX_SESSION_SUMMARY_CHARS),
+    topics: boundedStrings(arrayOfStrings(fm.topics), 12, MAX_TOPIC_CHARS),
+    summaryGeneratedAt: stringOrUndefined(fm.summary_generated_at),
+    summarySource: summarySourceOrUndefined(fm.summary_source),
+    nextSteps: boundedStrings(arrayOfStrings(fm.next_steps), 5, MAX_STATE_ITEM_CHARS),
+    blockers: boundedStrings(arrayOfStrings(fm.blockers), 5, MAX_STATE_ITEM_CHARS),
+    touchedFiles: boundedStrings(touchedFiles.slice(-10).reverse(), 10, MAX_PATH_CHARS),
+    checkpointCount,
+    totalTouchedFiles: touchedFiles.length,
+    workstreamIds: boundedStrings(arrayOfStrings(fm.workstream_ids), 12, MAX_ID_CHARS),
+    includeInGraph: fm.include_in_graph === true,
+    revision: String(fm.updated || fm.started || "")
+  };
+  SESSION_SUMMARY_CACHE.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, summary });
+  return summary;
+}
+
+async function listProjectSessionFiles(project: Project): Promise<string[]> {
+  return listFiles(path.join(project.memoryRoot, "sessions"), (file) => file.endsWith(".md"));
+}
+
+async function findSessionFile(project: Project, sessionId: SessionId): Promise<string | undefined> {
+  const files = await listProjectSessionFiles(project);
+  for (const file of files) {
+    if ((await readSessionSummary(file)).id === sessionId) return file;
+  }
+  return undefined;
+}
+
+async function readFrontmatterPrefix(filePath: string): Promise<string> {
+  const handle = await fs.open(filePath, "r");
+  try {
+    const chunks: Buffer[] = [];
+    let bytesReadTotal = 0;
+    const chunkSize = 16 * 1024;
+    while (bytesReadTotal < 1024 * 1024) {
+      const buffer = Buffer.alloc(chunkSize);
+      const { bytesRead } = await handle.read(buffer, 0, chunkSize, bytesReadTotal);
+      if (bytesRead === 0) break;
+      chunks.push(buffer.subarray(0, bytesRead));
+      bytesReadTotal += bytesRead;
+      const text = Buffer.concat(chunks).toString("utf8");
+      if (text.indexOf("\n---", 4) !== -1) return text;
+    }
+  } finally {
+    await handle.close();
+  }
+  return readText(filePath);
+}
+
+async function countCheckpointSections(filePath: string): Promise<number> {
+  const raw = await readText(filePath);
+  return [...raw.matchAll(/^#{2,3}\s+(?:Checkpoint\s+-\s+)?\d{4}-\d{2}-\d{2}T[^\n]+$/gm)].length;
 }
 
 function sessionToBody(session: Session): string {
@@ -355,15 +470,15 @@ ${session.nextSteps.map((step) => `- ${step}`).join("\n") || "None recorded yet.
 }
 
 function appendCheckpointToBody(body: string, checkpoint: SessionCheckpoint): string {
+  const nextSteps = checkpoint.stateFields?.includes("nextSteps")
+    ? `\n\nNext steps:\n${checkpoint.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}`
+    : "";
+  const blockers = checkpoint.stateFields?.includes("blockers")
+    ? `\n\nBlockers:\n${checkpoint.blockers.map((blocker) => `- ${blocker}`).join("\n") || "- None recorded"}`
+    : "";
   const section = `## Checkpoint - ${checkpoint.created}
 
-${checkpoint.summary}
-
-Next steps:
-${checkpoint.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}
-
-Blockers:
-${checkpoint.blockers.map((blocker) => `- ${blocker}`).join("\n") || "- None recorded"}
+${checkpoint.summary}${nextSteps}${blockers}
 
 Touched files:
 ${checkpoint.touchedFiles.map((file) => `- ${file}`).join("\n") || "- None recorded"}
@@ -374,14 +489,17 @@ ${checkpoint.touchedFiles.map((file) => `- ${file}`).join("\n") || "- None recor
 
 function appendCloseToBody(
   body: string,
-  close: { closed: string; summary?: string; nextSteps: string[] }
+  close: { closed: string; summary?: string; nextSteps?: string[]; blockers?: string[] }
 ): string {
+  const nextSteps = close.nextSteps !== undefined
+    ? `\n\nNext steps:\n${close.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}`
+    : "";
+  const blockers = close.blockers !== undefined
+    ? `\n\nBlockers:\n${close.blockers.map((blocker) => `- ${blocker}`).join("\n") || "- None recorded"}`
+    : "";
   const section = `## Session Closed - ${close.closed}
 
-${close.summary || "No final summary recorded."}
-
-Next steps:
-${close.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}
+${close.summary || "No final summary recorded."}${nextSteps}${blockers}
 `;
 
   return `${body.trim()}\n\n${section.trim()}\n`;
@@ -411,9 +529,17 @@ function extractCheckpoints(body: string): SessionCheckpoint[] {
       nextSteps: extractList(section, "Next steps"),
       blockers: extractList(section, "Blockers"),
       touchedFiles: extractList(section, "Touched files"),
-      proposedUpdateIds: []
+      proposedUpdateIds: [],
+      stateFields: [
+        ...(hasList(section, "Next steps") ? ["nextSteps" as const] : []),
+        ...(hasList(section, "Blockers") ? ["blockers" as const] : [])
+      ]
     };
   });
+}
+
+function hasList(section: string, label: string): boolean {
+  return section.split(/\r?\n/).some((line) => line.trim().toLowerCase() === `${label.toLowerCase()}:`);
 }
 
 function extractList(section: string, label: string): string[] {
@@ -445,6 +571,22 @@ function summarySourceOrUndefined(input: unknown): Session["summarySource"] | un
   return input === "manual" || input === "assistant" || input === "deterministic" || input === "import"
     ? input
     : undefined;
+}
+
+function numericOrUndefined(input: unknown): number | undefined {
+  return typeof input === "number" && Number.isFinite(input) && input >= 0 ? input : undefined;
+}
+
+function truncate(input: string, maxChars: number): string {
+  return input.length <= maxChars ? input : `${input.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
+function truncateOptional(input: string | undefined, maxChars: number): string | undefined {
+  return input ? truncate(input, maxChars) : undefined;
+}
+
+function boundedStrings(input: string[], maxItems: number, maxChars: number): string[] {
+  return input.filter(Boolean).slice(0, maxItems).map((item) => truncate(item, maxChars));
 }
 
 function mergeUnique(left: string[], right: string[]): string[] {

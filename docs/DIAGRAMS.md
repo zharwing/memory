@@ -305,9 +305,9 @@ sequenceDiagram
   Daemon->>Storage: find .zharwing/memory.json
   Daemon->>Registry: find project by repo path
   alt project resolved
-    Daemon->>Storage: load active/latest/recent sessions
-    Daemon-->>MCP: resolved project and recommended action
-    MCP-->>Agent: startup state
+    Daemon->>Storage: load bounded session metadata
+    Daemon-->>MCP: compact summaries, revision, recommended action
+    MCP-->>Agent: startup state under response budget
   else unregistered repo
     Daemon-->>MCP: offer_create_project
     MCP-->>Agent: ask user to create or link through UI / CLI

@@ -929,6 +929,22 @@ export class RootStore {
     });
   }
 
+  async loadSessionDetail(sessionId: string) {
+    if (!this.selectedProjectId || !sessionId) return;
+    await this.run(async () => {
+      const detail = await this.client.call("memory.get_session_detail", {
+        projectId: this.selectedProjectId,
+        sessionId,
+        sections: ["body"]
+      }) as { body?: string };
+      runInAction(() => {
+        this.sessions = this.sessions.map((session) =>
+          session.id === sessionId ? { ...session, body: detail.body ?? "" } : session
+        );
+      });
+    });
+  }
+
   async saveCheckpoint(sessionId: string, summary: string) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {

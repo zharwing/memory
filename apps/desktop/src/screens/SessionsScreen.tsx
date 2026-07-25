@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
 import { Empty, KeyValue, Panel, Screen } from "../components/layout.js";
@@ -10,6 +10,11 @@ export const SessionsScreen = observer(function SessionsScreen() {
   const store = useStore();
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const selectedSession = store.sessions.find((session) => session.id === selectedSessionId) || store.sessions[0];
+  useEffect(() => {
+    if (selectedSession && selectedSession.body === undefined) {
+      void store.loadSessionDetail(selectedSession.id);
+    }
+  }, [selectedSession?.id, selectedSession?.body, store]);
   return (
     <Screen title="Sessions for this project">
       <WorkTabs />
@@ -90,7 +95,9 @@ export const SessionsScreen = observer(function SessionsScreen() {
               </details>
             </div>
           </div>
-          <pre className="markdown-preview">{selectedSession.body || "No session body recorded."}</pre>
+          <pre className="markdown-preview">
+            {selectedSession.body === undefined ? "Loading session body…" : selectedSession.body || "No session body recorded."}
+          </pre>
         </Panel>
       ) : (
         <Empty text="No sessions recorded yet." />

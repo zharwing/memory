@@ -117,6 +117,7 @@ See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 - `memory.get_active_session`
 - `memory.get_latest_session`
 - `memory.get_recent_sessions`
+- `memory.get_session_detail`
 - `memory.list_project_sessions`
 - `memory.save_checkpoint`
 - `memory.close_session`
@@ -130,6 +131,35 @@ See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 legacy sessions default to `false`. This method is intentionally not part of
 the MCP tool list, so an agent cannot opt its own routine sessions into the
 graph.
+
+`memory.get_startup_state`, `memory.get_latest_session`,
+`memory.get_recent_sessions`, and `memory.list_project_sessions` return compact
+session summaries. Summaries never contain the Markdown `body` or the
+`checkpoints` array. Startup returns at most three non-duplicated recent
+summaries and does not duplicate the active session as `latestSession`; when
+the active session is latest, `activeSession` is authoritative. Startup also
+returns a `revision`; pass that revision as `knownRevision` only for a justified
+refresh. An unchanged refresh returns only:
+
+```json
+{
+  "schema": "zharwing.memory.startup.v2",
+  "notModified": true,
+  "projectId": "<project-id>",
+  "sessionId": "<active-or-latest-session-id>",
+  "revision": "<revision>"
+}
+```
+
+Use `memory.get_session_detail` with `projectId`, `sessionId`, and explicitly
+requested `sections` (`body`, `checkpoints`) for progressive detail.
+`checkpointLimit` defaults to 20 and is capped at 100. Checkpoints are returned
+newest first; pass the opaque `nextCursor` to continue.
+
+For checkpoint and closeout state, omitted `nextSteps` or `blockers` preserve
+current state, an explicit empty array clears it, and a supplied non-empty array
+replaces it. Touched files remain checkpoint-local in history while the session
+keeps aggregate file metadata for search and graph consumers.
 
 ### Workstreams
 
@@ -346,6 +376,7 @@ Supported MCP tools:
 - `memory.get_startup_state`
 - `memory.get_latest_session`
 - `memory.get_recent_sessions`
+- `memory.get_session_detail`
 - `memory.start_session`
 - `memory.search`
 - `memory.preview_context_bundle`
@@ -353,8 +384,9 @@ Supported MCP tools:
 - `memory.save_checkpoint`
 - `memory.close_session`
 
-`memory.get_startup_state` includes the open workstreams so an agent can attach
-its session to an existing lane; `memory.start_session`,
+`memory.get_startup_state` includes bounded compact summaries and the open
+workstreams so an agent can attach its session to an existing lane;
+`memory.start_session`,
 `memory.save_checkpoint`, and `memory.close_session` accept `workstreamIds`.
 Workstream creation remains a control-plane operation.
 

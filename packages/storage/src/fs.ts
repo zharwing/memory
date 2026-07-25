@@ -73,5 +73,25 @@ export async function copyDir(source: string, destination: string): Promise<void
 }
 
 export function normalizePath(input: string): string {
-  return path.resolve(input).replace(/\\/g, "/");
+  return path.resolve(normalizeInteropPath(input)).replace(/\\/g, "/");
+}
+
+export function normalizeInteropPath(
+  input: string,
+  platform: NodeJS.Platform = process.platform,
+  isWsl = Boolean(process.env.WSL_DISTRO_NAME || process.env.WSL_INTEROP)
+): string {
+  if (platform === "win32") {
+    const wslMount = /^\/mnt\/([A-Za-z])(?:\/(.*))?$/.exec(input.replace(/\\/g, "/"));
+    if (wslMount) {
+      return `${wslMount[1].toUpperCase()}:/${wslMount[2] || ""}`;
+    }
+  }
+  if (platform === "linux" && isWsl) {
+    const windowsDrive = /^([A-Za-z]):[\\/](.*)$/.exec(input);
+    if (windowsDrive) {
+      return `/mnt/${windowsDrive[1].toLowerCase()}/${windowsDrive[2].replace(/\\/g, "/")}`;
+    }
+  }
+  return input;
 }

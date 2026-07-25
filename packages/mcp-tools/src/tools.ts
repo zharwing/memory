@@ -18,18 +18,29 @@ export interface McpToolDefinition {
  */
 export const MEMORY_TOOLS: McpToolDefinition[] = [
   tool("memory.health", "Check that the local Zharwing Memory service is available.", {}),
-  tool("memory.get_startup_state", "Resolve the current project and return its active, latest, and recent sessions plus the open workstreams available for session attachment.", {
+  tool("memory.get_startup_state", "Resolve the current project and return compact carry-forward summaries plus open workstreams. Call once per work round; pass knownRevision only for a justified refresh.", {
     workingDirectory: { type: "string" },
     projectId: { type: "string" },
-    clientName: { type: "string" }
+    clientName: { type: "string" },
+    knownRevision: { type: "string" }
   }),
-  tool("memory.get_latest_session", "Read the latest session in the selected project.", {
+  tool("memory.get_latest_session", "Read a compact summary of the latest session in the selected project.", {
     projectId: { type: "string" }
   }, ["projectId"]),
-  tool("memory.get_recent_sessions", "Read recent sessions in the selected project.", {
+  tool("memory.get_recent_sessions", "Read compact summaries of recent sessions in the selected project.", {
     projectId: { type: "string" },
-    limit: { type: "number", minimum: 1 }
+    limit: { type: "number", minimum: 1, maximum: 200 }
   }, ["projectId"]),
+  tool("memory.get_session_detail", "Read explicitly requested session body or paginated checkpoint history.", {
+    projectId: { type: "string" },
+    sessionId: { type: "string" },
+    sections: {
+      type: "array",
+      items: { type: "string", enum: ["body", "checkpoints"] }
+    },
+    checkpointLimit: { type: "number", minimum: 1, maximum: 100 },
+    cursor: { type: "string" }
+  }, ["projectId", "sessionId"]),
   tool("memory.start_session", "Start a fresh project-scoped work session.", {
     projectId: { type: "string" },
     taskTitle: { type: "string" },
@@ -76,6 +87,7 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     sessionId: { type: "string" },
     summary: { type: "string" },
     nextSteps: { type: "array", items: { type: "string" } },
+    blockers: { type: "array", items: { type: "string" } },
     workstreamIds: { type: "array", items: { type: "string" } },
     autoSummarize: { type: "boolean" }
   }, ["projectId", "sessionId"])

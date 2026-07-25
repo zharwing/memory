@@ -108,6 +108,73 @@ test("session filenames do not overwrite same-title sessions", async (t) => {
   assert.match(path.basename(second.filePath), /-2\.md$/);
 });
 
+test("checkpoint state replaces, omission preserves, and explicit empty arrays clear", async (t) => {
+  const { project } = await createTempProject(t, "Checkpoint State Semantics");
+  const session = await startSession({
+    project,
+    repoPath: project.memoryRoot,
+    workingDirectory: project.memoryRoot,
+    taskTitle: "Track current state"
+  });
+
+  const first = await saveCheckpoint({
+    project,
+    sessionId: session.id,
+    summary: "Initial state.",
+    nextSteps: ["First step"],
+    blockers: ["Initial blocker"],
+    touchedFiles: ["src/first.ts"]
+  });
+  assert.deepEqual(first.nextSteps, ["First step"]);
+  assert.deepEqual(first.blockers, ["Initial blocker"]);
+
+  const preserved = await saveCheckpoint({
+    project,
+    sessionId: session.id,
+    summary: "Progress without a state update.",
+    touchedFiles: ["src/second.ts"]
+  });
+  assert.deepEqual(preserved.nextSteps, ["First step"]);
+  assert.deepEqual(preserved.blockers, ["Initial blocker"]);
+  assert.deepEqual(preserved.checkpoints[1].stateFields, []);
+
+  const cleared = await saveCheckpoint({
+    project,
+    sessionId: session.id,
+    summary: "All current work resolved.",
+    nextSteps: [],
+    blockers: []
+  });
+  assert.deepEqual(cleared.nextSteps, []);
+  assert.deepEqual(cleared.blockers, []);
+  assert.deepEqual(cleared.touchedFiles, ["src/first.ts", "src/second.ts"]);
+  assert.equal(cleared.stateSemanticsVersion, 2);
+
+  const listed = (await listProjectSessions(project)).find((item) => item.id === session.id);
+  assert.deepEqual(listed?.nextSteps, []);
+  assert.deepEqual(listed?.blockers, []);
+  assert.deepEqual(listed?.checkpoints[1].stateFields, []);
+  assert.deepEqual(listed?.checkpoints[2].stateFields, ["nextSteps", "blockers"]);
+
+  const restored = await saveCheckpoint({
+    project,
+    sessionId: session.id,
+    summary: "New current state.",
+    nextSteps: ["Ship it"],
+    blockers: ["Waiting for review"]
+  });
+  assert.deepEqual(restored.nextSteps, ["Ship it"]);
+  assert.deepEqual(restored.blockers, ["Waiting for review"]);
+
+  const preservedOnClose = await closeSession({
+    project,
+    sessionId: session.id,
+    summary: "Closed without a state patch."
+  });
+  assert.deepEqual(preservedOnClose.nextSteps, ["Ship it"]);
+  assert.deepEqual(preservedOnClose.blockers, ["Waiting for review"]);
+});
+
 test("legacy sessions without graph visibility metadata stay out of the graph", async (t) => {
   const { project } = await createTempProject(t, "Legacy Session Graph Visibility");
   const session = await startSession({
