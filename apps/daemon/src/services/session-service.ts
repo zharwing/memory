@@ -20,12 +20,13 @@ import {
   type SessionSummaryDraft
 } from "@zharwing/memory-assistant";
 import { applyPrivacyGate } from "@zharwing/memory-privacy";
-import type {
-  Project,
-  Session,
-  SessionDetail,
-  SessionDetailSection,
-  SessionSummary
+import {
+  isLoopbackHost,
+  type Project,
+  type Session,
+  type SessionDetail,
+  type SessionDetailSection,
+  type SessionSummary
 } from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
 
@@ -363,9 +364,7 @@ function providerKindFromAssistantRuntime(runtimeType?: string): string {
 
 function isLocalProviderEndpoint(endpoint: string): boolean {
   try {
-    const url = new URL(endpoint);
-    const host = url.hostname.toLowerCase();
-    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".localhost");
+    return isLoopbackHost(new URL(endpoint).hostname);
   } catch {
     return false;
   }

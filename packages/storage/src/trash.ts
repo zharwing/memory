@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   createId,
+  isDefined,
   nowIso,
   type TrashItem,
   type TrashItemType
@@ -127,8 +128,4 @@ function createTrashItem(args: TrashMoveArgs | TrashJsonArgs): TrashItem {
 
 function trashItemsRoot(memoryRoot: string): string {
   return path.join(memoryRoot, "global", "trash", "items");
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
 }

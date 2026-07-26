@@ -1,4 +1,4 @@
-import type { MemoryDocument, Session } from "@zharwing/memory-core";
+import { normalizeSlug, type MemoryDocument, type Session } from "@zharwing/memory-core";
 import type { AiChatMessage } from "./openai-compatible.js";
 
 export interface AssistantDraft {
@@ -196,12 +196,8 @@ function stringValue(input: unknown): string {
 }
 
 function normalizeTag(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9._/-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  // Preserves . _ / - inside tags, unlike the stricter slug variants.
+  return normalizeSlug(input, { strip: /['"]/g, collapse: /[^a-z0-9._/-]+/g });
 }
 
 function confidenceValue(input: unknown, fallback: SessionSummaryDraft["confidence"]): SessionSummaryDraft["confidence"] {

@@ -9,6 +9,9 @@
   "include": ["src", "vite.config.ts"],
   "references": [
     { "path": "../../packages/api-client" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/graph" },
+    { "path": "../../packages/semantic-graph" },
     { "path": "../../packages/theme" }
   ]
 }

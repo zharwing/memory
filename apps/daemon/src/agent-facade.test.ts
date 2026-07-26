@@ -7,6 +7,20 @@ import { test, type TestContext } from "node:test";
 import type { ContextBundle } from "@zharwing/memory-core";
 import { agentSafeMethods, dispatchAgentRpc, isAgentSafeMethod, projectBundleForAgent } from "./agent-facade.js";
 import { MemoryService } from "./memory-service.js";
+import type { RpcResponse } from "./rpc.js";
+
+/**
+ * The shared RpcResponse is a discriminated union; these tests inspect both
+ * branches without narrowing, so widen to the permissive envelope shape.
+ */
+function envelope(response: RpcResponse): {
+  id?: string | number;
+  ok: boolean;
+  result?: unknown;
+  error?: { message: string; stack?: string };
+} {
+  return response;
+}
 
 const RPC_SOURCE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "daemon", "src", "rpc.ts");
 
@@ -43,14 +57,14 @@ test("every RPC method is classified: MCP-supported or control-plane-only", asyn
   const service = {} as MemoryService;
   for (const method of methods) {
     if (isAgentSafeMethod(method)) continue;
-    const response = await dispatchAgentRpc(service, { id: 1, method, params: {} });
+    const response = envelope(await dispatchAgentRpc(service, { id: 1, method, params: {} }));
     assert.equal(response.ok, false, `${method} must be denied through MCP`);
     assert.match(response.error?.message ?? "", /CONTROL_PLANE_ONLY/, method);
   }
 });
 
 test("unknown and future methods are denied by default", async () => {
-  const response = await dispatchAgentRpc({} as MemoryService, { id: 1, method: "memory.brand_new_method" });
+  const response = envelope(await dispatchAgentRpc({} as MemoryService, { id: 1, method: "memory.brand_new_method" }));
   assert.equal(response.ok, false);
   assert.match(response.error?.message ?? "", /CONTROL_PLANE_ONLY/);
 });
@@ -74,7 +88,7 @@ test("the MCP surface exposes exactly the daily AI memory loop", () => {
 test("agent health is minimal", async (t) => {
   const memoryRoot = await tempMemoryRoot(t);
   const service = new MemoryService({ memoryRoot });
-  const response = await dispatchAgentRpc(service, { id: 1, method: "memory.health" });
+  const response = envelope(await dispatchAgentRpc(service, { id: 1, method: "memory.health" }));
   assert.equal(response.ok, true);
   assert.deepEqual(response.result, { status: "ok" });
 });
@@ -85,11 +99,11 @@ test("MCP supports the complete startup, session, checkpoint, and closeout loop"
   const preview = await service.prepareProjectCreation({ projectName: "Daily Memory", createPointerFile: false });
   const project = await service.createProject({ preview });
 
-  const started = await dispatchAgentRpc(service, {
+  const started = envelope(await dispatchAgentRpc(service, {
     id: 1,
     method: "memory.start_session",
     params: { projectId: project.id, taskTitle: "Ship the MCP loop", agent: "codex" }
-  });
+  }));
   assert.equal(started.ok, true);
   const session = started.result as { id: string; filePath: string; taskTitle: string };
   assert.equal(session.taskTitle, "Ship the MCP loop");
@@ -108,32 +122,32 @@ test("MCP supports the complete startup, session, checkpoint, and closeout loop"
   });
   assert.equal(checkpoint.ok, true);
 
-  const startup = await dispatchAgentRpc(service, {
+  const startup = envelope(await dispatchAgentRpc(service, {
     id: 3,
     method: "memory.get_startup_state",
     params: { projectId: project.id, clientName: "codex" }
-  });
+  }));
   assert.equal(startup.ok, true);
   assert.equal((startup.result as any).project.id, project.id);
   assert.equal((startup.result as any).activeSession.id, session.id);
   assert.equal("body" in (startup.result as any).activeSession, false);
   assert.equal("checkpoints" in (startup.result as any).activeSession, false);
 
-  const latest = await dispatchAgentRpc(service, {
+  const latest = envelope(await dispatchAgentRpc(service, {
     id: 4,
     method: "memory.get_latest_session",
     params: { projectId: project.id }
-  });
+  }));
   assert.equal((latest.result as any).id, session.id);
 
-  const recent = await dispatchAgentRpc(service, {
+  const recent = envelope(await dispatchAgentRpc(service, {
     id: 5,
     method: "memory.get_recent_sessions",
     params: { projectId: project.id, limit: 1 }
-  });
+  }));
   assert.deepEqual((recent.result as any[]).map((item) => item.id), [session.id]);
 
-  const detail = await dispatchAgentRpc(service, {
+  const detail = envelope(await dispatchAgentRpc(service, {
     id: 6,
     method: "memory.get_session_detail",
     params: {
@@ -142,16 +156,16 @@ test("MCP supports the complete startup, session, checkpoint, and closeout loop"
       sections: ["body", "checkpoints"],
       checkpointLimit: 1
     }
-  });
+  }));
   assert.equal(detail.ok, true);
   assert.match((detail.result as any).body, /Startup and session creation work/);
   assert.equal((detail.result as any).checkpoints.length, 1);
 
-  const closed = await dispatchAgentRpc(service, {
+  const closed = envelope(await dispatchAgentRpc(service, {
     id: 7,
     method: "memory.close_session",
     params: { projectId: project.id, sessionId: session.id, summary: "MCP loop complete.", autoSummarize: false }
-  });
+  }));
   assert.equal(closed.ok, true);
   assert.equal((closed.result as any).status, "closed");
 });
@@ -176,11 +190,11 @@ test("AI-visible memory is searchable by default while explicit exclusions stay 
     body: "FINDABLE_MEMORY MARKER_NEVER_SEND_BODY"
   });
 
-  const response = await dispatchAgentRpc(service, {
+  const response = envelope(await dispatchAgentRpc(service, {
     id: 1,
     method: "memory.search",
     params: { projectId: project.id, query: "FINDABLE_MEMORY" }
-  });
+  }));
   assert.equal(response.ok, true);
   const serialized = JSON.stringify(response.result);
   assert.match(serialized, /default visible content/);
@@ -202,11 +216,11 @@ test("context is available by default and includes useful source paths", async (
     body: "VISIBLE_CONTEXT_CONTENT"
   });
 
-  const response = await dispatchAgentRpc(service, {
+  const response = envelope(await dispatchAgentRpc(service, {
     id: 1,
     method: "memory.get_context_bundle",
     params: { projectId: project.id, taskText: "conventions" }
-  });
+  }));
   assert.equal(response.ok, true);
   const bundle = response.result as { status: string; sections: Array<{ content: string; sourcePath?: string }> };
   assert.equal(bundle.status, "ok");
@@ -289,11 +303,11 @@ test("agent bundle enforces the token budget and reports truncation", () => {
 test("errors through the MCP facade are sanitized", async (t) => {
   const memoryRoot = await tempMemoryRoot(t);
   const service = new MemoryService({ memoryRoot });
-  const response = await dispatchAgentRpc(service, {
+  const response = envelope(await dispatchAgentRpc(service, {
     id: 1,
     method: "memory.get_latest_session",
     params: { projectId: "project-that-does-not-exist" }
-  });
+  }));
   assert.equal(response.ok, false);
   const serialized = JSON.stringify(response);
   assert.ok(!serialized.includes(memoryRoot));

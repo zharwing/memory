@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
-import { Empty, KeyValue, Panel, Screen } from "../components/layout.js";
+import { Empty, KeyValue, Panel, RawTextPreview, Screen } from "../components/layout.js";
 import { WorkTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
@@ -95,9 +95,10 @@ export const SessionsScreen = observer(function SessionsScreen() {
               </details>
             </div>
           </div>
-          <pre className="markdown-preview">
-            {selectedSession.body === undefined ? "Loading session body…" : selectedSession.body || "No session body recorded."}
-          </pre>
+          <RawTextPreview
+            text={selectedSession.body === undefined ? "Loading session body…" : selectedSession.body}
+            fallback="No session body recorded."
+          />
         </Panel>
       ) : (
         <Empty text="No sessions recorded yet." />

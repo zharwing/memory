@@ -1,37 +1,12 @@
+/*
+ * Theme custom-property values (and color-scheme) are injected at startup by
+ * src/styles/theme-tokens.ts from the @zharwing/memory-theme token objects.
+ */
 :root {
-  color-scheme: light;
-  --background: #f7f3ee;
-  --surface: #fffdf9;
-  --surface-2: #efe5da;
-  --text: #241e1a;
-  --muted: #78685d;
-  --border: #ded0c0;
-  --accent: #b87333;
-  --accent-soft: #d89b63;
-  --success: #3f7a4a;
-  --warning: #a66a1f;
-  --danger: #9f3f2c;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--background);
   color: var(--text);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --background: #11100f;
-    --surface: #1b1815;
-    --surface-2: #28221d;
-    --text: #f7f1ea;
-    --muted: #b4a395;
-    --border: #3a3027;
-    --accent: #d99058;
-    --accent-soft: #eab98a;
-    --success: #80a878;
-    --warning: #e0a34e;
-    --danger: #d26a55;
-  }
 }
 
 * {
@@ -1104,7 +1079,10 @@ input[type="checkbox"] {
   padding: 0 10px;
 }
 
-.option-chips button.selected {
+/* Shared selected state for the ToggleGroup container classes. */
+.option-chips button.selected,
+.quick-presets button.selected,
+.segmented-control button.selected {
   background: var(--accent);
   border-color: var(--accent);
   color: #fffdf9;
@@ -1128,12 +1106,6 @@ input[type="checkbox"] {
   text-align: left;
 }
 
-.quick-presets button.selected {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fffdf9;
-}
-
 .quick-presets small {
   color: inherit;
   font-size: 12px;
@@ -1155,12 +1127,6 @@ input[type="checkbox"] {
   border-color: transparent;
   background: transparent;
   min-height: 36px;
-}
-
-.segmented-control button.selected {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fffdf9;
 }
 
 .checkbox-row {
@@ -1371,23 +1337,37 @@ input[type="checkbox"] {
   margin-top: 12px;
 }
 
-.modal-backdrop {
+/* Shared modal skeleton: every dialog backdrop/panel pair reuses these
+   declarations; the per-dialog classes below only add size, background
+   opacity, z-index, and spacing. */
+.modal-backdrop,
+.dialog-backdrop,
+.diagram-viewer-backdrop {
   align-items: center;
-  background: rgba(17, 16, 15, 0.54);
   display: flex;
   inset: 0;
   justify-content: center;
-  padding: 22px;
   position: fixed;
+}
+
+.document-modal,
+.diagram-viewer,
+.confirm-dialog,
+.link-discovery-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+}
+
+.modal-backdrop {
+  background: rgba(17, 16, 15, 0.54);
+  padding: 22px;
   z-index: 15;
 }
 
 .document-modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
-  display: grid;
   gap: 14px;
   grid-template-rows: auto auto auto minmax(0, 1fr);
   height: min(90vh, 960px);
@@ -1738,22 +1718,13 @@ input[type="checkbox"] {
 }
 
 .diagram-viewer-backdrop {
-  align-items: center;
   background: rgba(17, 16, 15, 0.74);
-  display: flex;
-  inset: 0;
-  justify-content: center;
   padding: 18px;
-  position: fixed;
   z-index: 30;
 }
 
 .diagram-viewer {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
-  display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: min(96vh, 1100px);
   min-width: 0;
@@ -1922,23 +1893,6 @@ tr.selected-row td {
 
 .search-result-detail .rendered-markdown {
   border: 0;
-}
-
-.graph-summary-bar {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.graph-summary-bar span {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1;
-  padding: 7px 10px;
 }
 
 .graph-explainer {
@@ -2177,8 +2131,7 @@ tr.selected-row td {
 }
 
 .graph-details-popover .graph-mode-note,
-.graph-details-popover .graph-edge-summary,
-.graph-details-popover .graph-legend {
+.graph-details-popover .graph-edge-summary {
   margin: 0;
 }
 
@@ -2201,6 +2154,7 @@ tr.selected-row td {
 .graph-details-popover .graph-legend {
   gap: 5px 10px;
   font-size: 11px;
+  margin: 0;
 }
 
 .graph-edge-inspector {
@@ -2587,8 +2541,8 @@ tr.selected-row td {
 }
 
 .semantic-run-preview.failed {
-  background: rgba(166, 106, 31, 0.08);
-  border-color: rgba(166, 106, 31, 0.28);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
 }
 
 .semantic-run-preview.pending span,
@@ -2616,8 +2570,8 @@ tr.selected-row td {
 
 .semantic-run-banner.failed,
 .semantic-run-banner.warning {
-  background: rgba(166, 106, 31, 0.08);
-  border-color: rgba(166, 106, 31, 0.28);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
 }
 
 .semantic-run-banner-main {
@@ -2707,8 +2661,8 @@ tr.selected-row td {
 
 .semantic-run-result.failed,
 .semantic-run-result.warning {
-  background: rgba(166, 106, 31, 0.08);
-  border: 1px solid rgba(166, 106, 31, 0.28);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent);
   border-radius: 8px;
   padding: 10px;
 }
@@ -2868,14 +2822,9 @@ tr.selected-row td {
   color: var(--text);
 }
 
-.graph-audit-note,
-.empty-inline {
+.graph-audit-note {
   line-height: 1.45;
   margin: 0;
-}
-
-.empty-inline {
-  padding: 12px;
 }
 
 .graph-map-shell {
@@ -2974,62 +2923,6 @@ tr.selected-row td {
   background: var(--surface-2);
 }
 
-.graph-flow-node-project {
-  --graph-node-accent: #2563eb;
-}
-
-.graph-flow-node-repo,
-.graph-flow-node-workstream {
-  --graph-node-accent: #0891b2;
-}
-
-.graph-flow-node-doc {
-  --graph-node-accent: #b87333;
-}
-
-.graph-flow-node-topic {
-  --graph-node-accent: #0f766e;
-}
-
-.graph-flow-node-service {
-  --graph-node-accent: #dc2626;
-}
-
-.graph-flow-node-package {
-  --graph-node-accent: #9333ea;
-}
-
-.graph-flow-node-diagram-group {
-  --graph-node-accent: #f97316;
-}
-
-.graph-flow-node-session,
-.graph-flow-node-task {
-  --graph-node-accent: #16a34a;
-}
-
-.graph-flow-node-diagram {
-  --graph-node-accent: #f59e0b;
-}
-
-.graph-flow-node-decision {
-  --graph-node-accent: #7c3aed;
-}
-
-.graph-flow-node-command {
-  --graph-node-accent: #475569;
-}
-
-.graph-flow-node-gotcha {
-  --graph-node-accent: #be123c;
-}
-
-.graph-flow-node-file,
-.graph-flow-node-code-area,
-.graph-flow-node-external-reference {
-  --graph-node-accent: #64748b;
-}
-
 .notice,
 .empty {
   border: 1px solid var(--border);
@@ -3045,72 +2938,45 @@ tr.selected-row td {
   margin-bottom: 12px;
 }
 
-.inbox-alert {
-  align-items: center;
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
 .docs-explainer strong {
   color: var(--text);
 }
 
-.docs-explainer p,
-.inbox-alert p {
+.docs-explainer p {
   line-height: 1.45;
   margin: 0;
 }
 
-.inbox-alert strong {
-  color: var(--text);
-}
-
 .dialog-backdrop {
-  align-items: center;
   background: rgba(17, 16, 15, 0.52);
-  display: flex;
-  inset: 0;
-  justify-content: center;
   padding: 24px;
-  position: fixed;
   z-index: 20;
 }
 
 .confirm-dialog {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
-  display: grid;
   gap: 12px;
   max-width: 460px;
   padding: 18px;
   width: min(100%, 460px);
 }
 
-.confirm-dialog h3,
-.confirm-dialog p {
+.confirm-dialog h3 {
   margin: 0;
 }
 
 .confirm-dialog p {
   color: var(--muted);
   line-height: 1.5;
+  margin: 0;
 }
 
 .link-discovery-backdrop {
-  align-items: center;
   overflow: auto;
 }
 
 .link-discovery-dialog {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
-  display: grid;
   gap: 14px;
   margin: auto 0;
   max-height: calc(100vh - 48px);
@@ -3167,8 +3033,8 @@ tr.selected-row td {
 
 .link-discovery-provider-required {
   align-items: center;
-  background: rgba(166, 106, 31, 0.1);
-  border: 1px solid rgba(166, 106, 31, 0.32);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, transparent);
   border-radius: 8px;
   color: var(--warning);
   display: grid;
@@ -3224,8 +3090,8 @@ tr.selected-row td {
 
 .link-discovery-pending-note {
   align-items: center;
-  background: rgba(166, 106, 31, 0.08);
-  border: 1px solid rgba(166, 106, 31, 0.24);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, transparent);
   border-radius: 8px;
   display: flex;
   gap: 10px;

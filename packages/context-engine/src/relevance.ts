@@ -1,4 +1,4 @@
-import type { MemoryDocument, Session } from "@zharwing/memory-core";
+import { tokenize, type MemoryDocument, type Session } from "@zharwing/memory-core";
 
 export function scoreDocumentRelevance(doc: MemoryDocument, query: string, activeSession?: Session): number {
   let score = 0;
@@ -54,11 +54,4 @@ export function scoreSessionRelevance(session: Session, query: string, activeSes
   if (activeSession?.id === session.id) score += 100;
 
   return score;
-}
-
-function tokenize(query: string): string[] {
-  return query
-    .toLowerCase()
-    .split(/[^a-z0-9_./-]+/)
-    .filter((term) => term.length > 2);
 }

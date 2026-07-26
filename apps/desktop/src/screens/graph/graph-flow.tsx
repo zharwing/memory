@@ -5,7 +5,6 @@ import {
   graphEdgeLabel,
   graphNodeTypeLabel,
   isGraphAnchorNode,
-  safeGraphClassName,
   selectGraphEdgesForView,
   summarizeEdgeTypes,
   summarizeNodeTypes
@@ -18,7 +17,6 @@ export interface GraphMapNode {
   typeLabel: string;
   label: string;
   metadata: string;
-  className: string;
   graphNode: any;
   isAnchor: boolean;
 }
@@ -82,7 +80,6 @@ export function buildGraphFlowElements(graph: any, viewMode: GraphViewMode, focu
       typeLabel: graphNodeTypeLabel(displayType),
       label: String(sourceNode.label || sourceNode.id),
       metadata: secondaryMetadata,
-      className: `graph-flow-node-${safeGraphClassName(nodeType)}`,
       graphNode: sourceNode,
       isAnchor: isGraphAnchorNode(sourceNode)
     };

@@ -1,16 +1,28 @@
+import { MEMORY_TOOLS } from "@zharwing/memory-mcp";
+
 // Runtime parameter validation for the RPC boundary (M3). Every method's
 // required-parameter set is declared here; requireParams enforces it before
 // the params reach a typed service method, replacing unchecked `as never`
 // boundary casts. Agent-exposed methods derive their required sets from the
 // MCP tool definitions; control-plane-only methods are declared alongside.
-export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
+
+/**
+ * Required-param sets for agent-exposed methods, derived at module load from
+ * the MCP tool schemas so the daemon boundary and the advertised tool
+ * contracts cannot drift apart.
+ */
+const AGENT_TOOL_PARAMS: Record<string, readonly string[]> = Object.fromEntries(
+  MEMORY_TOOLS.map((tool) => [tool.rpcMethod, tool.inputSchema.required ?? []])
+);
+
+/** Control-plane methods with no MCP tool keep hand-declared required sets. */
+const CONTROL_PLANE_PARAMS: Record<string, readonly string[]> = {
   "memory.accept_semantic_edges_proposal": ["projectId", "proposalId"],
   "memory.analyze_semantic_graph": ["projectId"],
   "memory.assistant_status": ["projectId"],
   "memory.backup_project": ["projectId"],
   "memory.check_semantic_graph_provider": ["projectId"],
   "memory.classify_imported_doc": ["projectId", "documentId"],
-  "memory.close_session": ["projectId", "sessionId"],
   "memory.commit_import": ["projectId"],
   "memory.create_doc": ["projectId", "title", "type", "body"],
   "memory.create_project": ["preview"],
@@ -29,17 +41,12 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   "memory.generate_session_summaries": ["projectId"],
   "memory.generate_session_summary": ["projectId", "sessionId"],
   "memory.get_active_session": ["projectId"],
-  "memory.get_context_bundle": ["projectId"],
   "memory.get_graph": ["projectId"],
-  "memory.get_latest_session": ["projectId"],
   "memory.get_project": ["projectId"],
   "memory.get_project_summary": ["projectId"],
-  "memory.get_recent_sessions": ["projectId"],
-  "memory.get_session_detail": ["projectId", "sessionId"],
   "memory.get_semantic_graph_run": ["projectId", "runId"],
   "memory.get_semantic_graph_settings": ["projectId"],
   "memory.get_semantic_graph_status": ["projectId"],
-  "memory.get_startup_state": [],
   "memory.get_workstream_detail": ["projectId", "workstreamId"],
   "memory.import_doc": ["projectId"],
   "memory.link_repo": ["projectId", "repoPath"],
@@ -59,7 +66,6 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   "memory.prepare_import": ["projectId", "sourceRoot"],
   "memory.prepare_project_creation": ["workingDirectory"],
   "memory.prepare_return_summary": ["projectId"],
-  "memory.preview_context_bundle": ["projectId"],
   "memory.preview_semantic_graph_analysis": ["projectId"],
   "memory.propose_graph_update": ["projectId", "proposedPatch", "reason"],
   "memory.propose_memory_update": ["projectId", "type", "sourceKind", "proposedPatch", "reason"],
@@ -67,10 +73,7 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   "memory.purge_trash_item": ["trashItemId"],
   "memory.rebuild_index": ["projectId"],
   "memory.restore_trash_item": ["trashItemId"],
-  "memory.save_checkpoint": ["projectId", "sessionId", "summary"],
-  "memory.search": ["projectId", "query"],
   "memory.start_or_resume_session": ["projectId"],
-  "memory.start_session": ["projectId"],
   "memory.summarize_session": ["projectId", "sessionId"],
   "memory.unlink_repo": ["projectId", "repoPath"],
   "memory.update_assistant_policy": ["projectId"],
@@ -83,6 +86,11 @@ export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
   "memory.update_session_graph_visibility": ["projectId", "sessionId", "includeInGraph"],
   "memory.update_workstream_status": ["projectId", "workstreamId", "status"],
   "memory.validate_project": ["projectId"],
+};
+
+export const REQUIRED_PARAMS: Record<string, readonly string[]> = {
+  ...CONTROL_PLANE_PARAMS,
+  ...AGENT_TOOL_PARAMS
 };
 
 export class RpcValidationError extends Error {}

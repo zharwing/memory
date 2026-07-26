@@ -20,6 +20,7 @@
       "@zharwing/memory-search": ["packages/search/src/index.ts"],
       "@zharwing/memory-graph": ["packages/graph/src/index.ts"],
       "@zharwing/memory-semantic-graph": ["packages/semantic-graph/src/index.ts"],
+      "@zharwing/memory-semantic-graph/proposals": ["packages/semantic-graph/src/proposals.ts"],
       "@zharwing/memory-assistant": ["packages/assistant-runtime/src/index.ts"],
       "@zharwing/memory-api-client": ["packages/api-client/src/index.ts"],
       "@zharwing/memory-mcp": ["packages/mcp-tools/src/index.ts"],

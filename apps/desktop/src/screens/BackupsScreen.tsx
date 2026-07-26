@@ -4,6 +4,7 @@ import { useStore } from "../stores/store-context.js";
 import { Empty, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
+import { ListRow } from "../components/ListRow.js";
 
 export const BackupsScreen = observer(function BackupsScreen() {
   const store = useStore();
@@ -21,19 +22,24 @@ export const BackupsScreen = observer(function BackupsScreen() {
         {store.backups.length ? (
           <div className="repo-list">
             {store.backups.map((backup) => (
-              <div className="repo-row" key={backup.snapshotPath}>
-                <div>
-                  <strong>{backup.created}</strong>
-                  <span>{backup.snapshotPath}</span>
-                  <small>{backup.note}</small>
-                </div>
-                <ConfirmDeleteButton
-                  itemType="backup"
-                  title={`Snapshot ${backup.created}`}
-                  label="Move to Trash"
-                  onConfirm={() => store.deleteBackup(backup.snapshotPath)}
-                />
-              </div>
+              <ListRow
+                key={backup.snapshotPath}
+                title={backup.created}
+                details={
+                  <>
+                    <span>{backup.snapshotPath}</span>
+                    <small>{backup.note}</small>
+                  </>
+                }
+                actions={
+                  <ConfirmDeleteButton
+                    itemType="backup"
+                    title={`Snapshot ${backup.created}`}
+                    label="Move to Trash"
+                    onConfirm={() => store.deleteBackup(backup.snapshotPath)}
+                  />
+                }
+              />
             ))}
           </div>
         ) : (

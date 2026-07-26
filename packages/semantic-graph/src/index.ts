@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 import {
+  DEFAULT_SEMANTIC_GRAPH_SETTINGS,
+  GRAPH_TOPIC_STOPWORDS,
+  clamp01 as clampConfidence,
   createId,
+  isDefined,
+  normalizeSlug,
   nowIso,
   slugify,
+  unique as uniqueStrings,
   type ContextExcludedItem,
   type DocumentId,
   type GraphEdge,
@@ -21,6 +27,17 @@ import {
   type SemanticGraphSettings
 } from "@zharwing/memory-core";
 import { applyPrivacyGate, type PrivacyDecision } from "@zharwing/memory-privacy";
+import { arrayValue, record, stringOrUndefined, stringValue } from "./proposals.js";
+
+export {
+  isSemanticEvidence,
+  normalizeProposalSummary,
+  semanticEdgesFromProposalPatch,
+  semanticEdgesProposalPatch,
+  semanticProposalSummaryFromProviderJson,
+  type SemanticGraphProposalPatch,
+  type SemanticGraphProposalSummary
+} from "./proposals.js";
 
 export interface SemanticPromptMessage {
   role: "system" | "user" | "assistant";
@@ -153,27 +170,6 @@ export interface SemanticEdgePolicyResult {
   >;
 }
 
-export interface SemanticGraphProposalPatch {
-  kind: "semantic-graph-edges";
-  runId: string;
-  summary?: SemanticGraphProposalSummary;
-  edges: Array<{
-    from: string;
-    to: string;
-    type: SemanticGraphEdgeType;
-    confidence: number;
-    reason: string;
-    evidence: SemanticGraphEvidence[];
-  }>;
-}
-
-export interface SemanticGraphProposalSummary {
-  title: string;
-  summary: string;
-  keyRelationships: string[];
-  reviewNotes: string[];
-}
-
 export interface SemanticJudgementPromptInput {
   source: SemanticDocumentExtraction;
   candidate: SemanticRelationshipCandidate;
@@ -182,23 +178,9 @@ export interface SemanticJudgementPromptInput {
 
 const DEFAULT_MAX_DOCUMENT_CHARS = 12000;
 const MIN_CHUNK_CHARS = 1200;
-const DEFAULT_MAX_CANDIDATES_PER_DOCUMENT = 12;
+const DEFAULT_MAX_CANDIDATES_PER_DOCUMENT = DEFAULT_SEMANTIC_GRAPH_SETTINGS.maxCandidatesPerDocument;
 const MIN_REASON_SCORE = 1;
 const HIGH_SIGNAL_SCORE = 7;
-const GRAPH_TOPIC_STOPWORDS = new Set([
-  "docs",
-  "doc",
-  "document",
-  "documents",
-  "memory",
-  "markdown",
-  "imported",
-  "project",
-  "projects",
-  "overview",
-  "note",
-  "notes"
-]);
 
 export function buildSemanticExtractionPlan(input: BuildSemanticExtractionPlanInput): SemanticExtractionPlan {
   const maxDocumentChars = input.maxDocumentChars || DEFAULT_MAX_DOCUMENT_CHARS;
@@ -478,54 +460,6 @@ export function applySemanticEdgePolicy(input: ApplySemanticEdgePolicyInput): Se
   };
 }
 
-export function semanticEdgesProposalPatch(
-  runId: string,
-  edges: SemanticGraphEdge[],
-  summary?: SemanticGraphProposalSummary
-): string {
-  const patch: SemanticGraphProposalPatch = {
-    kind: "semantic-graph-edges",
-    runId,
-    ...(summary ? { summary } : {}),
-    edges: edges.map((edge) => ({
-      from: edge.from,
-      to: edge.to,
-      type: edge.type,
-      confidence: edge.confidence,
-      reason: edge.reason,
-      evidence: edge.evidence
-    }))
-  };
-  return `${JSON.stringify(patch, null, 2)}\n`;
-}
-
-export function semanticEdgesFromProposalPatch(proposedPatch: string | undefined): SemanticGraphProposalPatch | undefined {
-  if (!proposedPatch?.trim()) return undefined;
-  try {
-    const parsed = JSON.parse(proposedPatch) as Partial<SemanticGraphProposalPatch>;
-    if (parsed.kind !== "semantic-graph-edges" || !Array.isArray(parsed.edges)) return undefined;
-    const edges = parsed.edges
-      .map((edge) => ({
-        from: String(edge?.from || ""),
-        to: String(edge?.to || ""),
-        type: edge?.type as SemanticGraphEdgeType,
-        confidence: clampConfidence(Number(edge?.confidence)),
-        reason: String(edge?.reason || ""),
-        evidence: Array.isArray(edge?.evidence) ? edge.evidence.filter(isSemanticEvidence) : []
-      }))
-      .filter((edge) => edge.from && edge.to && edge.type && edge.reason);
-    if (edges.length === 0) return undefined;
-    return {
-      kind: "semantic-graph-edges",
-      runId: String(parsed.runId || "external-semantic-run"),
-      summary: normalizeProposalSummary(parsed.summary),
-      edges
-    };
-  } catch {
-    return undefined;
-  }
-}
-
 export function semanticProposalSummaryMessages(input: {
   graph?: ProjectGraph;
   edges: SemanticGraphEdge[];
@@ -566,34 +500,6 @@ export function semanticProposalSummaryMessages(input: {
       ].join("\n")
     }
   ];
-}
-
-export function semanticProposalSummaryFromProviderJson(input: unknown): SemanticGraphProposalSummary {
-  const value = record(input);
-  const summary = stringValue(value.summary).slice(0, 1200).trim();
-  if (!summary) {
-    throw new Error("Provider did not return a semantic proposal summary.");
-  }
-  return {
-    title: stringValue(value.title).slice(0, 120).trim() || "AI relationship review",
-    summary,
-    keyRelationships: arrayValue(value.keyRelationships ?? value.key_relationships)
-      .map(stringValue)
-      .filter(Boolean)
-      .slice(0, 8),
-    reviewNotes: arrayValue(value.reviewNotes ?? value.review_notes)
-      .map(stringValue)
-      .filter(Boolean)
-      .slice(0, 6)
-  };
-}
-
-function normalizeProposalSummary(input: unknown): SemanticGraphProposalSummary | undefined {
-  try {
-    return semanticProposalSummaryFromProviderJson(input);
-  } catch {
-    return undefined;
-  }
 }
 
 function semanticProposalNodeLabel(nodeId: string, nodesById: Map<string, GraphNode>): string {
@@ -1525,10 +1431,6 @@ function hasUsableEvidence(evidence: Array<string | SemanticGraphEvidence> | und
   return (evidence || []).some((item) => typeof item === "string" ? Boolean(item.trim()) : Boolean(item.quote.trim()));
 }
 
-function isSemanticEvidence(input: unknown): input is SemanticGraphEvidence {
-  return Boolean(input && typeof input === "object" && typeof (input as SemanticGraphEvidence).quote === "string");
-}
-
 function documentNodeId(documentId: string): string {
   return `doc:${documentId}`;
 }
@@ -1538,13 +1440,7 @@ function stableHash(input: string): string {
 }
 
 function normalizeTextForMatch(input: string | undefined): string {
-  return String(input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/@/g, "")
-    .replace(/[_./\\]+/g, "-")
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return normalizeSlug(input, { strip: /@/g, mapToDash: /[_./\\]+/g, collapse: /[^a-z0-9-]+/g });
 }
 
 function normalizeIdForMatch(input: string | undefined): string {
@@ -1570,10 +1466,6 @@ function intersectCount(left: Set<string>, right: string[]): number {
   return right.reduce((count, token) => count + (left.has(token) ? 1 : 0), 0);
 }
 
-function uniqueStrings(input: string[]): string[] {
-  return [...new Set(input.filter(Boolean))];
-}
-
 function normalizedStringSet(input: string[]): Set<string> {
   return new Set(input.map(normalizeTextForMatch).filter(Boolean));
 }
@@ -1582,28 +1474,3 @@ function intersectSetCount<T>(left: Set<T>, right: T[]): number {
   return right.reduce((count, item) => count + (left.has(item) ? 1 : 0), 0);
 }
 
-function clampConfidence(input: number): number {
-  if (Number.isNaN(input)) return 0;
-  return Math.max(0, Math.min(1, input));
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
-}
-
-function record(input: unknown): Record<string, unknown> {
-  return input && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : {};
-}
-
-function arrayValue(input: unknown): unknown[] {
-  return Array.isArray(input) ? input : [];
-}
-
-function stringValue(input: unknown): string {
-  return String(input || "").trim();
-}
-
-function stringOrUndefined(input: unknown): string | undefined {
-  const value = stringValue(input);
-  return value || undefined;
-}

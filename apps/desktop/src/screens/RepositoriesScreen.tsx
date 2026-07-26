@@ -4,6 +4,7 @@ import { useStore } from "../stores/store-context.js";
 import { Empty, Panel, Screen } from "../components/layout.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { DirectoryField } from "../components/DirectoryField.js";
+import { ListRow } from "../components/ListRow.js";
 
 export const RepositoriesScreen = observer(function RepositoriesScreen() {
   const store = useStore();
@@ -111,20 +112,25 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
         {store.repoLinks.length ? (
           <div className="repo-list">
             {store.repoLinks.map((repo) => (
-              <div className="repo-row" key={repo.path}>
-                <div>
-                  <strong>{repo.name || repo.path.split(/[\\/]/).pop() || repo.role}</strong>
-                  <span>{repo.path}</span>
-                  <small>{[repo.role, repo.defaultBranch || "branch unknown"].filter(Boolean).join(" / ")}</small>
-                  {repo.description ? <p>{repo.description}</p> : null}
-                </div>
-                <ConfirmDeleteButton
-                  itemType="repo"
-                  title={repo.name || repo.path}
-                  label="Move to Trash"
-                  onConfirm={() => store.deleteRepo(repo.path, true)}
-                />
-              </div>
+              <ListRow
+                key={repo.path}
+                title={repo.name || repo.path.split(/[\\/]/).pop() || repo.role}
+                details={
+                  <>
+                    <span>{repo.path}</span>
+                    <small>{[repo.role, repo.defaultBranch || "branch unknown"].filter(Boolean).join(" / ")}</small>
+                    {repo.description ? <p>{repo.description}</p> : null}
+                  </>
+                }
+                actions={
+                  <ConfirmDeleteButton
+                    itemType="repo"
+                    title={repo.name || repo.path}
+                    label="Move to Trash"
+                    onConfirm={() => store.deleteRepo(repo.path, true)}
+                  />
+                }
+              />
             ))}
           </div>
         ) : (

@@ -1,4 +1,4 @@
-import { semanticEdgesFromProposalPatch } from "./semantic-proposals.js";
+import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
 
 export function currentInboxItems(items: any[]): any[] {
   const currentSemanticId = currentAiRelationshipProposalId(items);

@@ -1,22 +1,17 @@
-import { randomUUID } from "node:crypto";
+import { normalizeSlug } from "./text.js";
 
 export function nowIso(): string {
   return new Date().toISOString();
 }
 
 export function slugify(input: string): string {
-  const slug = input
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return slug || "project";
+  return normalizeSlug(input, { strip: /['"]/g, fallback: "project" });
 }
 
 export function createId(prefix: string): string {
-  return `${prefix}-${randomUUID()}`;
+  // globalThis.crypto.randomUUID exists in Node 20+ and every modern browser,
+  // keeping this module (and the core barrel) browser-safe.
+  return `${prefix}-${globalThis.crypto.randomUUID()}`;
 }
 
 export function shortDateSlug(date = new Date()): string {

@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import http from "node:http";
+import { isLoopbackHost, rpcError } from "@zharwing/memory-core";
 import { handleMcpJsonRpcPayload, MEMORY_TOOLS, type McpToolCall } from "@zharwing/memory-mcp";
 import { dispatchAgentRpc } from "./agent-facade.js";
-import { isLoopbackHost, type DaemonConfig } from "./config.js";
+import { type DaemonConfig } from "./config.js";
 import { MemoryService } from "./memory-service.js";
 import { dispatchRpc, type RpcRequest } from "./rpc.js";
 
@@ -16,13 +17,13 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
     // Host header still names a loopback address.
     if (!hasLoopbackHostHeader(request)) {
       response.statusCode = 403;
-      response.end(JSON.stringify({ ok: false, error: { message: "Host not allowed" } }));
+      response.end(JSON.stringify(rpcError(undefined, "Host not allowed")));
       return;
     }
 
     if (!setCorsHeaders(request, response)) {
       response.statusCode = 403;
-      response.end(JSON.stringify({ ok: false, error: { message: "Origin not allowed" } }));
+      response.end(JSON.stringify(rpcError(undefined, "Origin not allowed")));
       return;
     }
 
@@ -54,19 +55,21 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
 
     if (request.method !== "POST" || !["/rpc", "/mcp", "/agent-rpc"].includes(request.url || "")) {
       response.statusCode = 404;
-      response.end(JSON.stringify({ ok: false, error: { message: "Not found" } }));
+      response.end(JSON.stringify(rpcError(undefined, "Not found")));
       return;
     }
 
     if (!isAuthorized(config, request)) {
       response.statusCode = 401;
-      response.end(JSON.stringify({ ok: false, error: { message: "Unauthorized" } }));
+      response.end(JSON.stringify(rpcError(undefined, "Unauthorized")));
       return;
     }
 
     // Agent-facing access requires an explicit local opt-in.
     if (["/mcp", "/agent-rpc"].includes(request.url || "") && !config.agentSurfaceEnabled) {
       response.statusCode = 403;
+      // Kept as a literal: this envelope carries an error.code field that the
+      // shared rpcError helper deliberately does not produce.
       response.end(JSON.stringify({
         ok: false,
         error: {
@@ -103,14 +106,11 @@ export function createDaemonServer(config: DaemonConfig, service = new MemorySer
     } catch (error) {
       if (error instanceof BodyTooLargeError) {
         response.statusCode = 413;
-        response.end(JSON.stringify({ ok: false, error: { message: "Request body too large" } }));
+        response.end(JSON.stringify(rpcError(undefined, "Request body too large")));
         return;
       }
       response.statusCode = 500;
-      response.end(JSON.stringify({
-        ok: false,
-        error: { message: error instanceof Error ? error.message : String(error) }
-      }));
+      response.end(JSON.stringify(rpcError(undefined, error instanceof Error ? error.message : String(error))));
     }
   });
 }

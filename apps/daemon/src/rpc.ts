@@ -1,37 +1,21 @@
+import { rpcError, rpcOk, type RpcRequest, type RpcResponse } from "@zharwing/memory-core";
 import type { MemoryService } from "./memory-service.js";
 import { requireParams, RpcValidationError } from "./rpc-params.js";
 import { doctorMcpSetup, installMcpAuto, installMcpClient } from "@zharwing/memory-mcp";
 
-export interface RpcRequest {
-  id?: string | number;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-export interface RpcResponse {
-  id?: string | number;
-  ok: boolean;
-  result?: unknown;
-  error?: {
-    message: string;
-    stack?: string;
-  };
-}
+export type { RpcRequest, RpcResponse } from "@zharwing/memory-core";
 
 export async function dispatchRpc(service: MemoryService, request: RpcRequest): Promise<RpcResponse> {
   try {
     const result = await callMethod(service, request.method, request.params || {});
-    return { id: request.id, ok: true, result };
+    return rpcOk(request.id, result);
   } catch (error) {
-    return {
-      id: request.id,
-      ok: false,
-      error: {
-        message: error instanceof Error ? error.message : String(error),
-        // Validation failures are client errors, not internal faults: no stack.
-        stack: error instanceof RpcValidationError ? undefined : (error instanceof Error ? error.stack : undefined)
-      }
-    };
+    return rpcError(
+      request.id,
+      error instanceof Error ? error.message : String(error),
+      // Validation failures are client errors, not internal faults: no stack.
+      error instanceof RpcValidationError ? undefined : (error instanceof Error ? error.stack : undefined)
+    );
   }
 }
 

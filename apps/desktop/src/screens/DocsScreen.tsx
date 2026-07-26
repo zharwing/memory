@@ -1,44 +1,49 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react-lite";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Activity, AlertCircle, CircleHelp, Play, Settings2, Sparkles, X } from "lucide-react";
+import type { AssistantPolicy } from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
-import { DocumentEditorModal } from "../components/DocumentEditorModal.js";
+import { DocumentEditorHost } from "../components/DocumentEditorHost.js";
+import { Modal } from "../components/Modal.js";
+import { ToggleGroup } from "../components/ToggleGroup.js";
+import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import {
+  SemanticRunField,
+  SemanticRunForm,
+  SemanticRunProgress,
+  semanticRunStatus,
+  useSemanticRunDraft
+} from "../features/semantic-review/index.js";
 import { filterDocuments, isStarterDraftDoc } from "../utils/documents.js";
+import { providerLabel } from "../utils/labels.js";
 import { projectPath } from "../utils/routes.js";
-import { semanticEdgesFromProposalPatch } from "../utils/semantic-proposals.js";
+import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
 import { pendingInboxItems } from "../utils/inbox.js";
-
-const defaultRelationshipRunDraft = {
-  mode: "review",
-  endpoint: "",
-  model: "",
-  apiKey: "",
-  maxDocuments: "",
-  maxCandidates: "",
-  maxCandidatesPerDocument: "8",
-  timeoutSeconds: "120",
-  maxOutputTokens: "1024",
-  jsonMode: true
-};
 
 export const DocsScreen = observer(function DocsScreen() {
   const store = useStore();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedDocId, setSelectedDocId] = useState("");
-  const [editingDocId, setEditingDocId] = useState(searchParams.get("doc") || "");
+  const [editingDocId, setDocSearchParam] = useSearchParamState("doc");
+  const selectedDocId = editingDocId;
   const [filter, setFilter] = useState("all");
   const [showStarterDocsHelp, setShowStarterDocsHelp] = useState(false);
   const [showLinkDiscoveryDialog, setShowLinkDiscoveryDialog] = useState(false);
   const [showRelationshipAdvanced, setShowRelationshipAdvanced] = useState(false);
-  const [relationshipRunDraft, setRelationshipRunDraft] = useState(() => ({ ...defaultRelationshipRunDraft }));
+  const {
+    draft: relationshipRunDraft,
+    patchDraft: updateRelationshipRunDraft,
+    resetDraft: resetRelationshipRunDraft,
+    toPayload: relationshipRunPayload
+  } = useSemanticRunDraft();
   const [page, setPage] = useState(0);
   const pageSize = 25;
   const docs = store.docs.filter((doc) => doc.type !== "diagram");
-  const aiEligibleDocs = docs.filter((doc) => doc.visibility !== "ai-excluded");
+  // Mirrors the daemon-side semantic analysis eligibility: only ai-eligible
+  // and ai-pinned documents are ever sent to the provider.
+  const aiEligibleDocs = docs.filter((doc) => doc.visibility === "ai-eligible" || doc.visibility === "ai-pinned");
   const filteredDocs = filterDocuments(docs, filter);
   const starterDraftDocs = store.docs.filter(isStarterDraftDoc);
   const pageCount = Math.max(1, Math.ceil(filteredDocs.length / pageSize));
@@ -53,7 +58,7 @@ export const DocsScreen = observer(function DocsScreen() {
   const pendingRelationshipSuggestions = pendingRelationshipApprovals.reduce((total, item) => {
     return total + (semanticEdgesFromProposalPatch(item.proposedPatch)?.edges.length || 0);
   }, 0);
-  const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
+  const assistantPolicy: Partial<AssistantPolicy> = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
   const assistantRuntimeType = String(assistantPolicy.runtimeType || "disabled");
   const relationshipProviderEndpoint = assistantPolicy.endpoint || "";
   const relationshipProviderModel = store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
@@ -76,93 +81,52 @@ export const DocsScreen = observer(function DocsScreen() {
   const savedLinkCount = (semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0);
   const semanticDisplayRun = store.semanticAnalysisProgressRun || semanticResult?.run || semanticLatestRun;
   const semanticRunCounts = semanticDisplayRun?.counts || {};
-  const semanticRunStatus = String(semanticDisplayRun?.status || "");
-  const semanticRunRunning = store.semanticAnalysisRunning || semanticRunStatus === "running" || semanticRunStatus === "pending";
-  const semanticRunFinished = Boolean(semanticDisplayRun && !semanticRunRunning && ["completed", "failed", "cancelled"].includes(semanticRunStatus));
-  const semanticDocumentsTotal = Number(semanticRunCounts.documentsTotal || 0);
-  const semanticDocumentsProcessed = Math.min(
-    semanticDocumentsTotal || Number.MAX_SAFE_INTEGER,
-    Number(semanticRunCounts.documentsAnalyzed || 0) + Number(semanticRunCounts.extractionsReused || 0)
-  );
-  const semanticCandidatesTotal = Number(semanticRunCounts.candidates || 0);
-  const semanticCandidatesJudged = Number(semanticRunCounts.judged || 0);
+  const runProgress = semanticRunStatus(semanticDisplayRun, store.semanticAnalysisRunning);
+  const semanticRunRunning = runProgress.running;
+  const semanticRunFinished = runProgress.finished;
   const semanticProposalId = semanticResult?.proposal?.id || pendingRelationshipApprovals[0]?.id;
   const semanticInboxPath = semanticProposalId
     ? projectPath(store.selectedProjectId, `/inbox?proposal=${encodeURIComponent(semanticProposalId)}`)
     : projectPath(store.selectedProjectId, "/inbox");
   const showSemanticRunBanner = Boolean(semanticDisplayRun && !showLinkDiscoveryDialog && (semanticRunRunning || semanticRunFinished));
 
-  useEffect(() => {
-    const urlDocId = searchParams.get("doc") || "";
-    setEditingDocId((current) => current === urlDocId ? current : urlDocId);
-    setSelectedDocId((current) => current === urlDocId ? current : urlDocId);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (editingDocId && store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId)) {
-      closeDocEditor(true);
-    }
-  }, [editingDocId, store.docs]);
-
-  function updateDocsSearchParams(docId: string | null, replace = false) {
-    setSearchParams((current) => {
-      const nextParams = new URLSearchParams(current);
-      if (docId) nextParams.set("doc", docId);
-      else nextParams.delete("doc");
-      return nextParams;
-    }, { replace });
-  }
+  useCloseWhenMissing(
+    editingDocId,
+    store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId),
+    () => closeDocEditor(true)
+  );
 
   function chooseFilter(nextFilter: string) {
     setFilter(nextFilter);
     setShowStarterDocsHelp(false);
     setPage(0);
-    setSelectedDocId("");
   }
 
   function openDocEditor(doc: any) {
-    setSelectedDocId(doc.id);
-    setEditingDocId(doc.id);
-    updateDocsSearchParams(doc.id);
+    setDocSearchParam(doc.id);
   }
 
   function closeDocEditor(replace = false) {
-    setEditingDocId("");
-    updateDocsSearchParams(null, replace);
-  }
-
-  function updateRelationshipRunDraft(patch: Partial<typeof relationshipRunDraft>) {
-    setRelationshipRunDraft((current) => ({ ...current, ...patch }));
+    setDocSearchParam(null, { replace });
   }
 
   function openLinkDiscoveryDialog() {
     setShowRelationshipAdvanced(false);
-    setRelationshipRunDraft({ ...defaultRelationshipRunDraft });
+    resetRelationshipRunDraft();
     setShowLinkDiscoveryDialog(true);
   }
 
   function closeLinkDiscoveryDialog() {
     setShowRelationshipAdvanced(false);
-    setRelationshipRunDraft({ ...defaultRelationshipRunDraft });
+    resetRelationshipRunDraft();
     setShowLinkDiscoveryDialog(false);
   }
 
   function runRelationshipReview() {
-    const mode = relationshipRunDraft.mode || "review";
-    void store.analyzeSemanticGraph({
-      mode,
-      dryRun: mode === "dry-run",
+    void store.analyzeSemanticGraph(relationshipRunPayload({
       scope: { kind: "all-docs" },
-      endpoint: relationshipRunDraft.endpoint.trim() || undefined,
-      model: relationshipRunDraft.model.trim() || undefined,
-      apiKey: relationshipRunDraft.apiKey.trim() || undefined,
-      maxDocuments: numberOrUndefined(relationshipRunDraft.maxDocuments),
-      maxCandidates: numberOrUndefined(relationshipRunDraft.maxCandidates),
-      maxCandidatesPerDocument: numberOrUndefined(relationshipRunDraft.maxCandidatesPerDocument),
-      timeoutMs: secondsToMilliseconds(relationshipRunDraft.timeoutSeconds),
-      maxOutputTokens: numberOrUndefined(relationshipRunDraft.maxOutputTokens),
-      jsonMode: Boolean(relationshipRunDraft.jsonMode)
-    });
+      fallbackMode: "review"
+    }));
   }
 
   function paginationControls(position: "top" | "bottom") {
@@ -189,25 +153,13 @@ export const DocsScreen = observer(function DocsScreen() {
               </div>
             </div>
             {semanticRunRunning ? (
-              <div className="semantic-run-banner-progress">
-                <ProgressMeter
-                  label="Documents"
-                  value={semanticDocumentsProcessed}
-                  total={semanticDocumentsTotal}
-                />
-                {semanticCandidatesTotal > 0 ? (
-                  <ProgressMeter
-                    label="Link candidates"
-                    value={semanticCandidatesJudged}
-                    total={semanticCandidatesTotal}
-                  />
-                ) : (
-                  <div className="semantic-progress-row muted">
-                    <span>Link candidates</span>
-                    <strong>Preparing</strong>
-                  </div>
-                )}
-              </div>
+              <SemanticRunProgress
+                className="semantic-run-banner-progress"
+                documentsProcessed={runProgress.documentsProcessed}
+                documentsTotal={runProgress.documentsTotal}
+                candidatesJudged={runProgress.candidatesJudged}
+                candidatesTotal={runProgress.candidatesTotal}
+              />
             ) : (
               <p className="semantic-run-banner-copy">
                 {semanticRunCompletionCopy(semanticDisplayRun, pendingRelationshipSuggestions, Boolean(semanticResult?.proposal))}
@@ -247,22 +199,17 @@ export const DocsScreen = observer(function DocsScreen() {
       ) : null}
       <div className="table-toolbar">
         <div className="docs-filter-row">
-          <div className="option-chips" aria-label="Document filters">
-            {[
-              ["all", `All (${docs.length})`],
-              ["imported", `Imported (${filterDocuments(docs, "imported").length})`],
-              ["draft", `Draft (${filterDocuments(docs, "draft").length})`]
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={filter === value ? "selected" : ""}
-                onClick={() => chooseFilter(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <ToggleGroup
+            className="option-chips"
+            ariaLabel="Document filters"
+            value={filter}
+            onChange={chooseFilter}
+            options={[
+              { value: "all", label: `All (${docs.length})` },
+              { value: "imported", label: `Imported (${filterDocuments(docs, "imported").length})` },
+              { value: "draft", label: `Draft (${filterDocuments(docs, "draft").length})` }
+            ]}
+          />
           {starterDraftDocs.length > 0 && filter !== "draft" ? (
             <button
               type="button"
@@ -308,26 +255,19 @@ export const DocsScreen = observer(function DocsScreen() {
         <Empty text="No documents match this filter." />
       )}
       {editingDoc ? (
-        <DocumentEditorModal
+        <DocumentEditorHost
           doc={editingDoc}
-          saving={store.loading}
           onClose={() => closeDocEditor()}
-          onSave={(changes) => store.updateDocument(editingDoc.id, changes)}
-          onDelete={async () => {
-            await store.deleteDocument(editingDoc.id);
-            closeDocEditor(true);
-          }}
+          onDeleted={() => closeDocEditor(true)}
         />
       ) : null}
       {showLinkDiscoveryDialog ? (
-        <div
-          className="dialog-backdrop link-discovery-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeLinkDiscoveryDialog();
-          }}
+        <Modal
+          ariaLabel="Suggest graph links"
+          backdropClassName="dialog-backdrop link-discovery-backdrop"
+          className="link-discovery-dialog"
+          onClose={closeLinkDiscoveryDialog}
         >
-          <section className="link-discovery-dialog" role="dialog" aria-modal="true" aria-label="Suggest graph links">
             <header className="link-discovery-header">
               <div>
                 <span className="section-kicker">Graph link suggestions</span>
@@ -421,25 +361,14 @@ export const DocsScreen = observer(function DocsScreen() {
                       <span>{semanticRunPhase(semanticDisplayRun, semanticRunRunning)}</span>
                     </div>
                     {semanticRunRunning ? (
-                      <div className="semantic-run-progress" aria-label="Graph link suggestion progress">
-                        <ProgressMeter
-                          label="Documents"
-                          value={semanticDocumentsProcessed}
-                          total={semanticDocumentsTotal}
-                        />
-                        {semanticCandidatesTotal > 0 ? (
-                          <ProgressMeter
-                            label="Link candidates"
-                            value={semanticCandidatesJudged}
-                            total={semanticCandidatesTotal}
-                          />
-                        ) : (
-                          <div className="semantic-progress-row muted">
-                            <span>Link candidates</span>
-                            <strong>Preparing</strong>
-                          </div>
-                        )}
-                      </div>
+                      <SemanticRunProgress
+                        className="semantic-run-progress"
+                        ariaLabel="Graph link suggestion progress"
+                        documentsProcessed={runProgress.documentsProcessed}
+                        documentsTotal={runProgress.documentsTotal}
+                        candidatesJudged={runProgress.candidatesJudged}
+                        candidatesTotal={runProgress.candidatesTotal}
+                      />
                     ) : null}
                     {semanticRunFinished ? (
                       <p className="semantic-run-result-copy">
@@ -468,175 +397,70 @@ export const DocsScreen = observer(function DocsScreen() {
                     </p>
                     <div className="semantic-run-advanced-section">
                       <h4>Review behavior</h4>
-                      <div className="semantic-run-form semantic-run-form-basic">
-                        <label>
-                          <span>Review behavior</span>
-                          <select
-                            value={relationshipRunDraft.mode}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ mode: event.target.value })}
-                          >
-                            <option value="review">Send to Inbox for approval</option>
-                            <option value="dry-run">Preview only</option>
-                            <option value="auto">Auto-approve links</option>
-                          </select>
-                        </label>
-                      </div>
+                      <SemanticRunForm
+                        className="semantic-run-form-basic"
+                        draft={relationshipRunDraft}
+                        disabled={store.loading}
+                        onPatch={updateRelationshipRunDraft}
+                        fields={[
+                          {
+                            key: "mode",
+                            label: "Review behavior",
+                            options: [
+                              { value: "review", label: "Send to Inbox for approval" },
+                              { value: "dry-run", label: "Preview only" },
+                              { value: "auto", label: "Auto-approve links" }
+                            ]
+                          }
+                        ]}
+                      />
                     </div>
                     <div className="semantic-run-advanced-section">
                       <h4>Run limits</h4>
-                      <div className="semantic-run-form">
-                        <label>
-                          <span>Documents to scan</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={relationshipRunDraft.maxDocuments}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ maxDocuments: event.target.value })}
-                            placeholder="All"
-                          />
-                        </label>
-                        <label>
-                          <span>Total link candidates</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={relationshipRunDraft.maxCandidates}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ maxCandidates: event.target.value })}
-                            placeholder="All"
-                          />
-                        </label>
-                        <label>
-                          <span>Candidates per document</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={relationshipRunDraft.maxCandidatesPerDocument}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ maxCandidatesPerDocument: event.target.value })}
-                          />
-                        </label>
-                      </div>
+                      <SemanticRunForm
+                        draft={relationshipRunDraft}
+                        disabled={store.loading}
+                        onPatch={updateRelationshipRunDraft}
+                        fields={[
+                          { key: "maxDocuments", label: "Documents to scan", placeholder: "All" },
+                          { key: "maxCandidates", label: "Total link candidates", placeholder: "All" },
+                          { key: "maxCandidatesPerDocument", label: "Candidates per document" }
+                        ]}
+                      />
                     </div>
                     <div className="semantic-run-advanced-section">
                       <h4>AI request</h4>
-                      <div className="semantic-run-form">
-                        <label className="semantic-run-wide">
-                          <span>Endpoint for this run</span>
-                          <input
-                            value={relationshipRunDraft.endpoint}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ endpoint: event.target.value })}
-                            placeholder="Use provider default"
-                          />
-                        </label>
-                        <label className="semantic-run-wide">
-                          <span>Model for this run</span>
-                          <input
-                            value={relationshipRunDraft.model}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ model: event.target.value })}
-                            placeholder="Use provider default"
-                          />
-                        </label>
-                        <label>
-                          <span>API key for this run</span>
-                          <input
-                            type="password"
-                            value={relationshipRunDraft.apiKey}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ apiKey: event.target.value })}
-                            placeholder="Optional"
-                          />
-                        </label>
-                        <label>
-                          <span>Max response size</span>
-                          <input
-                            type="number"
-                            min="128"
-                            step="128"
-                            value={relationshipRunDraft.maxOutputTokens}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ maxOutputTokens: event.target.value })}
-                          />
-                        </label>
-                        <label>
-                          <span>Request timeout (sec)</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={relationshipRunDraft.timeoutSeconds}
-                            disabled={store.loading}
-                            onChange={(event) => updateRelationshipRunDraft({ timeoutSeconds: event.target.value })}
-                          />
-                        </label>
-                      </div>
+                      <SemanticRunForm
+                        draft={relationshipRunDraft}
+                        disabled={store.loading}
+                        onPatch={updateRelationshipRunDraft}
+                        fields={[
+                          { key: "endpoint", label: "Endpoint for this run", wide: true, placeholder: "Use provider default" },
+                          { key: "model", label: "Model for this run", wide: true, placeholder: "Use provider default" },
+                          { key: "apiKey", label: "API key for this run", placeholder: "Optional" },
+                          { key: "maxOutputTokens", label: "Max response size" },
+                          { key: "timeoutSeconds", label: "Request timeout (sec)" }
+                        ]}
+                      />
                     </div>
                     <div className="semantic-run-advanced-section">
                       <h4>Compatibility</h4>
-                      <label className="checkbox-row semantic-json-mode">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(relationshipRunDraft.jsonMode)}
-                          disabled={store.loading}
-                          onChange={(event) => updateRelationshipRunDraft({ jsonMode: event.target.checked })}
-                        />
-                        <span>Require strict JSON output</span>
-                      </label>
+                      <SemanticRunField
+                        field={{ key: "jsonMode", label: "Require strict JSON output" }}
+                        draft={relationshipRunDraft}
+                        disabled={store.loading}
+                        onPatch={updateRelationshipRunDraft}
+                      />
                     </div>
                   </div>
                 ) : null}
               </>
             )}
-          </section>
-        </div>
+        </Modal>
       ) : null}
     </Screen>
   );
 });
-
-function numberOrUndefined(input: string): number | undefined {
-  const value = Number(input);
-  return Number.isFinite(value) && value > 0 ? value : undefined;
-}
-
-function secondsToMilliseconds(input: string): number | undefined {
-  const seconds = numberOrUndefined(input);
-  return seconds ? seconds * 1000 : undefined;
-}
-
-function ProgressMeter({ label, value, total }: { label: string; value: number; total: number }) {
-  const boundedTotal = Math.max(0, Number(total || 0));
-  const boundedValue = boundedTotal > 0
-    ? Math.min(boundedTotal, Math.max(0, Number(value || 0)))
-    : Math.max(0, Number(value || 0));
-  const percent = boundedTotal > 0 ? Math.round((boundedValue / boundedTotal) * 100) : 0;
-
-  return (
-    <div className="semantic-progress-row">
-      <div>
-        <span>{label}</span>
-        <strong>{boundedTotal > 0 ? `${boundedValue} of ${boundedTotal}` : `${boundedValue}`}</strong>
-      </div>
-      <div
-        className="semantic-progress-track"
-        role="progressbar"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={boundedTotal || undefined}
-        aria-valuenow={boundedTotal ? boundedValue : undefined}
-      >
-        <i style={{ width: `${percent}%` }} />
-      </div>
-    </div>
-  );
-}
 
 function semanticRunTitle(run: any, pendingSuggestions: number, hasProposal: boolean): string {
   if (run.status === "failed") return "Suggestion run failed";
@@ -685,17 +509,6 @@ function semanticRunErrorCopy(error: unknown): string {
     return "The AI provider answered without valid JSON. Keep strict JSON output enabled, or use a model/provider that supports JSON object responses for document analysis.";
   }
   return message || "The provider or daemon stopped before suggestions could be created.";
-}
-
-function providerLabel(runtimeType: string): string {
-  if (runtimeType === "lm-studio") return "LM Studio";
-  if (runtimeType === "ollama") return "Ollama";
-  if (runtimeType === "llama-cpp") return "llama.cpp server";
-  if (runtimeType === "openai") return "OpenAI API";
-  if (runtimeType === "anthropic") return "Claude API";
-  if (runtimeType === "custom-openai-compatible") return "OpenAI-compatible API";
-  if (runtimeType === "app-managed-llamacpp") return "App-managed local model";
-  return "AI provider";
 }
 
 function modelDisplayNameForLinkDiscovery(args: {

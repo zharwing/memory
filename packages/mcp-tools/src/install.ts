@@ -3,6 +3,7 @@ import { existsSync, promises as fs, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_DAEMON_URL, memoryEnv } from "@zharwing/memory-core";
 import { handleMcpRequest } from "./server.js";
 
 export type McpClientTarget = "codex" | "claude-code" | "claude-desktop";
@@ -98,13 +99,10 @@ export interface McpDoctorResult {
 export async function installMcpClient(options: McpInstallOptions): Promise<McpInstallResult> {
   const serverName = options.serverName || "zharwing-memory";
   const daemonUrl = trimTrailingSlash(
-    options.daemonUrl ||
-      process.env.ZHARWING_MEMORY_DAEMON_URL ||
-      process.env.AIMEM_DAEMON_URL ||
-      "http://127.0.0.1:37841"
+    options.daemonUrl || memoryEnv("ZHARWING_MEMORY_DAEMON_URL") || DEFAULT_DAEMON_URL
   );
   const health = await readDaemonHealth(daemonUrl);
-  const envAuthMode = process.env.ZHARWING_MEMORY_AUTH_MODE ?? process.env.AIMEM_AUTH_MODE;
+  const envAuthMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE");
   const authMode = options.authMode && options.authMode !== "auto"
     ? options.authMode
     : health.authMode === "none" || envAuthMode === "none"
@@ -238,10 +236,7 @@ export async function installMcpAuto(options: McpAutoInstallOptions = {}): Promi
 
 export async function doctorMcpSetup(options: { daemonUrl?: string; workingDirectory?: string } = {}): Promise<McpDoctorResult> {
   const daemonUrl = trimTrailingSlash(
-    options.daemonUrl ||
-      process.env.ZHARWING_MEMORY_DAEMON_URL ||
-      process.env.AIMEM_DAEMON_URL ||
-      "http://127.0.0.1:37841"
+    options.daemonUrl || memoryEnv("ZHARWING_MEMORY_DAEMON_URL") || DEFAULT_DAEMON_URL
   );
   const health = await readDaemonHealth(daemonUrl);
   const stdio = await smokeTestStdioHandler();

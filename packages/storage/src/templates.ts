@@ -1,4 +1,4 @@
-import type { Project } from "@zharwing/memory-core";
+import { CANONICAL_PROJECT_FILES, type Project } from "@zharwing/memory-core";
 
 export function defaultProjectDocument(project: Project, kind: string): string {
   const title = titleFor(kind, project.name);
@@ -45,26 +45,8 @@ None recorded yet.
 `;
 }
 
-export function contextMarkdownHeader(projectName: string): string {
-  return `# AI Context for This Session
-
-Project: ${projectName}
-
-This bundle was generated from project-scoped Zharwing Memory. It excludes private, never-send, unrelated, and blocked items.
-`;
-}
-
 function titleFor(kind: string, projectName: string): string {
-  const titles: Record<string, string> = {
-    "overview.md": `${projectName} Overview`,
-    "architecture.md": "Architecture",
-    "decisions.md": "Decisions",
-    "tasks.md": "Tasks",
-    "gotchas.md": "Gotchas",
-    "commands.md": "Commands",
-    "glossary.md": "Glossary",
-    "privacy.md": "Privacy Rules"
-  };
-
-  return titles[kind] || kind.replace(/\.md$/, "");
+  if (kind === "overview.md") return `${projectName} Overview`;
+  const canonical = CANONICAL_PROJECT_FILES.find((file) => file.name === kind);
+  return canonical?.title || kind.replace(/\.md$/, "");
 }

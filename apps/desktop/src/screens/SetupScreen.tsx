@@ -5,6 +5,7 @@ import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
 import { DirectoryField } from "../components/DirectoryField.js";
+import { ToggleGroup } from "../components/ToggleGroup.js";
 import { splitList } from "../utils/format.js";
 import { projectPath } from "../utils/routes.js";
 
@@ -142,22 +143,17 @@ export const SetupScreen = observer(function SetupScreen() {
             </div>
             <div>
               <span className="field-label">Setup path</span>
-              <div className="segmented-control" role="group" aria-label="Setup path">
-                <button
-                  type="button"
-                  className={setupMode === "project-only" ? "selected" : ""}
-                  onClick={() => setSetupMode("project-only")}
-                >
-                  Project only
-                </button>
-                <button
-                  type="button"
-                  className={setupMode === "initial-repo" ? "selected" : ""}
-                  onClick={() => setSetupMode("initial-repo")}
-                >
-                  Project plus one repo
-                </button>
-              </div>
+              <ToggleGroup
+                className="segmented-control"
+                role="group"
+                ariaLabel="Setup path"
+                value={setupMode}
+                onChange={(nextMode) => setSetupMode(nextMode as "project-only" | "initial-repo")}
+                options={[
+                  { value: "project-only", label: "Project only" },
+                  { value: "initial-repo", label: "Project plus one repo" }
+                ]}
+              />
               <p className="field-help">
                 Choose project only for multi-repo products. Choose project plus one repo only as a shortcut for simple single-repo setup.
               </p>

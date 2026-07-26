@@ -13,3 +13,36 @@ export function formatShortDateTime(value: string): string {
 export function splitList(input: string): string[] {
   return input.split(",").map((item) => item.trim()).filter(Boolean);
 }
+
+/** Parses a positive number from form input text; returns undefined otherwise. */
+export function numberOrUndefined(input: string): number | undefined {
+  const value = Number(input);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+/** Formats a 0..1 confidence value as a whole percent, e.g. `0.85` -> `85%`. */
+export function formatConfidence(confidence: number): string {
+  return `${Math.round(confidence * 100)}%`;
+}
+
+/** Simple 32-bit string hash (Java-style). Not for security or persistence. */
+export function hashString(input: string): number {
+  let hash = 0;
+  for (let index = 0; index < input.length; index += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
+  }
+  return hash;
+}
+
+/**
+ * Turns a slug such as `diagram-group` or `code_area` into `Diagram Group`.
+ * Pass an acronym map (lowercase part -> replacement) to keep terms like
+ * `AI` or `API` fully capitalized.
+ */
+export function titleCaseSlug(value: string, acronyms: Record<string, string> = {}): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => acronyms[part.toLowerCase()] || part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}

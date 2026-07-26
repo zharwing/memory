@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { CircleHelp, FlaskConical, Play, RotateCcw, Settings2, X } from "lucide-react";
+import { PROVIDER_DEFAULTS, type AssistantPolicy } from "@zharwing/memory-core";
 import { useStore } from "../../stores/store-context.js";
 import type { GraphRelationshipMode } from "../../stores/root-store.js";
-import { KeyValue, Screen } from "../../components/layout.js";
+import { Empty, KeyValue, Screen } from "../../components/layout.js";
 import { LibraryTabs } from "../../components/SectionTabs.js";
-import { DocumentEditorModal } from "../../components/DocumentEditorModal.js";
-import { formatShortDateTime } from "../../utils/format.js";
+import { DocumentEditorHost } from "../../components/DocumentEditorHost.js";
+import { Modal } from "../../components/Modal.js";
+import { ToggleGroup } from "../../components/ToggleGroup.js";
+import { useCloseWhenMissing, useSearchParamsPatch } from "../../hooks/useSearchParamState.js";
+import { SemanticRunForm, useSemanticRunDraft } from "../../features/semantic-review/index.js";
+import { formatConfidence, formatShortDateTime, titleCaseSlug } from "../../utils/format.js";
 import {
   type GraphViewMode,
   enhanceGraphForDisplay,
@@ -67,30 +72,22 @@ type SemanticPreviewState = {
 
 export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialGraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
-  const initialRelationshipMode = graphRelationshipModeFromSearchParam(searchParams.get("relationships")) || "ai-reviewed";
+  const [searchParams, patchSearchParams] = useSearchParamsPatch();
   const graph = useMemo(() => enhanceGraphForDisplay(store.graph, store.docs), [store.graph, store.docs]);
-  const [graphViewMode, setGraphViewMode] = useState<GraphViewMode>(initialGraphViewMode);
-  const [focusedNodeId, setFocusedNodeId] = useState(initialGraphViewMode === "all" ? "" : searchParams.get("focus") || "");
+  const graphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
+  const rawRelationshipModeParam = searchParams.get("relationships");
+  const focusedNodeId = graphViewMode === "all" ? "" : searchParams.get("focus") || "";
+  const editingDocId = searchParams.get("doc") || "";
+  const selectedGraphEdgeId = searchParams.get("edge") || "";
   const [focusHistory, setFocusHistory] = useState<string[]>([]);
-  const [editingDocId, setEditingDocId] = useState(searchParams.get("doc") || "");
-  const [selectedGraphEdgeId, setSelectedGraphEdgeId] = useState(searchParams.get("edge") || "");
   const [showGraphHelp, setShowGraphHelp] = useState(false);
   const [showGraphDetails, setShowGraphDetails] = useState(false);
-  const [semanticRunDraft, setSemanticRunDraft] = useState({
-    mode: "review",
-    scopeKind: "focused",
-    endpoint: "",
-    model: "",
-    apiKey: "",
-    maxDocuments: "",
-    maxCandidates: "",
-    maxCandidatesPerDocument: "8",
-    timeoutMs: "120000",
-    maxOutputTokens: "1024",
-    jsonMode: true
-  });
+  const {
+    draft: semanticRunDraft,
+    patchDraft: updateSemanticRunDraft,
+    setDraft: setSemanticRunDraft,
+    toPayload: semanticRunPayloadFor
+  } = useSemanticRunDraft({ scopeKind: "focused" });
   const [showSemanticAdvanced, setShowSemanticAdvanced] = useState(false);
   const [showSemanticPreviewDialog, setShowSemanticPreviewDialog] = useState(false);
   const [semanticPreviewState, setSemanticPreviewState] = useState<SemanticPreviewState>({
@@ -142,7 +139,7 @@ export const GraphScreen = observer(function GraphScreen() {
   const semanticLatestRunStartedLabel = semanticLatestRun?.started ? formatShortDateTime(semanticLatestRun.started) : "";
   const semanticLatestRunStatusLabel = semanticLatestRun?.status || "No runs";
   const semanticResult = store.semanticAnalysisResult;
-  const assistantPolicy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
+  const assistantPolicy: Partial<AssistantPolicy> = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
   const semanticProviderEndpoint = semanticRunDraft.endpoint.trim() || assistantPolicy.endpoint || "";
   const semanticProviderModel = semanticRunDraft.model.trim() || store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
   const semanticProviderReady = Boolean(semanticProviderEndpoint && semanticProviderModel);
@@ -159,62 +156,36 @@ export const GraphScreen = observer(function GraphScreen() {
     : undefined;
 
   useEffect(() => {
-    const nextGraphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
-    const rawRelationshipMode = searchParams.get("relationships");
-    const nextGraphRelationshipMode = graphRelationshipModeFromSearchParam(rawRelationshipMode) || "ai-reviewed";
-    const nextFocusedNodeId = nextGraphViewMode === "all" ? "" : searchParams.get("focus") || "";
-    const nextEditingDocId = searchParams.get("doc") || "";
-    const nextSelectedGraphEdgeId = searchParams.get("edge") || "";
-
-    if (rawRelationshipMode && !graphRelationshipModeFromSearchParam(rawRelationshipMode)) {
-      setSearchParams((current) => {
-        const nextParams = new URLSearchParams(current);
-        nextParams.delete("relationships");
-        return nextParams;
-      }, { replace: true });
+    if (rawRelationshipModeParam && !graphRelationshipModeFromSearchParam(rawRelationshipModeParam)) {
+      patchSearchParams({ relationships: null }, { replace: true });
       return;
     }
-
+    const nextGraphRelationshipMode = graphRelationshipModeFromSearchParam(rawRelationshipModeParam) || "ai-reviewed";
     if (nextGraphRelationshipMode !== store.graphRelationshipMode) {
       void store.setGraphRelationshipMode(nextGraphRelationshipMode);
     }
-    setGraphViewMode((current) => current === nextGraphViewMode ? current : nextGraphViewMode);
-    setFocusedNodeId((current) => current === nextFocusedNodeId ? current : nextFocusedNodeId);
-    setEditingDocId((current) => current === nextEditingDocId ? current : nextEditingDocId);
-    setSelectedGraphEdgeId((current) => current === nextSelectedGraphEdgeId ? current : nextSelectedGraphEdgeId);
   }, [searchParams]);
 
-  useEffect(() => {
-    if (initialRelationshipMode !== store.graphRelationshipMode) {
-      void store.setGraphRelationshipMode(initialRelationshipMode);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (
-      focusedNodeId &&
-      graphNodeIds.size > 0 &&
-      (!graphNodeIds.has(focusedNodeId) || String(focusedGraphNode?.type || "") === "project")
-    ) {
-      setFocusedNodeId("");
+  useCloseWhenMissing(
+    focusedNodeId,
+    graphNodeIds.size > 0 && (!graphNodeIds.has(focusedNodeId) || String(focusedGraphNode?.type || "") === "project"),
+    () => {
       setFocusHistory([]);
       updateGraphSearchParams({ focus: null }, true);
     }
-  }, [focusedNodeId, graphNodeIds, focusedGraphNode]);
+  );
 
-  useEffect(() => {
-    if (editingDocId && store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId)) {
-      setEditingDocId("");
-      updateGraphSearchParams({ doc: null }, true);
-    }
-  }, [editingDocId, store.docs]);
+  useCloseWhenMissing(
+    editingDocId,
+    store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId),
+    () => updateGraphSearchParams({ doc: null }, true)
+  );
 
-  useEffect(() => {
-    if (selectedGraphEdgeId && graphElementEdgeIds.size > 0 && !graphElementEdgeIds.has(selectedGraphEdgeId)) {
-      setSelectedGraphEdgeId("");
-      updateGraphSearchParams({ edge: null }, true);
-    }
-  }, [selectedGraphEdgeId, graphElementEdgeIds]);
+  useCloseWhenMissing(
+    selectedGraphEdgeId,
+    graphElementEdgeIds.size > 0 && !graphElementEdgeIds.has(selectedGraphEdgeId),
+    () => updateGraphSearchParams({ edge: null }, true)
+  );
 
   useEffect(() => {
     setSemanticRunDraft((current) => ({
@@ -237,47 +208,23 @@ export const GraphScreen = observer(function GraphScreen() {
     doc?: string | null;
     edge?: string | null;
   }, replace = false) {
-    setSearchParams((current) => {
-      const nextParams = new URLSearchParams(current);
-
-      if (nextState.viewMode) {
-        if (nextState.viewMode === "all") nextParams.set("view", "all");
-        else nextParams.delete("view");
-      }
-
-      if (nextState.relationshipMode) {
-        if (nextState.relationshipMode === "ai-reviewed") nextParams.delete("relationships");
-        else nextParams.set("relationships", nextState.relationshipMode);
-      }
-
-      if (nextState.focus !== undefined) {
-        if (nextState.focus) nextParams.set("focus", nextState.focus);
-        else nextParams.delete("focus");
-      }
-
-      if (nextState.doc !== undefined) {
-        if (nextState.doc) nextParams.set("doc", nextState.doc);
-        else nextParams.delete("doc");
-      }
-
-      if (nextState.edge !== undefined) {
-        if (nextState.edge) nextParams.set("edge", nextState.edge);
-        else nextParams.delete("edge");
-      }
-
-      return nextParams;
-    }, { replace });
+    const patch: Record<string, string | null | undefined> = {};
+    if (nextState.viewMode) patch.view = nextState.viewMode === "all" ? "all" : null;
+    if (nextState.relationshipMode) {
+      patch.relationships = nextState.relationshipMode === "ai-reviewed" ? null : nextState.relationshipMode;
+    }
+    if (nextState.focus !== undefined) patch.focus = nextState.focus;
+    if (nextState.doc !== undefined) patch.doc = nextState.doc;
+    if (nextState.edge !== undefined) patch.edge = nextState.edge;
+    patchSearchParams(patch, { replace });
   }
 
   function resetGraphFocus() {
-    setFocusedNodeId("");
     setFocusHistory([]);
     updateGraphSearchParams({ viewMode: "context", focus: null });
   }
 
   function setGraphFocusFromControl(nextNodeId: string) {
-    setGraphViewMode("context");
-    setFocusedNodeId(nextNodeId);
     setFocusHistory([]);
     updateGraphSearchParams({ viewMode: "context", focus: nextNodeId || null });
   }
@@ -289,12 +236,10 @@ export const GraphScreen = observer(function GraphScreen() {
       return;
     }
 
-    setGraphViewMode("context");
     if (nextNodeId === focusedNodeId) {
       const previousFocusedNodeId = focusHistory[focusHistory.length - 1] || "";
       if (previousFocusedNodeId) {
         const nextHistory = focusHistory.slice(0, -1);
-        setFocusedNodeId(previousFocusedNodeId);
         setFocusHistory(nextHistory);
         updateGraphSearchParams({ viewMode: "context", focus: previousFocusedNodeId });
         return;
@@ -306,35 +251,29 @@ export const GraphScreen = observer(function GraphScreen() {
 
     const existingHistoryIndex = focusHistory.indexOf(nextNodeId);
     if (existingHistoryIndex !== -1) {
-      setFocusedNodeId(nextNodeId);
       setFocusHistory(focusHistory.slice(0, existingHistoryIndex));
       updateGraphSearchParams({ viewMode: "context", focus: nextNodeId });
       return;
     }
 
     setFocusHistory(focusedNodeId ? [...focusHistory, focusedNodeId] : []);
-    setFocusedNodeId(nextNodeId);
     updateGraphSearchParams({ viewMode: "context", focus: nextNodeId });
   }
 
   function openGraphDocument(documentId: string) {
-    setEditingDocId(documentId);
     updateGraphSearchParams({ doc: documentId });
   }
 
   function closeGraphDocument() {
-    setEditingDocId("");
     updateGraphSearchParams({ doc: null });
   }
 
   function selectGraphEdge(edge: GraphMapEdge) {
-    setSelectedGraphEdgeId(edge.id);
     setShowGraphDetails(true);
     updateGraphSearchParams({ edge: edge.id });
   }
 
   function clearSelectedGraphEdge() {
-    setSelectedGraphEdgeId("");
     updateGraphSearchParams({ edge: null });
   }
 
@@ -342,10 +281,6 @@ export const GraphScreen = observer(function GraphScreen() {
     removeStoredGraphNodePositions(graphPositionKey);
     setLayoutVersion((currentVersion) => currentVersion + 1);
   }, [graphPositionKey]);
-
-  function updateSemanticRunDraft(patch: Partial<typeof semanticRunDraft>) {
-    setSemanticRunDraft((current) => ({ ...current, ...patch }));
-  }
 
   function semanticAnalysisScope() {
     if (semanticRunDraft.scopeKind === "changed-docs") return { kind: "changed-docs" };
@@ -372,21 +307,10 @@ export const GraphScreen = observer(function GraphScreen() {
   }
 
   function runSemanticAnalysis() {
-    const mode = semanticRunDraft.mode || "dry-run";
-    void store.analyzeSemanticGraph({
-      mode,
-      dryRun: mode === "dry-run",
+    void store.analyzeSemanticGraph(semanticRunPayloadFor({
       scope: semanticAnalysisScope(),
-      endpoint: semanticRunDraft.endpoint.trim() || undefined,
-      model: semanticRunDraft.model.trim() || undefined,
-      apiKey: semanticRunDraft.apiKey.trim() || undefined,
-      maxDocuments: numberOrUndefined(semanticRunDraft.maxDocuments),
-      maxCandidates: numberOrUndefined(semanticRunDraft.maxCandidates),
-      maxCandidatesPerDocument: numberOrUndefined(semanticRunDraft.maxCandidatesPerDocument),
-      timeoutMs: numberOrUndefined(semanticRunDraft.timeoutMs),
-      maxOutputTokens: numberOrUndefined(semanticRunDraft.maxOutputTokens),
-      jsonMode: Boolean(semanticRunDraft.jsonMode)
-    });
+      fallbackMode: "dry-run"
+    }));
   }
 
   async function acceptSelectedSemanticEdge() {
@@ -414,30 +338,24 @@ export const GraphScreen = observer(function GraphScreen() {
     <Screen title="Graph">
       <LibraryTabs />
       <div className="graph-view-toolbar">
-        <div className="segmented-control compact graph-mode-control" role="group" aria-label="Graph view">
-          <button
-            type="button"
-            className={graphViewMode === "context" ? "selected" : ""}
-            onClick={() => {
-              setGraphViewMode("context");
-              updateGraphSearchParams({ viewMode: "context" });
-            }}
-          >
-            Context map
-          </button>
-          <button
-            type="button"
-            className={graphViewMode === "all" ? "selected" : ""}
-            onClick={() => {
-              setGraphViewMode("all");
-              setFocusedNodeId("");
+        <ToggleGroup
+          className="segmented-control compact graph-mode-control"
+          role="group"
+          ariaLabel="Graph view"
+          value={graphViewMode}
+          onChange={(nextMode) => {
+            if (nextMode === "all") {
               setFocusHistory([]);
               updateGraphSearchParams({ viewMode: "all", focus: null });
-            }}
-          >
-            Import audit
-          </button>
-        </div>
+            } else {
+              updateGraphSearchParams({ viewMode: "context" });
+            }
+          }}
+          options={[
+            { value: "context", label: "Context map" },
+            { value: "all", label: "Import audit" }
+          ]}
+        />
         <label className="graph-focus-control">
           <span>Focus</span>
           <select
@@ -577,7 +495,7 @@ export const GraphScreen = observer(function GraphScreen() {
                     <KeyValue label="Source" value={selectedGraphEdge.sourceKind?.includes("semantic") ? "Semantic" : "Deterministic"} />
                     {selectedGraphEdge.semanticStatus ? <KeyValue label="Status" value={selectedGraphEdge.semanticStatus} /> : null}
                     {typeof selectedGraphEdge.confidence === "number" ? (
-                      <KeyValue label="Confidence" value={`${Math.round(selectedGraphEdge.confidence * 100)}%`} />
+                      <KeyValue label="Confidence" value={formatConfidence(selectedGraphEdge.confidence)} />
                     ) : null}
                   </div>
                   {selectedGraphEdge.reason ? (
@@ -718,114 +636,23 @@ export const GraphScreen = observer(function GraphScreen() {
                   </div>
                   {showSemanticAdvanced ? (
                     <div className="semantic-run-advanced">
-                      <div className="semantic-run-form">
-                        <label>
-                          <span>Mode</span>
-                          <select
-                            value={semanticRunDraft.mode}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ mode: event.target.value })}
-                          >
-                            <option value="review">Review</option>
-                            <option value="dry-run">Dry run</option>
-                            <option value="auto">Auto</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>Endpoint override</span>
-                          <input
-                            value={semanticRunDraft.endpoint}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ endpoint: event.target.value })}
-                            placeholder={assistantPolicy.endpoint || "http://127.0.0.1:1234/v1"}
-                          />
-                        </label>
-                        <label>
-                          <span>Model override</span>
-                          <input
-                            value={semanticRunDraft.model}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ model: event.target.value })}
-                            placeholder={store.semanticGraphSettings?.model || assistantPolicy.modelName || "local model"}
-                          />
-                        </label>
-                        <label>
-                          <span>API key</span>
-                          <input
-                            type="password"
-                            value={semanticRunDraft.apiKey}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ apiKey: event.target.value })}
-                            placeholder="optional"
-                          />
-                        </label>
-                        <label>
-                          <span>Max docs</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={semanticRunDraft.maxDocuments}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ maxDocuments: event.target.value })}
-                            placeholder="all"
-                          />
-                        </label>
-                        <label>
-                          <span>Max candidates</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={semanticRunDraft.maxCandidates}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ maxCandidates: event.target.value })}
-                            placeholder="all"
-                          />
-                        </label>
-                        <label>
-                          <span>Per doc</span>
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={semanticRunDraft.maxCandidatesPerDocument}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ maxCandidatesPerDocument: event.target.value })}
-                          />
-                        </label>
-                        <label>
-                          <span>Timeout ms</span>
-                          <input
-                            type="number"
-                            min="1000"
-                            step="1000"
-                            value={semanticRunDraft.timeoutMs}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ timeoutMs: event.target.value })}
-                          />
-                        </label>
-                        <label>
-                          <span>Output tokens</span>
-                          <input
-                            type="number"
-                            min="128"
-                            step="128"
-                            value={semanticRunDraft.maxOutputTokens}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ maxOutputTokens: event.target.value })}
-                          />
-                        </label>
-                        <label className="checkbox-row semantic-json-mode">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(semanticRunDraft.jsonMode)}
-                            disabled={store.loading}
-                            onChange={(event) => updateSemanticRunDraft({ jsonMode: event.target.checked })}
-                          />
-                          <span>Use strict JSON responses when supported.</span>
-                        </label>
-                      </div>
+                      <SemanticRunForm
+                        draft={semanticRunDraft}
+                        disabled={store.loading}
+                        onPatch={updateSemanticRunDraft}
+                        fields={[
+                          { key: "mode" },
+                          { key: "endpoint", placeholder: assistantPolicy.endpoint || PROVIDER_DEFAULTS["lm-studio"].endpoint },
+                          { key: "model", placeholder: store.semanticGraphSettings?.model || assistantPolicy.modelName || "local model" },
+                          { key: "apiKey", placeholder: "optional" },
+                          { key: "maxDocuments", placeholder: "all" },
+                          { key: "maxCandidates", placeholder: "all" },
+                          { key: "maxCandidatesPerDocument" },
+                          { key: "timeoutSeconds" },
+                          { key: "maxOutputTokens" },
+                          { key: "jsonMode" }
+                        ]}
+                      />
                     </div>
                   ) : null}
                   {semanticPreviewStateForSelectedScope?.status === "loading" ? (
@@ -867,14 +694,12 @@ export const GraphScreen = observer(function GraphScreen() {
                 </div>
               ) : null}
               {showSemanticPreviewDialog ? (
-                <div
-                  className="dialog-backdrop graph-confirm-backdrop"
-                  role="presentation"
-                  onMouseDown={(event) => {
-                    if (event.target === event.currentTarget) setShowSemanticPreviewDialog(false);
-                  }}
+                <Modal
+                  ariaLabel="Estimate review target"
+                  backdropClassName="dialog-backdrop graph-confirm-backdrop"
+                  className="confirm-dialog graph-preview-dialog"
+                  onClose={() => setShowSemanticPreviewDialog(false)}
                 >
-                  <div className="confirm-dialog graph-preview-dialog" role="dialog" aria-modal="true" aria-label="Estimate review target">
                     <h3>Estimate Review Target?</h3>
                     <p>
                       This checks <strong>{semanticScopeCopy.title}</strong> and reports how many docs and candidate relationships would be included.
@@ -903,8 +728,7 @@ export const GraphScreen = observer(function GraphScreen() {
                         Start estimate
                       </button>
                     </div>
-                  </div>
-                </div>
+                </Modal>
               ) : null}
             </div>
           ) : null}
@@ -922,37 +746,24 @@ export const GraphScreen = observer(function GraphScreen() {
             onFocusNode={navigateGraphFocus}
             onSelectEdge={selectGraphEdge}
           />
+        ) : focusedNodeId && graphStats.relationships > 0 ? (
+          <Empty
+            className="graph-empty-state"
+            title="No links for this focus"
+            body="This item has no visible saved links in the current graph view. Reset focus to see the accepted relationship map."
+            action={<button type="button" onClick={resetGraphFocus}>Show full graph</button>}
+          />
         ) : (
-          <div className="graph-empty-state">
-            {focusedNodeId && graphStats.relationships > 0 ? (
-              <>
-                <strong>No links for this focus</strong>
-                <p>This item has no visible saved links in the current graph view. Reset focus to see the accepted relationship map.</p>
-                <button type="button" onClick={resetGraphFocus}>Show full graph</button>
-              </>
-            ) : (
-              <>
-                <strong>No saved relationships yet</strong>
-                <p>
-                  AI may have suggestions waiting, but the graph only shows relationships after you accept them. Review the Inbox first; accepted links will appear here.
-                </p>
-                <Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>Review Inbox</Link>
-              </>
-            )}
-          </div>
+          <Empty
+            className="graph-empty-state"
+            title="No saved relationships yet"
+            body="AI may have suggestions waiting, but the graph only shows relationships after you accept them. Review the Inbox first; accepted links will appear here."
+            action={<Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>Review Inbox</Link>}
+          />
         )}
       </div>
       {editingDoc ? (
-        <DocumentEditorModal
-          doc={editingDoc}
-          saving={store.loading}
-          onClose={closeGraphDocument}
-          onSave={(changes) => store.updateDocument(editingDoc.id, changes)}
-          onDelete={async () => {
-            await store.deleteDocument(editingDoc.id);
-            closeGraphDocument();
-          }}
-        />
+        <DocumentEditorHost doc={editingDoc} onClose={closeGraphDocument} />
       ) : null}
     </Screen>
   );
@@ -982,21 +793,7 @@ function buildGraphLegendItems(nodes: GraphMapNode[]): GraphLegendItem[] {
 }
 
 function graphLegendLabel(kind: string, node: GraphMapNode): string {
-  return GRAPH_LEGEND_LABELS[kind] || node.typeLabel || graphLegendFallbackLabel(kind);
-}
-
-function graphLegendFallbackLabel(kind: string): string {
-  const label = kind
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-  return label || "Node";
-}
-
-function numberOrUndefined(input: string): number | undefined {
-  const value = Number(input);
-  return Number.isFinite(value) && value > 0 ? value : undefined;
+  return GRAPH_LEGEND_LABELS[kind] || node.typeLabel || titleCaseSlug(kind) || "Node";
 }
 
 function graphRelationshipModeFromSearchParam(input: string | null): GraphRelationshipMode | undefined {

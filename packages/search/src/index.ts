@@ -1,11 +1,12 @@
-import type {
-  ContextBundle,
-  MemoryDocument,
-  ProjectId,
-  ProposedMemoryUpdate,
-  SearchResult,
-  Session,
-  Workstream
+import {
+  tokenize,
+  type ContextBundle,
+  type MemoryDocument,
+  type ProjectId,
+  type ProposedMemoryUpdate,
+  type SearchResult,
+  type Session,
+  type Workstream
 } from "@zharwing/memory-core";
 
 export interface SearchCorpus {
@@ -156,11 +157,4 @@ function snippet(input: string, terms: string[]): string {
   );
   const start = Number.isFinite(index) ? Math.max(0, index - 80) : 0;
   return input.slice(start, start + 220).replace(/\s+/g, " ").trim();
-}
-
-function tokenize(query: string): string[] {
-  return query
-    .toLowerCase()
-    .split(/[^a-z0-9_./-]+/)
-    .filter((term) => term.length > 1);
 }

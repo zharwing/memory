@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
-import { Empty, KeyValue, Panel, Screen } from "../components/layout.js";
+import { Empty, KeyValue, Panel, RawTextPreview, Screen } from "../components/layout.js";
 import { WorkTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
+import { ToggleGroup } from "../components/ToggleGroup.js";
+import { WorkstreamStatusActions } from "../components/WorkstreamStatusActions.js";
 import { splitList } from "../utils/format.js";
 
 export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
@@ -79,18 +81,13 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                 <label>
                   <span>Repo categories</span>
                   {repoCategoryOptions.length ? (
-                    <div className="option-chips" aria-label="Repo categories">
-                      {repoCategoryOptions.map((category) => (
-                        <button
-                          type="button"
-                          key={category}
-                          className={selectedRepoCategories.includes(category) ? "selected" : ""}
-                          onClick={() => toggleRepoCategory(category)}
-                        >
-                          {category}
-                        </button>
-                      ))}
-                    </div>
+                    <ToggleGroup
+                      className="option-chips"
+                      ariaLabel="Repo categories"
+                      value={selectedRepoCategories}
+                      onChange={toggleRepoCategory}
+                      options={repoCategoryOptions.map((category) => ({ value: category, label: category }))}
+                    />
                   ) : null}
                   <input value={repoRoles} onChange={(event) => setRepoRoles(event.target.value)} placeholder={repoCategoryOptions.length ? "additional categories" : "app, backend"} />
                   <p className="field-help">Optional. Select known repo categories or type extras separated by commas.</p>
@@ -141,16 +138,7 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
             <KeyValue label="File" value={detail.workstream.filePath || "not written"} />
           </div>
           <div className="button-row">
-            {["active", "paused", "done", "archived"].map((status) => (
-              <button
-                type="button"
-                key={status}
-                disabled={detail.workstream.status === status}
-                onClick={() => store.updateWorkstreamStatus(detail.workstream.id, status)}
-              >
-                {status}
-              </button>
-            ))}
+            <WorkstreamStatusActions workstream={detail.workstream} />
             <ConfirmDeleteButton
               itemType="workstream"
               title={detail.workstream.name}
@@ -158,7 +146,7 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
               onConfirm={() => store.deleteWorkstream(detail.workstream.id)}
             />
           </div>
-          <pre className="markdown-preview">{detail.workstream.body}</pre>
+          <RawTextPreview text={detail.workstream.body} />
           <h3>Related Sessions</h3>
           <DataTable
             columns={["updated", "status", "agent", "taskTitle"]}

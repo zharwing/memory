@@ -1,20 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { observer } from "mobx-react-lite";
-import { useSearchParams } from "react-router-dom";
 import { useStore } from "../stores/store-context.js";
-import { KeyValue, Panel, Screen } from "../components/layout.js";
+import { KeyValue, Panel, RawTextPreview, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
+import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
 import { graphRulesFromProposalPatch } from "../utils/graph-proposals.js";
-import { semanticEdgesFromProposalPatch, type SemanticProposalEdge, type SemanticProposalPatch } from "../utils/semantic-proposals.js";
-import { formatShortDateTime } from "../utils/format.js";
+import { semanticEdgesFromProposalPatch, type SemanticGraphProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
+import { formatConfidence, formatShortDateTime, titleCaseSlug } from "../utils/format.js";
+import { graphNodeDisplayLabel, semanticGraphArea } from "./graph/graph-display.js";
 import { currentInboxItems } from "../utils/inbox.js";
+
+type SemanticProposalEdge = SemanticGraphProposalPatch["edges"][number];
 
 export const InboxScreen = observer(function InboxScreen() {
   const store = useStore();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedProposalId, setSelectedProposalId] = useState(searchParams.get("proposal") || "");
+  const [selectedProposalId, setProposalSearchParam] = useSearchParamState("proposal");
   const visibleInbox = useMemo(() => currentInboxItems(store.inbox), [store.inbox]);
   const selectedProposal = visibleInbox.find((item) => item.id === selectedProposalId) || visibleInbox[0];
   const graphProposalRules = selectedProposal?.type === "graph-update"
@@ -42,34 +44,18 @@ export const InboxScreen = observer(function InboxScreen() {
     reason: proposalDisplayReason(item)
   }));
 
-  useEffect(() => {
-    const urlProposalId = searchParams.get("proposal") || "";
-    setSelectedProposalId((current) => current === urlProposalId ? current : urlProposalId);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (selectedProposalId && visibleInbox.length > 0 && !visibleInbox.some((item) => item.id === selectedProposalId)) {
-      closeInboxProposal(true);
-    }
-  }, [selectedProposalId, visibleInbox]);
-
-  function updateInboxSearchParams(proposalId: string | null, replace = false) {
-    setSearchParams((current) => {
-      const nextParams = new URLSearchParams(current);
-      if (proposalId) nextParams.set("proposal", proposalId);
-      else nextParams.delete("proposal");
-      return nextParams;
-    }, { replace });
-  }
+  useCloseWhenMissing(
+    selectedProposalId,
+    visibleInbox.length > 0 && !visibleInbox.some((item) => item.id === selectedProposalId),
+    () => closeInboxProposal(true)
+  );
 
   function openInboxProposal(proposalId: string) {
-    setSelectedProposalId(proposalId);
-    updateInboxSearchParams(proposalId);
+    setProposalSearchParam(proposalId);
   }
 
   function closeInboxProposal(replace = false) {
-    setSelectedProposalId("");
-    updateInboxSearchParams(null, replace);
+    setProposalSearchParam(null, { replace });
   }
 
   function regenerateRelationshipReview() {
@@ -276,7 +262,7 @@ export const InboxScreen = observer(function InboxScreen() {
           <details className="semantic-proposal-details technical">
             <summary>Technical patch</summary>
             {semanticProposalPatch ? <KeyValue label="Run" value={semanticProposalPatch.runId} /> : null}
-            <pre className="markdown-preview">{selectedProposal.proposedPatch || "No proposed patch provided."}</pre>
+            <RawTextPreview text={selectedProposal.proposedPatch} fallback="No proposed patch provided." />
           </details>
         </Panel>
       ) : null}
@@ -324,7 +310,7 @@ function proposalOptionLabel(item: { type?: string; status?: string; proposedPat
 }
 
 function summarizeSemanticProposalForReview(
-  patch: SemanticProposalPatch,
+  patch: SemanticGraphProposalPatch,
   documentTitles: Map<string, string>
 ) {
   const summary = patch.summary;
@@ -344,22 +330,13 @@ function summarizeSemanticProposalForReview(
   };
 }
 
-function graphNodeDisplayLabel(nodeId: string, documentTitles: Map<string, string>): string {
-  const [kind, ...rest] = nodeId.split(":");
-  const value = rest.join(":") || nodeId;
-  if (kind === "doc") return documentTitles.get(value) || humanizeNodeLabel(value.replace(/^doc-/, ""));
-  if (kind === "file") return value;
-  if (kind === "topic") return humanizeNodeLabel(value);
-  return compactGraphNodeId(nodeId);
-}
-
 function relationshipLabel(type: string): string {
   if (type === "supports") return "points to";
   if (type === "related") return "related to";
   if (type === "uses") return "uses";
   if (type === "depends-on") return "depends on";
   if (type === "mentions") return "mentions";
-  return humanizeNodeLabel(type);
+  return titleCaseSlug(type);
 }
 
 function plainRelationshipReason(edge: SemanticProposalEdge): string {
@@ -376,7 +353,7 @@ function evidenceSourceLabel(
   item: { documentId?: string; sourcePath?: string },
   documentTitles: Map<string, string>
 ): string {
-  return [item.sourcePath, item.documentId ? documentTitles.get(item.documentId) || humanizeNodeLabel(item.documentId.replace(/^doc-/, "")) : ""]
+  return [item.sourcePath, item.documentId ? documentTitles.get(item.documentId) || titleCaseSlug(item.documentId.replace(/^doc-/, "")) : ""]
     .filter(Boolean)
     .join(" / ");
 }
@@ -390,12 +367,6 @@ function cleanReasonSentence(reason: string): string {
     .replace(/\bsource\b/gi, "first item")
     .replace(/\btarget\b/gi, "second item")
     .trim();
-}
-
-function humanizeNodeLabel(value: string): string {
-  return value
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function SemanticGroupList({
@@ -482,28 +453,4 @@ function semanticConfidenceLabel(confidence: number): string {
   if (band === "high") return `High confidence · ${formatConfidence(confidence)}`;
   if (band === "review") return `Needs review · ${formatConfidence(confidence)}`;
   return `Low confidence · ${formatConfidence(confidence)}`;
-}
-
-function semanticGraphArea(nodeId: string): string {
-  const [kind, ...rest] = nodeId.split(":");
-  const raw = rest.join(":") || nodeId;
-  if (kind === "doc") return "document";
-  if (kind === "repo") return "repo";
-  if (kind === "service") return "service";
-  if (kind === "package") return "package";
-  if (kind === "topic") return "topic";
-  if (kind === "diagram-group") return "diagram group";
-  return kind || raw || "unknown";
-}
-
-function compactGraphNodeId(nodeId: string): string {
-  const [kind, ...rest] = nodeId.split(":");
-  const value = rest.join(":") || nodeId;
-  if (kind === "doc") return `doc:${value.slice(0, 8)}`;
-  if (kind === "repo") return value.split(/[\\/]/).filter(Boolean).pop() || value;
-  return value.length > 54 ? `${value.slice(0, 51)}...` : value;
-}
-
-function formatConfidence(confidence: number): string {
-  return `${Math.round(confidence * 100)}%`;
 }

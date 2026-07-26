@@ -1,23 +1,17 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { CheckCircle2, Loader2, PlugZap, Save, XCircle } from "lucide-react";
-import { KeyValue, Panel, Screen } from "../components/layout.js";
+import { PROVIDER_DEFAULTS, type ProviderDefault } from "@zharwing/memory-core";
+import { Empty, KeyValue, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
+import { useDraft } from "../hooks/useDraft.js";
+import { providerLabel } from "../utils/labels.js";
 import { useStore } from "../stores/store-context.js";
 
-const LM_STUDIO_ENDPOINT = "http://127.0.0.1:1234/v1";
-const OLLAMA_ENDPOINT = "http://127.0.0.1:11434";
-const LLAMA_CPP_ENDPOINT = "http://127.0.0.1:8080/v1";
-const OPENAI_ENDPOINT = "https://api.openai.com/v1";
-const ANTHROPIC_ENDPOINT = "https://api.anthropic.com";
 const LEGACY_LM_STUDIO_MODEL = "llm";
-const PROVIDER_DEFAULT_ENDPOINTS: Record<string, string> = {
-  "lm-studio": LM_STUDIO_ENDPOINT,
-  ollama: OLLAMA_ENDPOINT,
-  "llama-cpp": LLAMA_CPP_ENDPOINT,
-  openai: OPENAI_ENDPOINT,
-  anthropic: ANTHROPIC_ENDPOINT
-};
+const PROVIDER_DEFAULT_ENDPOINT_VALUES = Object.values(PROVIDER_DEFAULTS as Record<string, ProviderDefault>)
+  .map((provider) => provider.endpoint)
+  .filter((endpoint): endpoint is string => Boolean(endpoint));
 
 const DEFAULT_ASSISTANT_DRAFT = {
   enabled: false,
@@ -34,7 +28,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
   const policy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || DEFAULT_ASSISTANT_DRAFT;
   const status = store.assistantStatus;
   const providerCheck = store.assistantProviderCheck;
-  const [draft, setDraft] = useState(DEFAULT_ASSISTANT_DRAFT);
+  const [draft, updateDraft, setDraft] = useDraft(DEFAULT_ASSISTANT_DRAFT);
   const [testApiKey, setTestApiKey] = useState("");
   const [connectionAction, setConnectionAction] = useState<"save-test" | "test" | null>(null);
 
@@ -61,10 +55,6 @@ export const AssistantScreen = observer(function AssistantScreen() {
     policy.modelPath,
     policy.autoAcceptLowRiskMetadata
   ]);
-
-  function updateDraft(patch: Partial<typeof draft>) {
-    setDraft((current) => ({ ...current, ...patch }));
-  }
 
   function assistantPolicyPayload(overrides: Partial<typeof draft> = {}) {
     const nextDraft = { ...draft, ...overrides };
@@ -213,10 +203,11 @@ export const AssistantScreen = observer(function AssistantScreen() {
           </label>
 
           {!draft.enabled ? (
-            <div className="assistant-disabled-state">
-              <strong>AI Assistant is off</strong>
-              <p>Turn this on to let Zharwing Memory use a local AI provider for document analysis and graph link suggestions.</p>
-            </div>
+            <Empty
+              className="assistant-disabled-state"
+              title="AI Assistant is off"
+              body="Turn this on to let Zharwing Memory use a local AI provider for document analysis and graph link suggestions."
+            />
           ) : (
             <>
               <div className="assistant-connect-fields">
@@ -375,7 +366,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 <h4>Advanced diagnostics</h4>
                 <div className="dashboard-grid tight">
                   <KeyValue label="Saved assistant" value={policy.enabled ? "On" : "Off"} />
-                  <KeyValue label="Saved provider" value={providerLabel(policy.runtimeType || "disabled")} />
+                  <KeyValue label="Saved provider" value={providerLabel(policy.runtimeType || "disabled", "Disabled")} />
                   <KeyValue label="Saved endpoint" value={policy.endpoint || "Not set"} />
                   <KeyValue label="Saved model ID" value={policy.modelName || "Not set"} />
                   <KeyValue label="Runtime id" value={policy.runtimeType || "disabled"} />
@@ -409,26 +400,19 @@ export const AssistantScreen = observer(function AssistantScreen() {
   );
 });
 
-function providerLabel(runtimeType: string): string {
-  if (runtimeType === "lm-studio") return "LM Studio";
-  if (runtimeType === "ollama") return "Ollama";
-  if (runtimeType === "llama-cpp") return "llama.cpp server";
-  if (runtimeType === "openai") return "OpenAI API";
-  if (runtimeType === "anthropic") return "Claude API";
-  if (runtimeType === "custom-openai-compatible") return "OpenAI-compatible API";
-  if (runtimeType === "app-managed-llamacpp") return "Legacy app-managed local model (unsupported)";
-  return "Disabled";
+function providerDefaultEndpoint(runtimeType: string): string | undefined {
+  return (PROVIDER_DEFAULTS as Partial<Record<string, ProviderDefault>>)[runtimeType]?.endpoint;
 }
 
 function defaultEndpointForProvider(runtimeType: string): string {
-  return PROVIDER_DEFAULT_ENDPOINTS[runtimeType] || LM_STUDIO_ENDPOINT;
+  return providerDefaultEndpoint(runtimeType) || PROVIDER_DEFAULTS["lm-studio"].endpoint;
 }
 
 function endpointForProviderSelection(runtimeType: string, currentEndpoint: string): string {
   const trimmed = currentEndpoint.trim();
-  const defaultEndpoint = PROVIDER_DEFAULT_ENDPOINTS[runtimeType];
+  const defaultEndpoint = providerDefaultEndpoint(runtimeType);
   if (!defaultEndpoint) return currentEndpoint;
-  if (!trimmed || Object.values(PROVIDER_DEFAULT_ENDPOINTS).includes(trimmed)) return defaultEndpoint;
+  if (!trimmed || PROVIDER_DEFAULT_ENDPOINT_VALUES.includes(trimmed)) return defaultEndpoint;
   return currentEndpoint;
 }
 

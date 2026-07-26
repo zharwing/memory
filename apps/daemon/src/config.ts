@@ -2,7 +2,15 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DEFAULT_MEMORY_ROOT_NAME } from "@zharwing/memory-core";
+import {
+  DEFAULT_DAEMON_HOST,
+  DEFAULT_DAEMON_PORT,
+  DEFAULT_MEMORY_ROOT_NAME,
+  isLoopbackHost,
+  legacyMemoryEnvName,
+  memoryEnv as coreMemoryEnv,
+  type MemoryEnvName
+} from "@zharwing/memory-core";
 import { normalizePath } from "@zharwing/memory-store";
 
 export interface DaemonConfig {
@@ -23,26 +31,26 @@ const warnedLegacyEnv = new Set<string>();
 
 /**
  * Reads the canonical ZHARWING_MEMORY_* variable, falling back to the legacy
- * AIMEM_* name for one transition release. The fallback warns once per
- * variable so existing .env files keep working while users migrate.
+ * AIMEM_* name for one transition release. Resolution is delegated to core's
+ * memoryEnv; this wrapper only adds the daemon-side deprecation warning, once
+ * per variable, so existing .env files keep working while users migrate.
  */
-export function memoryEnv(newName: string, legacyName: string): string | undefined {
-  const current = process.env[newName];
-  if (current !== undefined && current !== "") return current;
-  const legacy = process.env[legacyName];
-  if (legacy !== undefined && legacy !== "") {
+export function memoryEnv(name: MemoryEnvName): string | undefined {
+  const value = coreMemoryEnv(name);
+  const canonical = process.env[name];
+  if (value !== undefined && (canonical === undefined || canonical === "")) {
+    const legacyName = legacyMemoryEnvName(name);
     if (!warnedLegacyEnv.has(legacyName)) {
       warnedLegacyEnv.add(legacyName);
-      console.warn(`zharwing-memory: ${legacyName} is deprecated; rename it to ${newName}.`);
+      console.warn(`zharwing-memory: ${legacyName} is deprecated; rename it to ${name}.`);
     }
-    return legacy;
   }
-  return undefined;
+  return value;
 }
 
 export function loadDaemonConfig(): DaemonConfig {
-  const host = memoryEnv("ZHARWING_MEMORY_HOST", "AIMEM_HOST") || "127.0.0.1";
-  const authMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE", "AIMEM_AUTH_MODE") === "none" ? "none" : "token";
+  const host = memoryEnv("ZHARWING_MEMORY_HOST") || DEFAULT_DAEMON_HOST;
+  const authMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE") === "none" ? "none" : "token";
   if (authMode === "none" && !isLoopbackHost(host)) {
     throw new Error(
       "ZHARWING_MEMORY_AUTH_MODE=none is only allowed when ZHARWING_MEMORY_HOST is localhost, 127.0.0.1, or ::1."
@@ -50,13 +58,13 @@ export function loadDaemonConfig(): DaemonConfig {
   }
   return {
     host,
-    port: Number(memoryEnv("ZHARWING_MEMORY_PORT", "AIMEM_PORT") || "37841"),
+    port: Number(memoryEnv("ZHARWING_MEMORY_PORT") || DEFAULT_DAEMON_PORT),
     authMode,
     authToken: authMode === "none" ? "" : resolveAuthToken(),
     memoryRoot: normalizePath(
-      memoryEnv("ZHARWING_MEMORY_ROOT", "AIMEM_MEMORY_ROOT") || path.join(process.cwd(), DEFAULT_MEMORY_ROOT_NAME)
+      memoryEnv("ZHARWING_MEMORY_ROOT") || path.join(process.cwd(), DEFAULT_MEMORY_ROOT_NAME)
     ),
-    agentSurfaceEnabled: memoryEnv("ZHARWING_MEMORY_AGENT_SURFACE", "AIMEM_AGENT_SURFACE") === "enabled"
+    agentSurfaceEnabled: memoryEnv("ZHARWING_MEMORY_AGENT_SURFACE") === "enabled"
   };
 }
 
@@ -70,7 +78,7 @@ export function loadDaemonConfig(): DaemonConfig {
  * token across the rename.
  */
 export function tokenFilePath(): string {
-  const fromEnv = memoryEnv("ZHARWING_MEMORY_TOKEN_FILE", "AIMEM_TOKEN_FILE");
+  const fromEnv = memoryEnv("ZHARWING_MEMORY_TOKEN_FILE");
   if (fromEnv) return fromEnv;
   const base =
     process.platform === "win32"
@@ -84,7 +92,7 @@ export function tokenFilePath(): string {
 }
 
 export function resolveAuthToken(): string {
-  const fromEnv = memoryEnv("ZHARWING_MEMORY_AUTH_TOKEN", "AIMEM_AUTH_TOKEN");
+  const fromEnv = memoryEnv("ZHARWING_MEMORY_AUTH_TOKEN");
   if (fromEnv) return fromEnv;
 
   const file = tokenFilePath();
@@ -99,8 +107,4 @@ export function resolveAuthToken(): string {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   fs.writeFileSync(file, `${token}\n`, { mode: 0o600 });
   return token;
-}
-
-export function isLoopbackHost(host: string): boolean {
-  return host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]";
 }

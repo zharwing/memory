@@ -1,4 +1,11 @@
-import type { GraphExtractionRule, GraphRuleEdgeType, GraphRuleNodeType } from "@zharwing/memory-core";
+import {
+  isDefined,
+  numberValue,
+  stringValue,
+  type GraphExtractionRule,
+  type GraphRuleEdgeType,
+  type GraphRuleNodeType
+} from "@zharwing/memory-core";
 
 export function normalizeGraphExtractionRules(input: unknown): GraphExtractionRule[] {
   if (!Array.isArray(input)) return [];
@@ -18,9 +25,9 @@ function normalizeGraphExtractionRule(input: unknown): GraphExtractionRule | und
   const label = stringValue(record.label);
   const topic = stringValue(record.topic);
   const edgeType = normalizeGraphRuleEdgeType(stringValue(record.edgeType) || stringValue(record.edge_type));
-  const segment = numberValue(record.segment);
-  const slugFromSegment = numberValue(record.slugFromSegment ?? record.slug_from_segment);
-  const labelFromSegment = numberValue(record.labelFromSegment ?? record.label_from_segment);
+  const segment = integerValue(record.segment);
+  const slugFromSegment = integerValue(record.slugFromSegment ?? record.slug_from_segment);
+  const labelFromSegment = integerValue(record.labelFromSegment ?? record.label_from_segment);
   if (label) normalized.label = label;
   if (topic) normalized.topic = topic;
   if (edgeType) normalized.edgeType = edgeType;
@@ -40,18 +47,13 @@ function normalizeGraphRuleEdgeType(input: string | undefined): GraphRuleEdgeTyp
   return GRAPH_RULE_EDGE_TYPES.has(value as GraphRuleEdgeType) ? value as GraphRuleEdgeType : undefined;
 }
 
-function stringValue(input: unknown): string | undefined {
-  return typeof input === "string" && input.trim() ? input.trim() : undefined;
-}
-
-function numberValue(input: unknown): number | undefined {
-  if (typeof input === "number" && Number.isFinite(input)) return Math.trunc(input);
-  if (typeof input === "string" && input.trim() && Number.isFinite(Number(input))) return Math.trunc(Number(input));
-  return undefined;
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
+/**
+ * Rule segment indexes are integers; core's numberValue keeps fractions, so
+ * this wrapper preserves the historical Math.trunc behavior.
+ */
+function integerValue(input: unknown): number | undefined {
+  const value = numberValue(input);
+  return value === undefined ? undefined : Math.trunc(value);
 }
 
 const GRAPH_RULE_NODE_TYPES = new Set<GraphRuleNodeType>([

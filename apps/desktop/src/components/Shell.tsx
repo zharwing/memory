@@ -17,6 +17,7 @@ import {
 import { useStore } from "../stores/store-context.js";
 import { appPathFromPathname, projectPath } from "../utils/routes.js";
 import { pendingInboxReviewCount } from "../utils/inbox.js";
+import { semanticRunStatus } from "../features/semantic-review/index.js";
 
 const primaryNav = [
   { label: "Dashboard", href: "/dashboard", icon: Home, matches: ["/dashboard"] },
@@ -42,9 +43,7 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
   const pendingInboxCount = pendingInboxReviewCount(store.inbox);
   const linkedRepoCount = store.repoLinks.length || project?.repos?.length || 0;
   const semanticRun = store.semanticAnalysisProgressRun || store.semanticGraphStatus?.runCounts?.latest;
-  const semanticRunStatus = String(semanticRun?.status || "");
-  const semanticRunRunning = store.semanticAnalysisRunning || semanticRunStatus === "running" || semanticRunStatus === "pending";
-  const semanticRunProgress = semanticRunProgressLabel(semanticRun);
+  const { running: semanticRunRunning, progressLabel: semanticRunProgress } = semanticRunStatus(semanticRun, store.semanticAnalysisRunning);
 
   return (
     <div className="app-shell">
@@ -106,20 +105,4 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
 
 function isActive(pathname: string, matches: readonly string[]): boolean {
   return matches.some((match) => pathname === match || pathname.startsWith(`${match}/`));
-}
-
-function semanticRunProgressLabel(run: any): string {
-  const counts = run?.counts || {};
-  const candidatesTotal = Number(counts.candidates || 0);
-  const candidatesJudged = Math.min(candidatesTotal || Number.MAX_SAFE_INTEGER, Number(counts.judged || 0));
-  if (candidatesTotal > 0) return `${candidatesJudged} of ${candidatesTotal} links`;
-
-  const documentsTotal = Number(counts.documentsTotal || 0);
-  const documentsProcessed = Math.min(
-    documentsTotal || Number.MAX_SAFE_INTEGER,
-    Number(counts.documentsAnalyzed || 0) + Number(counts.extractionsReused || 0)
-  );
-  if (documentsTotal > 0) return `${documentsProcessed} of ${documentsTotal} docs`;
-
-  return "starting";
 }

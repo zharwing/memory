@@ -3,6 +3,7 @@ import {
   DEFAULT_SEMANTIC_GRAPH_SETTINGS,
   createId,
   filenameSafe,
+  isDefined,
   nowIso,
   type Project,
   type SemanticDocumentExtraction,
@@ -223,8 +224,4 @@ function emptySemanticGraphRunCounts(): SemanticGraphRunCounts {
 
 function safeFilePart(input: string): string {
   return filenameSafe(input || "unknown");
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
 }

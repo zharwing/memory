@@ -1,10 +1,11 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
-import { Empty, KeyValue, Panel, Screen } from "../components/layout.js";
+import { Empty, KeyValue, Panel, RawTextPreview, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
-import { DocumentEditorModal } from "../components/DocumentEditorModal.js";
+import { DocumentEditorHost } from "../components/DocumentEditorHost.js";
+import { WorkstreamStatusActions } from "../components/WorkstreamStatusActions.js";
 import { MarkdownPreview } from "../components/markdown/MarkdownPreview.js";
 import { searchResultTypeLabel, statusLabel, visibilityLabel } from "../utils/labels.js";
 import { graphRulesFromProposalPatch } from "../utils/graph-proposals.js";
@@ -120,16 +121,7 @@ export const SearchScreen = observer(function SearchScreen() {
         <Empty text="Run a search to inspect matching docs, diagrams, sessions, workstreams, and inbox proposals." />
       )}
       {editingDoc ? (
-        <DocumentEditorModal
-          doc={editingDoc}
-          saving={store.loading}
-          onClose={() => setEditingDocId("")}
-          onSave={(changes) => store.updateDocument(editingDoc.id, changes)}
-          onDelete={async () => {
-            await store.deleteDocument(editingDoc.id);
-            setEditingDocId("");
-          }}
-        />
+        <DocumentEditorHost doc={editingDoc} onClose={() => setEditingDocId("")} />
       ) : null}
     </Screen>
   );
@@ -210,7 +202,7 @@ function SearchResultDetail({
           <KeyValue label="Updated" value={session?.updated || result.updated || "unknown"} />
           <KeyValue label="Path" value={<code className="path-value">{session?.filePath || result.path || "memory"}</code>} />
         </div>
-        <pre className="markdown-preview">{session?.body || result.snippet || "Loading session body..."}</pre>
+        <RawTextPreview text={session?.body || result.snippet} fallback="Loading session body..." />
       </Panel>
     );
   }
@@ -222,16 +214,7 @@ function SearchResultDetail({
         <div className="button-row">
           {workstream ? (
             <>
-              {["active", "paused", "done", "archived"].map((status) => (
-                <button
-                  type="button"
-                  key={status}
-                  disabled={workstream.status === status}
-                  onClick={() => store.updateWorkstreamStatus(workstream.id, status)}
-                >
-                  {status}
-                </button>
-              ))}
+              <WorkstreamStatusActions workstream={workstream} />
               <ConfirmDeleteButton
                 itemType="workstream"
                 title={workstream.name}
@@ -248,7 +231,7 @@ function SearchResultDetail({
           <KeyValue label="Documents" value={detail?.documents?.length || 0} />
           <KeyValue label="Path" value={<code className="path-value">{workstream?.filePath || result.path || "memory"}</code>} />
         </div>
-        <pre className="markdown-preview">{workstream?.body || result.snippet || "Workstream details are loading."}</pre>
+        <RawTextPreview text={workstream?.body || result.snippet} fallback="Workstream details are loading." />
       </Panel>
     );
   }
@@ -284,7 +267,7 @@ function SearchResultDetail({
           <KeyValue label="Confidence" value={proposal?.confidence || "unknown"} />
           <KeyValue label="Created" value={proposal?.created || result.updated || "unknown"} />
         </div>
-        <pre className="markdown-preview">{proposal?.proposedPatch || result.snippet || "Proposal details are not loaded."}</pre>
+        <RawTextPreview text={proposal?.proposedPatch || result.snippet} fallback="Proposal details are not loaded." />
       </Panel>
     );
   }
@@ -296,7 +279,7 @@ function SearchResultDetail({
         <KeyValue label="State" value={statusLabel(result.status)} />
         <KeyValue label="Path" value={<code className="path-value">{result.path || "memory"}</code>} />
       </div>
-      <pre className="markdown-preview">{result.snippet || "No preview available."}</pre>
+      <RawTextPreview text={result.snippet} fallback="No preview available." />
     </Panel>
   );
 }

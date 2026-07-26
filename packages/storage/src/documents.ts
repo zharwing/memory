@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  CANONICAL_PROJECT_FILES,
   createId,
   filenameSafe,
   nowIso,
@@ -87,16 +88,9 @@ export async function writeDocument(doc: MemoryDocument): Promise<void> {
 
 export async function listProjectDocuments(project: Project): Promise<MemoryDocument[]> {
   const docsRoot = path.join(project.memoryRoot, "docs");
-  const topLevel = [
-    path.join(project.memoryRoot, "overview.md"),
-    path.join(project.memoryRoot, "architecture.md"),
-    path.join(project.memoryRoot, "decisions.md"),
-    path.join(project.memoryRoot, "tasks.md"),
-    path.join(project.memoryRoot, "gotchas.md"),
-    path.join(project.memoryRoot, "commands.md"),
-    path.join(project.memoryRoot, "glossary.md"),
-    path.join(project.memoryRoot, "privacy.md")
-  ];
+  const topLevel = CANONICAL_PROJECT_FILES
+    .filter((file) => file.markdown)
+    .map((file) => path.join(project.memoryRoot, file.name));
   const existingTopLevel = [];
   for (const file of topLevel) {
     if (await pathExists(file)) existingTopLevel.push(file);
@@ -173,15 +167,8 @@ function inferType(filePath: string): DocumentType {
   const normalized = filePath.replace(/\\/g, "/").toLowerCase();
   const basename = path.posix.basename(normalized);
   if (normalized.includes("/diagrams/")) return "diagram";
-  if (basename === "overview.md") return "overview";
-  if (basename === "architecture.md") return "architecture-note";
-  if (basename === "decisions.md") return "decision-record";
-  if (basename === "tasks.md") return "plan";
-  if (basename === "gotchas.md") return "gotcha";
-  if (basename === "commands.md") return "commands";
-  if (basename === "glossary.md") return "glossary";
-  if (basename === "privacy.md") return "privacy";
-  return "scratch-note";
+  const canonical = CANONICAL_PROJECT_FILES.find((file) => file.name === basename);
+  return canonical?.documentType || "scratch-note";
 }
 
 function arrayOfStrings(input: unknown): string[] {

@@ -1,6 +1,7 @@
 import path from "node:path";
 import {
   createId,
+  isDefined,
   nowIso,
   type Project,
   type ProposedMemoryUpdate,
@@ -90,6 +91,3 @@ function proposalPath(project: Project, proposalId: string): string {
   return path.join(project.memoryRoot, "inbox", "proposed-updates", `${proposalId}.json`);
 }
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
-}

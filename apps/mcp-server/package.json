@@ -10,6 +10,7 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
+    "@zharwing/memory-core": "workspace:*",
     "@zharwing/memory-mcp": "workspace:*"
   }
 }

@@ -4,7 +4,11 @@ import path from "node:path";
 import {
   createId,
   filenameSafe,
+  matchesAnyPattern,
+  matchesPattern,
   nowIso,
+  truncate,
+  unique,
   type DocumentStatus,
   type DocumentType,
   type ImportCandidate,
@@ -267,13 +271,13 @@ async function walkImportFiles(root: string, profile: ImportProfile): Promise<st
       const fullPath = path.join(current, entry.name);
       const relativePath = normalizeRelative(path.relative(root, fullPath));
       if (entry.isDirectory()) {
-        if (!matchesAny(`${relativePath}/`, profile.exclude)) {
+        if (!matchesAnyPattern(`${relativePath}/`, profile.exclude)) {
           await walk(fullPath);
         }
         continue;
       }
 
-      if (matchesAny(relativePath, profile.include) && !matchesAny(relativePath, profile.exclude)) {
+      if (matchesAnyPattern(relativePath, profile.include) && !matchesAnyPattern(relativePath, profile.exclude)) {
         files.push(fullPath);
       }
     }
@@ -540,38 +544,6 @@ function formatFromPath(relativePath: string): MemoryDocument["format"] {
   return relativePath.toLowerCase().endsWith(".txt") ? "text" : "markdown";
 }
 
-function matchesAny(input: string, patterns: string[]): boolean {
-  return patterns.some((pattern) => matchesPattern(input, pattern));
-}
-
-function matchesPattern(input: string, pattern: string): boolean {
-  return globToRegExp(normalizeRelative(pattern)).test(normalizeRelative(input));
-}
-
-function globToRegExp(pattern: string): RegExp {
-  let source = "^";
-  for (let index = 0; index < pattern.length; index += 1) {
-    if (pattern.slice(index, index + 3) === "**/") {
-      source += "(?:.*/)?";
-      index += 2;
-    } else if (pattern.slice(index, index + 2) === "**") {
-      source += ".*";
-      index += 1;
-    } else if (pattern[index] === "*") {
-      source += "[^/]*";
-    } else if (pattern[index] === "?") {
-      source += "[^/]";
-    } else {
-      source += escapeRegExp(pattern[index]);
-    }
-  }
-  return new RegExp(`${source}$`, "i");
-}
-
-function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function stripBom(input: string): string {
   return input.replace(/^\uFEFF/, "");
 }
@@ -584,14 +556,6 @@ function scalar(input: unknown): string | undefined {
 
 function arrayOfStrings(input: unknown): string[] {
   return Array.isArray(input) ? input.map(String).map((item) => item.trim()).filter(Boolean) : [];
-}
-
-function unique(input: string[]): string[] {
-  return [...new Set(input.filter(Boolean))];
-}
-
-function truncate(input: string, maxLength: number): string {
-  return input.length > maxLength ? `${input.slice(0, maxLength - 1).trim()}...` : input;
 }
 
 function asDocumentType(input: unknown): DocumentType | undefined {

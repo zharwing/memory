@@ -4,6 +4,7 @@ import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
 import { DirectoryField } from "../components/DirectoryField.js";
+import { ToggleGroup } from "../components/ToggleGroup.js";
 
 export const ImportScreen = observer(function ImportScreen() {
   const store = useStore();
@@ -53,19 +54,21 @@ export const ImportScreen = observer(function ImportScreen() {
           });
         }}>
           {importPresets.length ? (
-            <div className="quick-presets" aria-label="Import type presets">
-              {importPresets.map((preset) => (
-                <button
-                  key={preset.profile}
-                  type="button"
-                  className={profile === preset.profile ? "selected" : ""}
-                  onClick={() => setProfile(preset.profile)}
-                >
-                  <span>{preset.label}</span>
-                  <small>{preset.help}</small>
-                </button>
-              ))}
-            </div>
+            <ToggleGroup
+              className="quick-presets"
+              ariaLabel="Import type presets"
+              value={profile}
+              onChange={setProfile}
+              options={importPresets.map((preset) => ({
+                value: preset.profile,
+                label: (
+                  <>
+                    <span>{preset.label}</span>
+                    <small>{preset.help}</small>
+                  </>
+                )
+              }))}
+            />
           ) : null}
           <label>
             <span>Source folder</span>

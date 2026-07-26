@@ -1,37 +1,19 @@
+import {
+  matchesAnyPattern as coreMatchesAnyPattern,
+  matchesPattern as coreMatchesPattern
+} from "@zharwing/memory-core";
+
+/**
+ * Privacy patterns use the core glob engine in gitignore-style mode:
+ * trailing "/" matches directories anywhere, "**"-prefixed literals match by
+ * suffix, single-segment wildcards match against the basename, and matching
+ * is case-insensitive so differently-cased paths cannot bypass never-send or
+ * ignore rules.
+ */
 export function matchesAnyPattern(filePath: string | undefined, patterns: string[]): boolean {
-  if (!filePath) return false;
-  const normalized = filePath.replace(/\\/g, "/");
-  return patterns.some((pattern) => matchPattern(normalized, pattern));
+  return coreMatchesAnyPattern(filePath, patterns, { ignoreStyle: true });
 }
 
 export function matchPattern(filePath: string, pattern: string): boolean {
-  const normalizedPattern = pattern.replace(/\\/g, "/");
-
-  if (normalizedPattern.endsWith("/")) {
-    return filePath.includes(`/${normalizedPattern}`) || filePath.endsWith(normalizedPattern.slice(0, -1));
-  }
-
-  if (normalizedPattern.startsWith("**/")) {
-    return filePath.endsWith(normalizedPattern.slice(3));
-  }
-
-  if (normalizedPattern.includes("**")) {
-    const regex = globToRegex(normalizedPattern);
-    return regex.test(filePath);
-  }
-
-  if (normalizedPattern.includes("*")) {
-    const regex = globToRegex(normalizedPattern);
-    return regex.test(filePath.split("/").pop() || filePath);
-  }
-
-  return filePath === normalizedPattern || filePath.endsWith(`/${normalizedPattern}`);
-}
-
-function globToRegex(pattern: string): RegExp {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, ".*")
-    .replace(/\*/g, "[^/]*");
-  return new RegExp(`^${escaped}$`);
+  return coreMatchesPattern(filePath, pattern, { ignoreStyle: true });
 }

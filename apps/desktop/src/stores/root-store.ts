@@ -1,45 +1,97 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ZharwingMemoryClient } from "@zharwing/memory-api-client";
+import { readString, writeString } from "../utils/storage.js";
+import type {
+  ContextBundle,
+  ImportCommitResult,
+  ImportPlan,
+  ImportProfile,
+  MemoryDocument,
+  MemoryWritePolicy,
+  Project,
+  ProjectCreationPreview,
+  ProjectGraph,
+  ProposedMemoryUpdate,
+  RepoLink,
+  SearchResult,
+  SemanticGraphEdge,
+  SemanticGraphMode,
+  SemanticGraphRun,
+  SemanticGraphScope,
+  SemanticGraphSettings,
+  Session,
+  SessionSummary,
+  TrashItem,
+  Workstream,
+  WorkstreamDetail
+} from "@zharwing/memory-core";
 
 export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
+
+/** Session list rows; the daemon returns summaries and the store lazily merges the Markdown body. */
+export type SessionListItem = SessionSummary & { body?: string };
+
+/** Result shape of `memory.get_project_summary`. */
+export interface ProjectSummarySnapshot {
+  project: Project;
+  latestSession?: Session;
+  activeSession?: Session;
+  counts: {
+    sessions: number;
+    documents: number;
+    workstreams: number;
+    diagrams: number;
+    pendingInbox: number;
+    warnings: number;
+  };
+  warnings: string[];
+}
+
+/** Result shape of `memory.list_backups`. */
+export interface BackupSnapshotItem {
+  projectId: string;
+  created: string;
+  snapshotPath: string;
+  note: string;
+}
 
 const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
 
 export class RootStore {
   client = new ZharwingMemoryClient();
-  projects: any[] = [];
+  projects: Project[] = [];
   selectedProjectId = "";
-  daemonHealth: any = undefined;
-  projectCreationPreview: any = undefined;
-  summary: any = undefined;
-  sessions: any[] = [];
-  docs: any[] = [];
-  workstreams: any[] = [];
+  daemonHealth: { status: string; memoryRoot: string } | undefined = undefined;
+  projectCreationPreview: ProjectCreationPreview | undefined = undefined;
+  summary: ProjectSummarySnapshot | undefined = undefined;
+  sessions: SessionListItem[] = [];
+  docs: MemoryDocument[] = [];
+  workstreams: Workstream[] = [];
   selectedWorkstreamId = "";
-  workstreamDetail: any = undefined;
-  repoLinks: any[] = [];
-  inbox: any[] = [];
-  graph: any = undefined;
+  workstreamDetail: WorkstreamDetail | undefined = undefined;
+  repoLinks: RepoLink[] = [];
+  inbox: ProposedMemoryUpdate[] = [];
+  graph: ProjectGraph | undefined = undefined;
   graphRelationshipMode: GraphRelationshipMode = readStoredGraphRelationshipMode();
-  semanticGraphSettings: any = undefined;
+  semanticGraphSettings: SemanticGraphSettings | undefined = undefined;
   semanticGraphStatus: any = undefined;
-  semanticEdges: any[] = [];
-  semanticGraphRuns: any[] = [];
+  semanticEdges: SemanticGraphEdge[] = [];
+  semanticGraphRuns: SemanticGraphRun[] = [];
   semanticAnalysisPreview: any = undefined;
   semanticAnalysisResult: any = undefined;
-  semanticAnalysisProgressRun: any = undefined;
+  semanticAnalysisProgressRun: SemanticGraphRun | undefined = undefined;
   semanticAnalysisRunning = false;
   assistantStatus: any = undefined;
   assistantProviderCheck: any = undefined;
-  contextBundle: any = undefined;
-  searchResults: any[] = [];
-  importProfiles: any[] = [];
-  importPlan: any = undefined;
-  importResult: any = undefined;
+  contextBundle: ContextBundle | undefined = undefined;
+  searchResults: SearchResult[] = [];
+  importProfiles: ImportProfile[] = [];
+  importPlan: ImportPlan | undefined = undefined;
+  importResult: ImportCommitResult | undefined = undefined;
   mcpDoctor: any = undefined;
   mcpInstallResult: any = undefined;
-  backups: any[] = [];
-  trashItems: any[] = [];
+  backups: BackupSnapshotItem[] = [];
+  trashItems: TrashItem[] = [];
   loading = false;
   error = "";
   semanticAnalysisPollHandle: ReturnType<typeof setInterval> | undefined = undefined;
@@ -55,7 +107,7 @@ export class RootStore {
   }
 
   get selectedMemoryWritePolicy() {
-    const policy = this.summary?.project?.memoryWritePolicy || this.selectedProject?.memoryWritePolicy || {};
+    const policy: Partial<MemoryWritePolicy> = this.summary?.project?.memoryWritePolicy || this.selectedProject?.memoryWritePolicy || {};
     return {
       allowAgentDirectWrites: policy.allowAgentDirectWrites ?? true,
       reviewMode: policy.reviewMode || "off"
@@ -73,7 +125,7 @@ export class RootStore {
 
   async loadProjects(preferredProjectId?: string) {
     await this.run(async () => {
-      const projects = (await this.client.call("memory.list_projects")) as any[];
+      const projects = await this.client.call<Project[]>("memory.list_projects");
       runInAction(() => {
         this.projects = projects;
         const preferred = preferredProjectId
@@ -88,7 +140,7 @@ export class RootStore {
 
   async loadDaemonHealth() {
     await this.run(async () => {
-      const health = await this.client.call("memory.health");
+      const health = await this.client.call<{ status: string; memoryRoot: string }>("memory.health");
       runInAction(() => {
         this.daemonHealth = health;
       });
@@ -132,28 +184,28 @@ export class RootStore {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
       const [summary, sessions, docs, workstreams, inbox, graph, semanticGraphSettings, semanticGraphStatus, assistantStatus, contextBundle] = await Promise.all([
-        this.client.call("memory.get_project_summary", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_project_sessions", { projectId: this.selectedProjectId, limit: 20 }),
-        this.client.call("memory.list_docs", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_workstreams", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_inbox", { projectId: this.selectedProjectId }),
-        this.client.call("memory.get_graph", {
+        this.client.call<ProjectSummarySnapshot>("memory.get_project_summary", { projectId: this.selectedProjectId }),
+        this.client.call<SessionListItem[]>("memory.list_project_sessions", { projectId: this.selectedProjectId, limit: 20 }),
+        this.client.call<MemoryDocument[]>("memory.list_docs", { projectId: this.selectedProjectId }),
+        this.client.call<Workstream[]>("memory.list_workstreams", { projectId: this.selectedProjectId }),
+        this.client.call<ProposedMemoryUpdate[]>("memory.list_inbox", { projectId: this.selectedProjectId }),
+        this.client.call<ProjectGraph>("memory.get_graph", {
           projectId: this.selectedProjectId,
           ...graphRelationshipParams(this.graphRelationshipMode)
         }),
-        this.client.call("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
+        this.client.call<SemanticGraphSettings>("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
         this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
         this.client.call("memory.assistant_status", { projectId: this.selectedProjectId }),
-        this.client.call("memory.preview_context_bundle", { projectId: this.selectedProjectId, requestedBy: "desktop" })
+        this.client.call<ContextBundle>("memory.preview_context_bundle", { projectId: this.selectedProjectId, requestedBy: "desktop" })
       ]);
       runInAction(() => {
         this.summary = summary;
-        this.sessions = sessions as any[];
-        this.docs = docs as any[];
-        this.workstreams = workstreams as any[];
+        this.sessions = sessions;
+        this.docs = docs;
+        this.workstreams = workstreams;
         if (!this.selectedWorkstreamId && this.workstreams[0]) this.selectedWorkstreamId = this.workstreams[0].id;
-        this.repoLinks = (summary as any)?.project?.repos || [];
-        this.inbox = inbox as any[];
+        this.repoLinks = summary?.project?.repos || [];
+        this.inbox = inbox;
         this.graph = graph;
         this.semanticGraphSettings = semanticGraphSettings;
         this.semanticGraphStatus = semanticGraphStatus;
@@ -174,7 +226,7 @@ export class RootStore {
     bootstrapFiles?: string[];
   }) {
     await this.run(async () => {
-      const preview = await this.client.call("memory.prepare_project_creation", {
+      const preview = await this.client.call<ProjectCreationPreview>("memory.prepare_project_creation", {
         workingDirectory: args.workingDirectory?.trim() || undefined,
         projectName: args.projectName?.trim() || undefined,
         createPointerFile: args.createPointerFile,
@@ -190,10 +242,10 @@ export class RootStore {
     if (!this.projectCreationPreview) return false;
     let createdProjectId = "";
     await this.run(async () => {
-      const project = await this.client.call("memory.create_project", {
+      const project = await this.client.call<Project>("memory.create_project", {
         preview: this.projectCreationPreview
       });
-      createdProjectId = (project as any).id;
+      createdProjectId = project.id;
       await this.loadProjects();
       runInAction(() => {
         this.selectedProjectId = createdProjectId;
@@ -301,7 +353,7 @@ export class RootStore {
   async loadGraph() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const graph = await this.client.call("memory.get_graph", {
+      const graph = await this.client.call<ProjectGraph>("memory.get_graph", {
         projectId: this.selectedProjectId,
         ...graphRelationshipParams(this.graphRelationshipMode)
       });
@@ -327,17 +379,17 @@ export class RootStore {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
       const [settings, status, edges, runs] = await Promise.all([
-        this.client.call("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
+        this.client.call<SemanticGraphSettings>("memory.get_semantic_graph_settings", { projectId: this.selectedProjectId }),
         this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_semantic_graph_runs", { projectId: this.selectedProjectId })
+        this.client.call<SemanticGraphEdge[]>("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
+        this.client.call<SemanticGraphRun[]>("memory.list_semantic_graph_runs", { projectId: this.selectedProjectId })
       ]);
       runInAction(() => {
         this.semanticGraphSettings = settings;
         this.semanticGraphStatus = status;
-        this.semanticEdges = edges as any[];
-        this.semanticGraphRuns = runs as any[];
-        this.semanticAnalysisProgressRun = (runs as any[])[0] || (status as any)?.runCounts?.latest || this.semanticAnalysisProgressRun;
+        this.semanticEdges = edges;
+        this.semanticGraphRuns = runs;
+        this.semanticAnalysisProgressRun = runs[0] || (status as any)?.runCounts?.latest || this.semanticAnalysisProgressRun;
         this.semanticAnalysisRunning = isSemanticAnalysisRunActive(this.semanticAnalysisProgressRun);
       });
     });
@@ -347,7 +399,7 @@ export class RootStore {
   async updateSemanticGraphSettings(settings: Record<string, unknown>) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const next = await this.client.call("memory.update_semantic_graph_settings", {
+      const next = await this.client.call<SemanticGraphSettings>("memory.update_semantic_graph_settings", {
         projectId: this.selectedProjectId,
         settings
       });
@@ -398,10 +450,10 @@ export class RootStore {
       });
       const [status, edges, runs, inbox, graph] = await Promise.all([
         this.client.call("memory.get_semantic_graph_status", { projectId }),
-        this.client.call("memory.list_semantic_edges", { projectId }),
-        this.client.call("memory.list_semantic_graph_runs", { projectId }),
-        this.client.call("memory.list_inbox", { projectId }),
-        this.client.call("memory.get_graph", {
+        this.client.call<SemanticGraphEdge[]>("memory.list_semantic_edges", { projectId }),
+        this.client.call<SemanticGraphRun[]>("memory.list_semantic_graph_runs", { projectId }),
+        this.client.call<ProposedMemoryUpdate[]>("memory.list_inbox", { projectId }),
+        this.client.call<ProjectGraph>("memory.get_graph", {
           projectId,
           ...graphRelationshipParams(this.graphRelationshipMode)
         })
@@ -410,11 +462,11 @@ export class RootStore {
         if (projectId !== this.selectedProjectId) return;
         this.semanticAnalysisResult = result;
         this.semanticGraphStatus = status;
-        this.semanticEdges = edges as any[];
-        this.semanticGraphRuns = runs as any[];
-        this.inbox = inbox as any[];
+        this.semanticEdges = edges;
+        this.semanticGraphRuns = runs;
+        this.inbox = inbox;
         this.graph = graph;
-        this.semanticAnalysisProgressRun = (result as any)?.run || (runs as any[])[0];
+        this.semanticAnalysisProgressRun = (result as any)?.run || runs[0];
       });
     });
     this.stopSemanticAnalysisPolling();
@@ -443,18 +495,18 @@ export class RootStore {
     try {
       const [status, runs, inbox] = await Promise.all([
         this.client.call("memory.get_semantic_graph_status", { projectId }),
-        this.client.call("memory.list_semantic_graph_runs", { projectId }),
-        includeInbox ? this.client.call("memory.list_inbox", { projectId }) : Promise.resolve(undefined)
+        this.client.call<SemanticGraphRun[]>("memory.list_semantic_graph_runs", { projectId }),
+        includeInbox ? this.client.call<ProposedMemoryUpdate[]>("memory.list_inbox", { projectId }) : Promise.resolve(undefined)
       ]);
-      const latestRun = (runs as any[])[0] || (status as any)?.runCounts?.latest;
+      const latestRun = runs[0] || (status as any)?.runCounts?.latest;
       runInAction(() => {
         if (projectId !== this.selectedProjectId) return;
         const keepPendingRun = shouldKeepPendingSemanticAnalysisRun(this.semanticAnalysisProgressRun, latestRun, this.semanticAnalysisRunning);
         this.semanticGraphStatus = status;
-        this.semanticGraphRuns = runs as any[];
+        this.semanticGraphRuns = runs;
         this.semanticAnalysisProgressRun = keepPendingRun ? this.semanticAnalysisProgressRun : latestRun;
         this.semanticAnalysisRunning = keepPendingRun || isSemanticAnalysisRunActive(this.semanticAnalysisProgressRun);
-        if (includeInbox && inbox) this.inbox = inbox as any[];
+        if (includeInbox && inbox) this.inbox = inbox;
       });
       if (
         projectId === this.selectedProjectId &&
@@ -499,15 +551,15 @@ export class RootStore {
       });
       const [semanticGraphStatus, semanticEdges, graph] = await Promise.all([
         this.client.call("memory.get_semantic_graph_status", { projectId: this.selectedProjectId }),
-        this.client.call("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
-        this.client.call("memory.get_graph", {
+        this.client.call<SemanticGraphEdge[]>("memory.list_semantic_edges", { projectId: this.selectedProjectId }),
+        this.client.call<ProjectGraph>("memory.get_graph", {
           projectId: this.selectedProjectId,
           ...graphRelationshipParams(this.graphRelationshipMode)
         })
       ]);
       runInAction(() => {
         this.semanticGraphStatus = semanticGraphStatus;
-        this.semanticEdges = semanticEdges as any[];
+        this.semanticEdges = semanticEdges;
         this.graph = graph;
       });
     });
@@ -533,11 +585,11 @@ export class RootStore {
   async loadRepoLinks() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const repos = await this.client.call("memory.list_project_repos", {
+      const repos = await this.client.call<RepoLink[]>("memory.list_project_repos", {
         projectId: this.selectedProjectId
       });
       runInAction(() => {
-        this.repoLinks = repos as any[];
+        this.repoLinks = repos;
       });
     });
   }
@@ -599,11 +651,11 @@ export class RootStore {
   async loadWorkstreams() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const workstreams = await this.client.call("memory.list_workstreams", {
+      const workstreams = await this.client.call<Workstream[]>("memory.list_workstreams", {
         projectId: this.selectedProjectId
       });
       runInAction(() => {
-        this.workstreams = workstreams as any[];
+        this.workstreams = workstreams;
         if (!this.selectedWorkstreamId && this.workstreams[0]) this.selectedWorkstreamId = this.workstreams[0].id;
       });
     });
@@ -620,15 +672,15 @@ export class RootStore {
   }) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const workstream = await this.client.call("memory.create_workstream", {
+      const workstream = await this.client.call<Workstream>("memory.create_workstream", {
         projectId: this.selectedProjectId,
         ...args
       });
       await this.loadWorkstreams();
       runInAction(() => {
-        this.selectedWorkstreamId = (workstream as any).id;
+        this.selectedWorkstreamId = workstream.id;
       });
-      await this.loadWorkstreamDetail((workstream as any).id);
+      await this.loadWorkstreamDetail(workstream.id);
     });
   }
 
@@ -640,7 +692,7 @@ export class RootStore {
   async loadWorkstreamDetail(workstreamId = this.selectedWorkstreamId) {
     if (!this.selectedProjectId || !workstreamId) return;
     await this.run(async () => {
-      const detail = await this.client.call("memory.get_workstream_detail", {
+      const detail = await this.client.call<WorkstreamDetail>("memory.get_workstream_detail", {
         projectId: this.selectedProjectId,
         workstreamId
       });
@@ -684,9 +736,9 @@ export class RootStore {
 
   async loadImportProfiles() {
     await this.run(async () => {
-      const profiles = await this.client.call("memory.list_import_profiles");
+      const profiles = await this.client.call<ImportProfile[]>("memory.list_import_profiles");
       runInAction(() => {
-        this.importProfiles = profiles as any[];
+        this.importProfiles = profiles;
       });
     });
   }
@@ -698,7 +750,7 @@ export class RootStore {
   }) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const plan = await this.client.call("memory.prepare_import", {
+      const plan = await this.client.call<ImportPlan>("memory.prepare_import", {
         projectId: this.selectedProjectId,
         sourceRoot: args.sourceRoot,
         profile: args.profile,
@@ -714,7 +766,7 @@ export class RootStore {
   async commitImport(conflictStrategy: string) {
     if (!this.selectedProjectId || !this.importPlan) return;
     await this.run(async () => {
-      const result = await this.client.call("memory.commit_import", {
+      const result = await this.client.call<ImportCommitResult>("memory.commit_import", {
         projectId: this.selectedProjectId,
         plan: this.importPlan,
         conflictStrategy
@@ -764,9 +816,9 @@ export class RootStore {
 
   async updateDocument(documentId: string, args: { title?: string; body?: string }) {
     if (!this.selectedProjectId) return undefined;
-    let updatedDocument: any = undefined;
+    let updatedDocument: MemoryDocument | undefined = undefined;
     await this.run(async () => {
-      updatedDocument = await this.client.call("memory.update_doc", {
+      updatedDocument = await this.client.call<MemoryDocument>("memory.update_doc", {
         projectId: this.selectedProjectId,
         documentId,
         title: args.title,
@@ -805,11 +857,11 @@ export class RootStore {
   async loadBackups() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const backups = await this.client.call("memory.list_backups", {
+      const backups = await this.client.call<BackupSnapshotItem[]>("memory.list_backups", {
         projectId: this.selectedProjectId
       });
       runInAction(() => {
-        this.backups = backups as any[];
+        this.backups = backups;
       });
     });
   }
@@ -836,9 +888,9 @@ export class RootStore {
 
   async loadTrash() {
     await this.run(async () => {
-      const items = await this.client.call("memory.list_trash");
+      const items = await this.client.call<TrashItem[]>("memory.list_trash");
       runInAction(() => {
-        this.trashItems = items as any[];
+        this.trashItems = items;
       });
     });
   }
@@ -920,11 +972,11 @@ export class RootStore {
   async loadAllSessions() {
     if (!this.selectedProjectId) return;
     await this.run(async () => {
-      const sessions = await this.client.call("memory.list_project_sessions", {
+      const sessions = await this.client.call<SessionListItem[]>("memory.list_project_sessions", {
         projectId: this.selectedProjectId
       });
       runInAction(() => {
-        this.sessions = sessions as any[];
+        this.sessions = sessions;
       });
     });
   }
@@ -963,12 +1015,12 @@ export class RootStore {
       return;
     }
     await this.run(async () => {
-      const results = await this.client.call("memory.search", {
+      const results = await this.client.call<SearchResult[]>("memory.search", {
         projectId: this.selectedProjectId,
         query
       });
       runInAction(() => {
-        this.searchResults = results as any[];
+        this.searchResults = results;
       });
     });
   }
@@ -1010,22 +1062,11 @@ function normalizeGraphRelationshipMode(input: unknown): GraphRelationshipMode {
 }
 
 function readStoredGraphRelationshipMode(): GraphRelationshipMode {
-  try {
-    if (typeof window === "undefined") return "ai-reviewed";
-    return normalizeGraphRelationshipMode(window.localStorage.getItem(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
-  } catch {
-    return "ai-reviewed";
-  }
+  return normalizeGraphRelationshipMode(readString(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
 }
 
 function writeStoredGraphRelationshipMode(mode: GraphRelationshipMode): void {
-  try {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY, mode);
-    }
-  } catch {
-    // Local storage can be unavailable in hardened browser contexts.
-  }
+  writeString(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY, mode);
 }
 
 function isSemanticAnalysisRunActive(run: any): boolean {
@@ -1033,13 +1074,13 @@ function isSemanticAnalysisRunActive(run: any): boolean {
   return status === "running" || status === "pending";
 }
 
-function createPendingSemanticAnalysisRun(projectId: string, args: Record<string, unknown>): any {
+function createPendingSemanticAnalysisRun(projectId: string, args: Record<string, unknown>): SemanticGraphRun {
   return {
     id: "pending-ui-run",
     projectId,
     status: "pending",
-    mode: String(args.mode || (args.dryRun ? "dry-run" : "review")),
-    scope: args.scope || { kind: "all-docs" },
+    mode: String(args.mode || (args.dryRun ? "dry-run" : "review")) as SemanticGraphMode,
+    scope: (args.scope || { kind: "all-docs" }) as SemanticGraphScope,
     model: typeof args.model === "string" ? args.model : undefined,
     started: new Date().toISOString(),
     thresholds: {

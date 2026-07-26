@@ -1,5 +1,8 @@
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { graphiteCopperLight } from "@zharwing/memory-theme";
+import { Modal } from "../Modal.js";
+import { hashString } from "../../utils/format.js";
 
 export function isLikelyMermaidSource(source: string) {
   return /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|erDiagram|gantt|journey|pie|mindmap|timeline)\b/.test(source);
@@ -31,12 +34,12 @@ export function MermaidDiagramPreview({ source }: { source: string }) {
           theme: "base",
           themeVariables: {
             background: "transparent",
-            primaryColor: color("--surface", "#fffdf9"),
-            primaryTextColor: color("--text", "#241e1a"),
-            primaryBorderColor: color("--border", "#ded0c0"),
-            lineColor: color("--accent", "#b87333"),
-            secondaryColor: color("--surface-2", "#efe5da"),
-            tertiaryColor: color("--background", "#f7f3ee")
+            primaryColor: color("--surface", graphiteCopperLight.surface),
+            primaryTextColor: color("--text", graphiteCopperLight.text),
+            primaryBorderColor: color("--border", graphiteCopperLight.border),
+            lineColor: color("--accent", graphiteCopperLight.accent),
+            secondaryColor: color("--surface-2", graphiteCopperLight.surface2),
+            tertiaryColor: color("--background", graphiteCopperLight.background)
           }
         });
         const result = await mermaid.render(`zharwing-mermaid-${Math.abs(hashString(source))}-${Date.now()}`, source);
@@ -205,14 +208,13 @@ function DiagramFullscreenViewer({ svg, onClose }: { svg: string; onClose: () =>
   }, []);
 
   return (
-    <div
-      className="diagram-viewer-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <Modal
+      ariaLabel="Diagram preview"
+      backdropClassName="diagram-viewer-backdrop"
+      className="diagram-viewer"
+      onClose={onClose}
+      closeOnEscape={false}
     >
-      <section className="diagram-viewer" role="dialog" aria-modal="true" aria-label="Diagram preview">
         <header className="diagram-viewer-header">
           <div className="diagram-viewer-title">
             <h3>Diagram preview</h3>
@@ -250,15 +252,6 @@ function DiagramFullscreenViewer({ svg, onClose }: { svg: string; onClose: () =>
         >
           <MermaidSvgMarkup svg={svg} zoom={zoom} />
         </div>
-      </section>
-    </div>
+    </Modal>
   );
-}
-
-function hashString(input: string): number {
-  let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
-  }
-  return hash;
 }

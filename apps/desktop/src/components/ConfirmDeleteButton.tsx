@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Modal } from "./Modal.js";
+import { readString, writeString } from "../utils/storage.js";
 
 export function ConfirmDeleteButton({
   itemType,
@@ -28,7 +30,7 @@ export function ConfirmDeleteButton({
 
   async function handleClick() {
     if (disabled) return;
-    if (localStorage.getItem(preferenceKey) === "true") {
+    if (readString(preferenceKey) === "true") {
       await runDelete();
       return;
     }
@@ -36,7 +38,7 @@ export function ConfirmDeleteButton({
   }
 
   async function confirm() {
-    if (dontAskAgain) localStorage.setItem(preferenceKey, "true");
+    if (dontAskAgain) writeString(preferenceKey, "true");
     setOpen(false);
     setDontAskAgain(false);
     await runDelete();
@@ -48,25 +50,29 @@ export function ConfirmDeleteButton({
         {label}
       </button>
       {open ? (
-        <div className="dialog-backdrop" role="presentation">
-          <div className="confirm-dialog" role="dialog" aria-modal="true" aria-label={`Confirm ${label}`}>
-            <h3>{permanent ? "Delete Permanently?" : critical ? "Move Critical Item to Trash?" : "Move to Trash?"}</h3>
-            <p>
-              This will {actionText} <strong>{title}</strong>.
-              {permanent ? " This cannot be undone." : " You can restore it later from Trash."}
-            </p>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={dontAskAgain} onChange={(event) => setDontAskAgain(event.target.checked)} />
-              <span>Do not ask again for this type of item</span>
-            </label>
-            <div className="button-row">
-              <button type="button" onClick={() => setOpen(false)}>Cancel</button>
-              <button type="button" className={permanent ? "danger-button" : undefined} onClick={() => void confirm()}>
-                {label}
-              </button>
-            </div>
+        <Modal
+          ariaLabel={`Confirm ${label}`}
+          backdropClassName="dialog-backdrop"
+          className="confirm-dialog"
+          onClose={() => setOpen(false)}
+          closeOnBackdropClick={false}
+        >
+          <h3>{permanent ? "Delete Permanently?" : critical ? "Move Critical Item to Trash?" : "Move to Trash?"}</h3>
+          <p>
+            This will {actionText} <strong>{title}</strong>.
+            {permanent ? " This cannot be undone." : " You can restore it later from Trash."}
+          </p>
+          <label className="checkbox-row">
+            <input type="checkbox" checked={dontAskAgain} onChange={(event) => setDontAskAgain(event.target.checked)} />
+            <span>Do not ask again for this type of item</span>
+          </label>
+          <div className="button-row">
+            <button type="button" onClick={() => setOpen(false)}>Cancel</button>
+            <button type="button" className={permanent ? "danger-button" : undefined} onClick={() => void confirm()}>
+              {label}
+            </button>
           </div>
-        </div>
+        </Modal>
       ) : null}
     </>
   );

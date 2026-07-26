@@ -1,6 +1,7 @@
 import type {
   AssistantPolicy,
   ContextPolicy,
+  DocumentType,
   MemoryWritePolicy,
   PrivacyPolicy,
   SemanticGraphSettings
@@ -10,17 +11,41 @@ import type {
 // "AI Memory Root" so existing local stores keep resolving without migration.
 export const DEFAULT_MEMORY_ROOT_NAME = "AI Memory Root";
 
-export const DEFAULT_PROJECT_FILES = [
-  "project.json",
-  "overview.md",
-  "architecture.md",
-  "decisions.md",
-  "tasks.md",
-  "gotchas.md",
-  "commands.md",
-  "glossary.md",
-  "privacy.md"
-] as const;
+export interface CanonicalProjectFile {
+  /** File name directly under the project memory root. */
+  name: string;
+  /** False only for project.json, which is JSON metadata, not a document. */
+  markdown: boolean;
+  /** Document type inferred for the file when frontmatter has none. */
+  documentType?: DocumentType;
+  /**
+   * Default document title. Undefined for overview.md, whose title is derived
+   * from the project name ("<project> Overview") by the template layer.
+   */
+  title?: string;
+  /** True when the file is a canonical context-bundle candidate. */
+  includeInContext: boolean;
+}
+
+/**
+ * Single source of truth for the canonical files scaffolded into every
+ * project memory root. DEFAULT_PROJECT_FILES, the document lister, the
+ * template titles, and the context-engine canonical candidates all derive
+ * from this table.
+ */
+export const CANONICAL_PROJECT_FILES: readonly CanonicalProjectFile[] = [
+  { name: "project.json", markdown: false, includeInContext: false },
+  { name: "overview.md", markdown: true, documentType: "overview", includeInContext: true },
+  { name: "architecture.md", markdown: true, documentType: "architecture-note", title: "Architecture", includeInContext: true },
+  { name: "decisions.md", markdown: true, documentType: "decision-record", title: "Decisions", includeInContext: true },
+  { name: "tasks.md", markdown: true, documentType: "plan", title: "Tasks", includeInContext: false },
+  { name: "gotchas.md", markdown: true, documentType: "gotcha", title: "Gotchas", includeInContext: true },
+  { name: "commands.md", markdown: true, documentType: "commands", title: "Commands", includeInContext: true },
+  { name: "glossary.md", markdown: true, documentType: "glossary", title: "Glossary", includeInContext: false },
+  { name: "privacy.md", markdown: true, documentType: "privacy", title: "Privacy Rules", includeInContext: false }
+];
+
+export const DEFAULT_PROJECT_FILES: readonly string[] = CANONICAL_PROJECT_FILES.map((file) => file.name);
 
 export const DEFAULT_PROJECT_FOLDERS = [
   "sessions",
@@ -125,6 +150,30 @@ export const DEFAULT_MEMORY_WRITE_POLICY: MemoryWritePolicy = {
   allowAgentDirectWrites: true,
   reviewMode: "off"
 };
+
+export interface ProviderDefault {
+  /** Default endpoint for the provider; absent for kinds with no default. */
+  endpoint?: string;
+  /** Human-readable provider label. */
+  label: string;
+}
+
+/**
+ * Canonical AI provider defaults shared by the assistant runtime, daemon, and
+ * desktop UI. Endpoints follow the daemon's provider table; labels follow the
+ * desktop assistant settings screen.
+ */
+export const PROVIDER_DEFAULTS = {
+  "lm-studio": { endpoint: "http://127.0.0.1:1234/v1", label: "LM Studio" },
+  ollama: { endpoint: "http://127.0.0.1:11434", label: "Ollama" },
+  "llama-cpp": { endpoint: "http://127.0.0.1:8080/v1", label: "llama.cpp server" },
+  openai: { endpoint: "https://api.openai.com/v1", label: "OpenAI API" },
+  anthropic: { endpoint: "https://api.anthropic.com", label: "Claude API" },
+  "custom-openai-compatible": { label: "OpenAI-compatible API" },
+  "app-managed-llamacpp": { label: "Legacy app-managed local model (unsupported)" }
+} as const satisfies Record<string, ProviderDefault>;
+
+export type ProviderDefaultKind = keyof typeof PROVIDER_DEFAULTS;
 
 export const DEFAULT_SEMANTIC_GRAPH_SETTINGS: SemanticGraphSettings = {
   version: 1,

@@ -1,3 +1,5 @@
+import { DEFAULT_DAEMON_URL, MEMORY_ENV_FALLBACKS, type RpcResponse } from "@zharwing/memory-core";
+
 export interface ZharwingMemoryClientOptions {
   baseUrl?: string;
   authToken?: string;
@@ -9,7 +11,7 @@ export class ZharwingMemoryClient {
 
   constructor(options: ZharwingMemoryClientOptions = {}) {
     const env = runtimeEnv();
-    this.baseUrl = options.baseUrl || env.DAEMON_URL || "http://127.0.0.1:37841";
+    this.baseUrl = options.baseUrl || env.DAEMON_URL || DEFAULT_DAEMON_URL;
     // No fallback credential: an unset token means requests fail closed with
     // 401 until the operator supplies the daemon token.
     this.authToken = options.authToken || env.AUTH_TOKEN || "";
@@ -45,15 +47,11 @@ export class ZharwingMemoryClient {
     } catch (error) {
       throw new Error(`Cannot reach Zharwing Memory daemon at ${this.baseUrl}. Make sure the daemon is running and browser access is allowed. ${error instanceof Error ? error.message : String(error)}`);
     }
-    const payload = (await response.json()) as {
-      ok: boolean;
-      result?: T;
-      error?: { message: string };
-    };
+    const payload = (await response.json()) as RpcResponse<T>;
     if (!payload.ok) {
       throw new Error(payload.error?.message || `Zharwing Memory RPC failed: ${method}`);
     }
-    return payload.result as T;
+    return payload.result;
   }
 
   health() {
@@ -140,25 +138,31 @@ export type AimemClientOptions = ZharwingMemoryClientOptions;
 export const AimemClient = ZharwingMemoryClient;
 
 function runtimeEnv(): { DAEMON_URL?: string; AUTH_TOKEN?: string } {
+  return {
+    DAEMON_URL: resolveEnv("ZHARWING_MEMORY_DAEMON_URL"),
+    AUTH_TOKEN: resolveEnv("ZHARWING_MEMORY_AUTH_TOKEN")
+  };
+}
+
+/**
+ * Resolves an env var across process.env and import.meta.env (including the
+ * VITE_-prefixed variants exposed to browser bundles). The canonical
+ * ZHARWING_MEMORY_* name wins; the legacy AIMEM_* name from the shared core
+ * table remains readable for one transition release so existing .env files
+ * keep working.
+ */
+function resolveEnv(canonical: keyof typeof MEMORY_ENV_FALLBACKS): string | undefined {
   const processEnv = typeof process !== "undefined" && process.env ? process.env : {};
   const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
-
-  // Canonical ZHARWING_MEMORY_* names win; legacy AIMEM_* names remain
-  // readable for one transition release so existing .env files keep working.
-  return {
-    DAEMON_URL:
-      processEnv.ZHARWING_MEMORY_DAEMON_URL ||
-      processEnv.AIMEM_DAEMON_URL ||
-      viteEnv.ZHARWING_MEMORY_DAEMON_URL ||
-      viteEnv.AIMEM_DAEMON_URL ||
-      viteEnv.VITE_ZHARWING_MEMORY_DAEMON_URL ||
-      viteEnv.VITE_AIMEM_DAEMON_URL,
-    AUTH_TOKEN:
-      processEnv.ZHARWING_MEMORY_AUTH_TOKEN ||
-      processEnv.AIMEM_AUTH_TOKEN ||
-      viteEnv.ZHARWING_MEMORY_AUTH_TOKEN ||
-      viteEnv.AIMEM_AUTH_TOKEN ||
-      viteEnv.VITE_ZHARWING_MEMORY_AUTH_TOKEN ||
-      viteEnv.VITE_AIMEM_AUTH_TOKEN
-  };
+  const names = [canonical, MEMORY_ENV_FALLBACKS[canonical]];
+  for (const name of names) {
+    if (processEnv[name]) return processEnv[name];
+  }
+  for (const name of names) {
+    if (viteEnv[name]) return viteEnv[name];
+  }
+  for (const name of names) {
+    if (viteEnv[`VITE_${name}`]) return viteEnv[`VITE_${name}`];
+  }
+  return undefined;
 }

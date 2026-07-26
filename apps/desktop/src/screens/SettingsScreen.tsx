@@ -3,6 +3,7 @@ import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
+import { useDraft } from "../hooks/useDraft.js";
 
 export const SettingsScreen = observer(function SettingsScreen() {
   const store = useStore();
@@ -10,7 +11,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
   const memoryWritePolicy = store.selectedMemoryWritePolicy;
   const [graphRulesDraft, setGraphRulesDraft] = useState("[]");
   const [graphRulesError, setGraphRulesError] = useState("");
-  const [semanticDraft, setSemanticDraft] = useState<any>({});
+  const [semanticDraft, updateSemanticDraft, setSemanticDraft] = useDraft<any>({});
   const graphRulesSignature = JSON.stringify(project?.graphRules || []);
   const semanticSettingsSignature = JSON.stringify(store.semanticGraphSettings || {});
   const edgeCounts = store.semanticGraphEdgeCounts;
@@ -37,10 +38,6 @@ export const SettingsScreen = observer(function SettingsScreen() {
       ...store.semanticGraphSettings
     });
   }, [project?.id, semanticSettingsSignature]);
-
-  function updateSemanticDraft(patch: Record<string, unknown>) {
-    setSemanticDraft((current: any) => ({ ...current, ...patch }));
-  }
 
   return (
     <Screen title="Project Settings">

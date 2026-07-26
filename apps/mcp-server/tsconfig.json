@@ -6,5 +6,5 @@
     "composite": true
   },
   "include": ["src"],
-  "references": [{ "path": "../../packages/mcp-tools" }]
+  "references": [{ "path": "../../packages/core" }, { "path": "../../packages/mcp-tools" }]
 }

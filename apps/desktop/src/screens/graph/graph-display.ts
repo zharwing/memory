@@ -1,3 +1,15 @@
+import { GRAPH_TOPIC_STOPWORDS, type MemoryDocument } from "@zharwing/memory-core";
+import {
+  areaNode,
+  cleanGraphSegments,
+  diagramGroupFromSegments,
+  importRelativePath,
+  labelForSlug,
+  normalizeGraphSlug,
+  primaryAreaFromSegments
+} from "@zharwing/memory-graph";
+import { titleCaseSlug } from "../../utils/format.js";
+
 export type GraphViewMode = "context" | "all";
 
 export interface GraphFocusOption {
@@ -7,7 +19,6 @@ export interface GraphFocusOption {
   degree: number;
 }
 
-const GRAPH_DISPLAY_STOPWORDS = new Set(["imported", "markdown", "markdown-memory", "memory", "readme"]);
 const GRAPH_OVERVIEW_HUB_LIMIT = 36;
 
 export function enhanceGraphForDisplay(graph: any, docs: any[] = []): any {
@@ -53,32 +64,32 @@ export function enhanceGraphForDisplay(graph: any, docs: any[] = []): any {
     const segments = graphPathSegments(doc.path);
     if (!segments.length) continue;
 
-    const category = graphSlug(segments[0]);
-    if (category && !GRAPH_DISPLAY_STOPWORDS.has(category)) {
-      const topicNode = graphDisplayNode(projectId, "topic", category, graphLabel(category));
+    const category = normalizeGraphSlug(segments[0]);
+    if (category && !GRAPH_TOPIC_STOPWORDS.has(category)) {
+      const topicNode = areaNode(projectId, "topic", category, labelForSlug(category));
       addNode(topicNode);
       addEdge(doc.id, topicNode.id, "mentions", "Document path groups this memory under a topic");
     }
 
-    const area = graphDisplayAreaFromSegments(segments);
+    const area = primaryAreaFromSegments(segments);
     if (area) {
-      const areaNode = graphDisplayNode(projectId, area.type, area.slug, area.label, area.path);
-      addNode(areaNode);
-      addEdge(doc.id, areaNode.id, doc.type === "diagram" ? "explains" : "supports", "Document path identifies this context area");
+      const displayAreaNode = { ...areaNode(projectId, area.type, area.slug, area.label), path: area.path };
+      addNode(displayAreaNode);
+      addEdge(doc.id, displayAreaNode.id, doc.type === "diagram" ? "explains" : "supports", "Document path identifies this context area");
 
-      if (category && !GRAPH_DISPLAY_STOPWORDS.has(category)) {
-        addEdge(`topic:${category}`, areaNode.id, "contains", "Imported memory path groups this context area under the topic");
+      if (category && !GRAPH_TOPIC_STOPWORDS.has(category)) {
+        addEdge(`topic:${category}`, displayAreaNode.id, "contains", "Imported memory path groups this context area under the topic");
       }
 
       for (const repo of reposForDisplayArea(repos, area, category)) {
-        addEdge(repo.id, areaNode.id, "contains", "Linked repo contains or owns this context area");
+        addEdge(repo.id, displayAreaNode.id, "contains", "Linked repo contains or owns this context area");
       }
     }
 
-    const diagramGroup = graphDisplayDiagramGroupFromSegments(segments);
+    const diagramGroup = diagramGroupFromSegments(segments);
     if (diagramGroup) {
-      const diagramsTopic = graphDisplayNode(projectId, "topic", "diagrams", "Diagrams");
-      const groupNode = graphDisplayNode(projectId, "diagram-group", diagramGroup.slug, diagramGroup.label);
+      const diagramsTopic = areaNode(projectId, "topic", "diagrams", "Diagrams");
+      const groupNode = areaNode(projectId, "diagram-group", diagramGroup.slug, diagramGroup.label);
       addNode(diagramsTopic);
       addNode(groupNode);
       addEdge(diagramsTopic.id, groupNode.id, "contains", "Imported diagram path groups this diagram collection");
@@ -93,16 +104,6 @@ export function enhanceGraphForDisplay(graph: any, docs: any[] = []): any {
     edges: [...nextEdges.values()],
     displayProjected: true
   });
-}
-
-function graphDisplayNode(projectId: string, type: string, slug: string, label: string, path?: string): any {
-  return {
-    id: `${type}:${slug}`,
-    projectId,
-    type,
-    label,
-    path
-  };
 }
 
 function normalizeGraphForDisplay(graph: any): any {
@@ -162,7 +163,7 @@ function repoIdsBySlug(nodes: any[]): Map<string, string> {
   for (const node of nodes) {
     if (String(node.type || "") !== "repo") continue;
     for (const value of [node.label, node.path, node.id]) {
-      const slug = graphSlug(String(value || "").split(/[\\/]/).filter(Boolean).pop());
+      const slug = normalizeGraphSlug(String(value || "").split(/[\\/]/).filter(Boolean).pop());
       if (slug) repoIds.set(slug, String(node.id));
     }
   }
@@ -201,56 +202,8 @@ function graphNormalizedPath(input: string | undefined): string {
 }
 
 function graphPathSegments(input: string | undefined): string[] {
-  const normalized = String(input || "").replace(/\\/g, "/");
-  const lower = normalized.toLowerCase();
-  const marker = lower.lastIndexOf("/markdown-memory/");
-  const memoryMarker = lower.lastIndexOf("/docs/memory/");
-  const importedDocsMarker = lower.lastIndexOf("/docs/imported/");
-  const importedSessionsMarker = lower.lastIndexOf("/sessions/imported/");
-  let relativePath = "";
-  if (marker !== -1) {
-    relativePath = normalized.slice(marker + "/markdown-memory/".length);
-  } else if (memoryMarker !== -1) {
-    relativePath = normalized.slice(memoryMarker + "/docs/memory/".length);
-  } else if (importedDocsMarker !== -1) {
-    relativePath = graphStripImportedProfile(normalized.slice(importedDocsMarker + "/docs/imported/".length));
-  } else if (importedSessionsMarker !== -1) {
-    relativePath = graphStripImportedProfile(normalized.slice(importedSessionsMarker + "/sessions/imported/".length));
-  }
-  if (!relativePath) return [];
-  const parts = relativePath
-    .split("/")
-    .map((part) => graphSlug(part.replace(/\.md$/i, "")))
-    .filter(Boolean);
-  return parts.slice(0, -1);
-}
-
-function graphStripImportedProfile(relativePath: string): string {
-  return relativePath.split("/").filter(Boolean).slice(1).join("/");
-}
-
-function graphDisplayAreaFromSegments(segments: string[]): { type: string; slug: string; label: string; path: string } | undefined {
-  const [category, second, third] = segments.map(graphSlug);
-  if (category === "backend") {
-    const slug = graphIsBackendGroupSegment(second) && third ? third : second;
-    if (!slug || GRAPH_DISPLAY_STOPWORDS.has(slug)) return undefined;
-    return { type: "service", slug, label: graphLabel(slug), path: segments.join("/") };
-  }
-  if (category === "frontend") {
-    if (!second || GRAPH_DISPLAY_STOPWORDS.has(second)) return undefined;
-    return { type: "package", slug: second, label: graphLabel(second), path: segments.join("/") };
-  }
-  if (category === "diagrams" && second === "projects" && third) {
-    return undefined;
-  }
-  return undefined;
-}
-
-function graphDisplayDiagramGroupFromSegments(segments: string[]): { slug: string; label: string } | undefined {
-  const [category, second, third] = segments.map(graphSlug);
-  if (category !== "diagrams") return undefined;
-  if (second === "projects" && third) return { slug: third, label: `${graphLabel(third)} diagrams` };
-  return { slug: "system", label: "System diagrams" };
+  const relativePath = importRelativePath({ filePath: String(input || "") } as MemoryDocument);
+  return relativePath ? cleanGraphSegments(relativePath) : [];
 }
 
 function reposForDisplayArea(repos: any[], area: { type: string; slug: string }, category: string): any[] {
@@ -261,36 +214,6 @@ function reposForDisplayArea(repos: any[], area: { type: string; slug: string },
     if (category === "backend" || area.type === "service") return haystack.includes("backend") || haystack.includes("service") || haystack.includes("api") || haystack.includes("worker");
     return false;
   });
-}
-
-function graphIsBackendGroupSegment(slug: string | undefined): boolean {
-  return slug === "services" || slug === "backend-services" || Boolean(slug?.endsWith("-services") || slug?.endsWith("-service"));
-}
-
-function graphSlug(input: string | undefined): string {
-  return String(input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, "")
-    .replace(/_/g, "-")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-export function graphLabel(slug: string): string {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((part) => {
-      if (part === "api") return "API";
-      if (part === "ui") return "UI";
-      if (part === "sdk") return "SDK";
-      if (part === "mcp") return "MCP";
-      if (part === "rbac") return "RBAC";
-      if (part === "trpc") return "tRPC";
-      return part.slice(0, 1).toUpperCase() + part.slice(1);
-    })
-    .join(" ");
 }
 
 export function selectGraphEdgesForView(edges: any[], nodes: any[], viewMode: GraphViewMode, focusedNodeId: string): { edges: any[]; nodeIds: Set<string> } {
@@ -525,18 +448,20 @@ function isGraphFocusableNode(node: any): boolean {
   return isGraphFocusableNodeId(String(node?.id || ""));
 }
 
+/** Prefixes for derived context entities. Focusable nodes add `task:`. */
+const CONTEXT_ENTITY_NODE_ID_PREFIXES = [
+  "repo:",
+  "workstream:",
+  "topic:",
+  "service:",
+  "package:",
+  "diagram-group:",
+  "code-area:",
+  "file:"
+] as const;
+
 export function isGraphFocusableNodeId(id: string): boolean {
-  return [
-    "repo:",
-    "workstream:",
-    "topic:",
-    "service:",
-    "package:",
-    "diagram-group:",
-    "code-area:",
-    "task:",
-    "file:"
-  ].some((prefix) => id.startsWith(prefix));
+  return id.startsWith("task:") || isContextEntityNodeId(id);
 }
 
 export function graphDocumentIdForGraphNode(nodeId: string, graphNode: any): string | undefined {
@@ -547,16 +472,45 @@ export function graphDocumentIdForGraphNode(nodeId: string, graphNode: any): str
 }
 
 function isContextEntityNodeId(id: string): boolean {
-  return [
-    "repo:",
-    "workstream:",
-    "topic:",
-    "service:",
-    "package:",
-    "diagram-group:",
-    "code-area:",
-    "file:"
-  ].some((prefix) => id.startsWith(prefix));
+  return CONTEXT_ENTITY_NODE_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
+}
+
+/**
+ * Splits a `kind:value` graph node id into its parts. `value` falls back to
+ * the full id when there is no `kind:` prefix.
+ */
+export function parseGraphNodeId(nodeId: string): { kind: string; value: string } {
+  const [kind, ...rest] = nodeId.split(":");
+  return { kind, value: rest.join(":") || nodeId };
+}
+
+/** Human label for a node id; doc nodes resolve through the title map. */
+export function graphNodeDisplayLabel(nodeId: string, documentTitles: Map<string, string>): string {
+  const { kind, value } = parseGraphNodeId(nodeId);
+  if (kind === "doc") return documentTitles.get(value) || titleCaseSlug(value.replace(/^doc-/, ""));
+  if (kind === "file") return value;
+  if (kind === "topic") return titleCaseSlug(value);
+  return compactGraphNodeId(nodeId);
+}
+
+/** Coarse area name for grouping semantic proposal edges by endpoint. */
+export function semanticGraphArea(nodeId: string): string {
+  const { kind, value } = parseGraphNodeId(nodeId);
+  if (kind === "doc") return "document";
+  if (kind === "repo") return "repo";
+  if (kind === "service") return "service";
+  if (kind === "package") return "package";
+  if (kind === "topic") return "topic";
+  if (kind === "diagram-group") return "diagram group";
+  return kind || value || "unknown";
+}
+
+/** Shortened display form of a node id for dense lists. */
+export function compactGraphNodeId(nodeId: string): string {
+  const { kind, value } = parseGraphNodeId(nodeId);
+  if (kind === "doc") return `doc:${value.slice(0, 8)}`;
+  if (kind === "repo") return value.split(/[\\/]/).filter(Boolean).pop() || value;
+  return value.length > 54 ? `${value.slice(0, 51)}...` : value;
 }
 
 function graphFocusTypeRank(type: string): number {
@@ -637,7 +591,7 @@ export function graphNodeTypeLabel(type: string): string {
     "technical-spec": "Spec",
     "user-flow": "User Flow"
   };
-  return labels[type] || graphLabel(type || "node");
+  return labels[type] || labelForSlug(type || "node");
 }
 
 function graphMembershipLabel(from: string): string {

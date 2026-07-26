@@ -2,6 +2,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ZharwingMemoryClient } from "@zharwing/memory-api-client";
+import { splitList } from "@zharwing/memory-core";
 import { doctorMcpSetup, installMcpAuto, installMcpClient, serveMcpStdio, type McpClientTarget, type McpInstallTarget, type McpInstallTransport } from "@zharwing/memory-mcp";
 import {
   defaultInstructionFile,
@@ -257,7 +258,7 @@ async function semanticGraphEdges(): Promise<void> {
   const status = flagString(args.flags, "status");
   const result = (await client.call("memory.list_semantic_edges", {
     projectId: requireProjectId(),
-    status: status ? status.split(",").map((item) => item.trim()).filter(Boolean) : undefined
+    status: status ? splitList(status) : undefined
   })) as Array<Record<string, any>>;
   if (flagBool(args.flags, "json")) return printJson(result);
   printTable(result.map((edge) => ({
@@ -574,14 +575,14 @@ function requireDocId(): string {
 
 function listFlag(name: string): string[] {
   const value = flagString(args.flags, name);
-  return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : [];
+  return value ? splitList(value) : [];
 }
 
 function optionalListFlag(name: string): string[] | undefined {
   if (!(name in args.flags)) return undefined;
   const value = args.flags[name];
   if (value === true) return [];
-  return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+  return splitList(String(value));
 }
 
 function numericFlag(name: string): number | undefined {
@@ -639,8 +640,7 @@ function compactValue(input: unknown, maxLength = 44): string {
 
 function bootstrapFiles(): string[] {
   const value = flagString(args.flags, "bootstrap");
-  if (!value) return [];
-  return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return value ? splitList(value) : [];
 }
 
 function resolveInputPath(input: string): string {

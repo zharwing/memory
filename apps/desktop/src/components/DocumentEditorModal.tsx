@@ -31,6 +31,8 @@ import { $createParagraphNode } from "lexical";
 import "@mdxeditor/editor/style.css";
 import { KeyValue } from "./layout.js";
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton.js";
+import { Modal } from "./Modal.js";
+import { ToggleGroup } from "./ToggleGroup.js";
 import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
 import { isLikelyMermaidSource } from "./markdown/MermaidDiagramPreview.js";
 
@@ -143,14 +145,13 @@ export function DocumentEditorModal({
   });
 
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) void requestClose();
-      }}
+    <Modal
+      ariaLabel={`Edit ${doc.title}`}
+      backdropClassName="modal-backdrop"
+      className="document-modal"
+      onClose={() => void requestClose()}
+      closeOnEscape={false}
     >
-      <section className="document-modal" role="dialog" aria-modal="true" aria-label={`Edit ${doc.title}`}>
         <header className="document-modal-header">
           <div className="document-title-block">
             <input
@@ -188,14 +189,17 @@ export function DocumentEditorModal({
           <KeyValue label="Imported from" value={<code className="path-value">{doc.importSourcePath || "not imported"}</code>} />
         </div>
         <div className="document-editor-toolbar">
-          <div className="segmented-control compact" role="group" aria-label="Document editor mode">
-            <button type="button" className={mode === "preview" ? "selected" : ""} onClick={() => setMode("preview")}>
-              {isDiagramDocument || hasMermaidDiagram ? "Rendered" : "Preview"}
-            </button>
-            <button type="button" className={mode === "markdown" ? "selected" : ""} onClick={() => setMode("markdown")}>
-              Markdown
-            </button>
-          </div>
+          <ToggleGroup
+            className="segmented-control compact"
+            role="group"
+            ariaLabel="Document editor mode"
+            value={mode}
+            onChange={(nextMode) => setMode(nextMode as "preview" | "markdown")}
+            options={[
+              { value: "preview", label: isDiagramDocument || hasMermaidDiagram ? "Rendered" : "Preview" },
+              { value: "markdown", label: "Markdown" }
+            ]}
+          />
         </div>
         <div className="document-editor-body">
           {useRenderedPreview ? (
@@ -219,29 +223,26 @@ export function DocumentEditorModal({
           )}
         </div>
         {showDiscardDialog ? (
-          <div
-            className="dialog-backdrop"
-            role="presentation"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setShowDiscardDialog(false);
-            }}
+          <Modal
+            ariaLabel="Discard document changes"
+            backdropClassName="dialog-backdrop"
+            className="confirm-dialog"
+            onClose={() => setShowDiscardDialog(false)}
+            closeOnEscape={false}
           >
-            <div className="confirm-dialog" role="dialog" aria-modal="true" aria-label="Discard document changes">
-              <h3>Discard Unsaved Changes?</h3>
-              <p>
-                You have unsaved changes in <strong>{title || doc.title}</strong>. Discard them and close this document?
-              </p>
-              <div className="button-row">
-                <button type="button" onClick={() => setShowDiscardDialog(false)}>Keep Editing</button>
-                <button type="button" className="danger-button" onClick={confirmDiscardAndClose}>
-                  Discard Changes
-                </button>
-              </div>
+            <h3>Discard Unsaved Changes?</h3>
+            <p>
+              You have unsaved changes in <strong>{title || doc.title}</strong>. Discard them and close this document?
+            </p>
+            <div className="button-row">
+              <button type="button" onClick={() => setShowDiscardDialog(false)}>Keep Editing</button>
+              <button type="button" className="danger-button" onClick={confirmDiscardAndClose}>
+                Discard Changes
+              </button>
             </div>
-          </div>
+          </Modal>
         ) : null}
-      </section>
-    </div>
+    </Modal>
   );
 }
 

@@ -3,7 +3,10 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App.js";
 import { StoreProvider } from "./stores/store-context.js";
+import { injectThemeStyles } from "./styles/theme-tokens.js";
 import "./styles/global.css";
+
+injectThemeStyles();
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

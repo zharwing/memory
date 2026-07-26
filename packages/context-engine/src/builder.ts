@@ -1,4 +1,5 @@
 import {
+  CANONICAL_PROJECT_FILES,
   createId,
   nowIso,
   type ContextBundle,
@@ -119,9 +120,11 @@ export function buildContextBundle(input: BuildContextInput): ContextBundle {
 }
 
 function projectCanonicalCandidates(project: Project, documents: MemoryDocument[]): ContextIncludedItem[] {
-  const canonicalNames = new Set(["overview", "commands", "gotcha", "architecture-note", "decision-record"]);
+  const canonicalFiles = CANONICAL_PROJECT_FILES.filter((file) => file.includeInContext);
+  const canonicalTypes = new Set(canonicalFiles.map((file) => file.documentType).filter(Boolean));
+  const canonicalFileNames = canonicalFiles.map((file) => file.name);
   return documents
-    .filter((doc) => canonicalNames.has(doc.type) || ["overview.md", "commands.md", "gotchas.md", "architecture.md", "decisions.md"].some((name) => doc.filePath.endsWith(name)))
+    .filter((doc) => canonicalTypes.has(doc.type) || canonicalFileNames.some((name) => doc.filePath.endsWith(name)))
     .filter((doc) => doc.status !== "archived" && doc.status !== "superseded")
     .map((doc) => docCandidate(doc, "Canonical project memory", "raw"));
 }

@@ -1,3 +1,5 @@
+import { PROVIDER_DEFAULTS } from "@zharwing/memory-core";
+
 export type AiChatRole = "system" | "user" | "assistant";
 
 export interface AiChatMessage {
@@ -406,7 +408,7 @@ async function checkLmStudioProvider(config: AiProviderConfig): Promise<Provider
 async function listLmStudioModelInfo(
   config: Pick<AiProviderConfig, "endpoint" | "apiKey" | "timeoutMs">
 ): Promise<ModelInfo[]> {
-  const nativeUrl = `${nativeApiBase(config.endpoint, "http://127.0.0.1:1234")}/api/v1/models`;
+  const nativeUrl = `${nativeApiBase(config.endpoint, PROVIDER_DEFAULTS["lm-studio"].endpoint)}/api/v1/models`;
   const nativeModels = await fetchLmStudioNativeModels(nativeUrl, config).catch(() => []);
   if (nativeModels.length) return nativeModels;
   return (await listOpenAiCompatibleModels({
@@ -587,8 +589,8 @@ function openAiCompatibleDefaultEndpoint(
 ): string {
   const endpoint = config.endpoint?.trim();
   if (endpoint) return endpoint;
-  if (providerKind === "openai") return "https://api.openai.com/v1";
-  if (providerKind === "llama-cpp") return "http://127.0.0.1:8080/v1";
+  if (providerKind === "openai") return PROVIDER_DEFAULTS.openai.endpoint;
+  if (providerKind === "llama-cpp") return PROVIDER_DEFAULTS["llama-cpp"].endpoint;
   throw new Error("OpenAI-compatible endpoint is required.");
 }
 
@@ -602,11 +604,11 @@ function nativeApiBase(endpoint: string | undefined, fallback: string): string {
 }
 
 function ollamaApiUrl(endpoint: string | undefined, route: "chat" | "tags"): string {
-  return `${nativeApiBase(endpoint, "http://127.0.0.1:11434")}/api/${route}`;
+  return `${nativeApiBase(endpoint, PROVIDER_DEFAULTS.ollama.endpoint)}/api/${route}`;
 }
 
 function anthropicApiUrl(endpoint: string | undefined, route: "messages" | "models"): string {
-  return `${nativeApiBase(endpoint, "https://api.anthropic.com")}/v1/${route}`;
+  return `${nativeApiBase(endpoint, PROVIDER_DEFAULTS.anthropic.endpoint)}/v1/${route}`;
 }
 
 function requireAnthropicApiKey(apiKey: string | undefined): string {

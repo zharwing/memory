@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@zharwing/memory-api-client": "workspace:*",
+    "@zharwing/memory-core": "workspace:*",
     "@zharwing/memory-mcp": "workspace:*"
   }
 }

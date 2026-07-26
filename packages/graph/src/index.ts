@@ -1,6 +1,13 @@
 import {
+  GRAPH_ALIAS_STOPWORDS,
+  GRAPH_TOPIC_STOPWORDS,
+  dedupeById,
+  isDefined,
+  normalizeSlug,
   nowIso,
+  numberValue,
   slugify,
+  stringValue,
   type GraphEdge,
   type GraphExtractionRule,
   type GraphNode,
@@ -203,7 +210,7 @@ export function buildProjectGraph(input: BuildGraphInput): ProjectGraph {
   return {
     projectId: input.project.id,
     nodes: [...nodes.values()],
-    edges: dedupeEdges(edges),
+    edges: dedupeById(edges),
     generated: nowIso()
   };
 }
@@ -425,7 +432,7 @@ function importFullPathSegments(doc: MemoryDocument): string[] {
   return relativePath ? cleanFullGraphSegments(relativePath) : [];
 }
 
-function importRelativePath(doc: MemoryDocument): string | undefined {
+export function importRelativePath(doc: MemoryDocument): string | undefined {
   const candidates = [doc.filePath, doc.importSourcePath].filter(Boolean) as string[];
   for (const candidate of candidates) {
     const normalized = candidate.replace(/\\/g, "/");
@@ -449,11 +456,11 @@ function importRelativePath(doc: MemoryDocument): string | undefined {
   return undefined;
 }
 
-function stripImportedProfile(relativePath: string): string {
+export function stripImportedProfile(relativePath: string): string {
   return relativePath.split("/").filter(Boolean).slice(1).join("/");
 }
 
-function cleanGraphSegments(relativePath: string): string[] {
+export function cleanGraphSegments(relativePath: string): string[] {
   const segments = relativePath
     .split("/")
     .map((segment) => normalizeGraphSlug(segment.replace(/\.md$/i, "")))
@@ -471,7 +478,7 @@ function cleanFullGraphSegments(relativePath: string): string[] {
     .filter(Boolean);
 }
 
-function primaryAreaFromSegments(segments: string[]): { type: GraphNodeType; slug: string; label: string; path?: string } | undefined {
+export function primaryAreaFromSegments(segments: string[]): { type: GraphNodeType; slug: string; label: string; path?: string } | undefined {
   const [category, second, third] = segments.map(normalizeGraphSlug);
   if (!category) return undefined;
 
@@ -500,7 +507,7 @@ function primaryAreaFromSegments(segments: string[]): { type: GraphNodeType; slu
   return undefined;
 }
 
-function diagramGroupFromSegments(segments: string[]): { slug: string; label: string } | undefined {
+export function diagramGroupFromSegments(segments: string[]): { slug: string; label: string } | undefined {
   const [category, second, third] = segments.map(normalizeGraphSlug);
   if (category !== "diagrams") return undefined;
   if (second === "projects" && third) {
@@ -521,7 +528,7 @@ function packageNamesForDocument(doc: MemoryDocument): string[] {
   return [...new Set(matches.map((match) => match.trim()))].slice(0, 4);
 }
 
-function areaNode(projectId: string, type: GraphNodeType, slug: string, label: string): GraphNode {
+export function areaNode(projectId: string, type: GraphNodeType, slug: string, label: string): GraphNode {
   return {
     id: `${type}:${slug}`,
     projectId,
@@ -530,17 +537,11 @@ function areaNode(projectId: string, type: GraphNodeType, slug: string, label: s
   };
 }
 
-function normalizeGraphSlug(input: string | undefined): string {
-  return String(input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, "")
-    .replace(/_/g, "-")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+export function normalizeGraphSlug(input: string | undefined): string {
+  return normalizeSlug(input, { strip: /['"]/g, mapToDash: /_/g });
 }
 
-function labelForSlug(slug: string): string {
+export function labelForSlug(slug: string): string {
   return slug
     .split("-")
     .filter(Boolean)
@@ -657,20 +658,6 @@ function readGraphRuleNumber(rule: GraphExtractionRule, ...keys: string[]): numb
   return undefined;
 }
 
-function stringValue(input: unknown): string | undefined {
-  return typeof input === "string" && input.trim() ? input.trim() : undefined;
-}
-
-function numberValue(input: unknown): number | undefined {
-  if (typeof input === "number" && Number.isFinite(input)) return input;
-  if (typeof input === "string" && input.trim() && Number.isFinite(Number(input))) return Number(input);
-  return undefined;
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
-}
-
 function isServiceSlug(slug: string): boolean {
   return slug.endsWith("-service") || slug.endsWith("-api") || slug.endsWith("-worker") || slug.endsWith("-gateway");
 }
@@ -761,24 +748,6 @@ function hasAliasOverlap(left: Set<string>, right: Set<string>): boolean {
   return false;
 }
 
-const GRAPH_ALIAS_STOPWORDS = new Set([
-  "all",
-  "and",
-  "app",
-  "apps",
-  "code",
-  "docs",
-  "for",
-  "monorepo",
-  "repo",
-  "service",
-  "services",
-  "source",
-  "the",
-  "whole",
-  "work"
-]);
-
 const GRAPH_RULE_NODE_TYPES = new Set<GraphRuleNodeType>([
   "topic",
   "service",
@@ -798,14 +767,6 @@ const GRAPH_RULE_EDGE_TYPES = new Set<GraphRuleEdgeType>([
   "related"
 ]);
 
-const GRAPH_TOPIC_STOPWORDS = new Set([
-  "imported",
-  "markdown",
-  "markdown-memory",
-  "memory",
-  "readme"
-]);
-
 function edge(projectId: string, from: string, to: string, type: GraphEdge["type"], reason: string): GraphEdge {
   return {
     id: `${from}->${type}->${to}`,
@@ -815,8 +776,4 @@ function edge(projectId: string, from: string, to: string, type: GraphEdge["type
     type,
     reason
   };
-}
-
-function dedupeEdges(edges: GraphEdge[]): GraphEdge[] {
-  return [...new Map(edges.map((candidate) => [candidate.id, candidate])).values()];
 }

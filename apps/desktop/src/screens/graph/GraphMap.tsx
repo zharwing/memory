@@ -17,8 +17,10 @@ import {
   type ZoomBehavior
 } from "d3";
 import { Maximize2, Minus, Plus } from "lucide-react";
-import { graphDocumentIdForGraphNode, isGraphFocusableNodeId } from "./graph-display.js";
+import { graphDocumentIdForGraphNode, isGraphFocusableNodeId, safeGraphClassName } from "./graph-display.js";
 import { graphNodeVisualKind, type GraphMapEdge, type GraphMapNode } from "./graph-flow.js";
+import { formatConfidence, hashString } from "../../utils/format.js";
+import { readJson, remove as removeStoredValue, writeJson } from "../../utils/storage.js";
 
 const GRAPH_MIN_ZOOM = 0.06;
 const GRAPH_MAX_ZOOM = 22;
@@ -392,12 +394,7 @@ export function GraphMap({
 }
 
 export function removeStoredGraphNodePositions(storageKey: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(storageKey);
-  } catch {
-    // No-op when browser storage is unavailable.
-  }
+  removeStoredValue(storageKey);
 }
 
 function buildD3GraphModel(
@@ -828,7 +825,7 @@ function graphNodeAccessibleLabel(node: D3GraphNode): string {
 }
 
 function graphLinkAccessibleLabel(link: D3GraphLink): string {
-  const confidence = typeof link.confidence === "number" ? `confidence ${Math.round(link.confidence * 100)}%` : "";
+  const confidence = typeof link.confidence === "number" ? `confidence ${formatConfidence(link.confidence)}` : "";
   const evidence = (link.evidence || [])
     .map((item) => item.quote || "")
     .filter(Boolean)
@@ -930,15 +927,7 @@ function repoNodeVisualStyle(node: Pick<GraphMapNode, "id" | "label">): { fill: 
     { fill: "#ede9fe", accent: "#7c3aed", text: "#4c1d95" },
     { fill: "#ccfbf1", accent: "#0d9488", text: "#134e4a" }
   ];
-  return palette[Math.abs(hashGraphStyleKey(`${node.id}:${node.label}`)) % palette.length];
-}
-
-function hashGraphStyleKey(input: string): number {
-  let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = ((hash << 5) - hash + input.charCodeAt(index)) | 0;
-  }
-  return hash;
+  return palette[Math.abs(hashString(`${node.id}:${node.label}`)) % palette.length];
 }
 
 function graphMapNodeLabel(node: GraphMapNode): string {
@@ -982,25 +971,17 @@ function deterministicJitteredPosition(position: GraphNodePosition, nodeId: stri
 }
 
 function readStoredGraphNodePositions(storageKey: string, nodes: GraphMapNode[]): StoredGraphNodePositionMap | undefined {
-  if (typeof window === "undefined") return undefined;
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as Partial<StoredGraphNodePositionsPayload>;
-    if (!isStoredGraphNodePositionsPayload(parsed)) return undefined;
+  const parsed = readJson<Partial<StoredGraphNodePositionsPayload>>(storageKey);
+  if (!parsed || !isStoredGraphNodePositionsPayload(parsed)) return undefined;
 
-    const expectedNodeIds = nodes.map((node) => node.id).sort();
-    if (!sameStringArray(parsed.nodeIds, expectedNodeIds)) return undefined;
-    if (!expectedNodeIds.every((nodeId) => isGraphNodePosition(parsed.positions[nodeId]))) return undefined;
+  const expectedNodeIds = nodes.map((node) => node.id).sort();
+  if (!sameStringArray(parsed.nodeIds, expectedNodeIds)) return undefined;
+  if (!expectedNodeIds.every((nodeId) => isGraphNodePosition(parsed.positions[nodeId]))) return undefined;
 
-    return parsed.positions;
-  } catch {
-    return undefined;
-  }
+  return parsed.positions;
 }
 
 function saveGraphNodePositions(storageKey: string, nodes: D3GraphNode[]): void {
-  if (typeof window === "undefined") return;
   const positions: StoredGraphNodePositionMap = {};
   const nodeIds: string[] = [];
 
@@ -1012,15 +993,11 @@ function saveGraphNodePositions(storageKey: string, nodes: D3GraphNode[]): void 
     };
   }
 
-  try {
-    window.localStorage.setItem(storageKey, JSON.stringify({
-      version: GRAPH_POSITION_FORMAT_VERSION,
-      nodeIds: nodeIds.sort(),
-      positions
-    }));
-  } catch {
-    // Graph dragging still works even when browser storage is unavailable.
-  }
+  writeJson(storageKey, {
+    version: GRAPH_POSITION_FORMAT_VERSION,
+    nodeIds: nodeIds.sort(),
+    positions
+  });
 }
 
 function isStoredGraphNodePositionsPayload(input: unknown): input is StoredGraphNodePositionsPayload {
@@ -1042,10 +1019,11 @@ function sameStringArray(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function safeGraphClassName(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-}
-
+/**
+ * FNV-1a hash. Kept separate from utils/format `hashString`: call sites
+ * (curve bend direction, position jitter) rely on its distribution over
+ * small moduli and on unsigned output.
+ */
 function stableHash(value: string): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {

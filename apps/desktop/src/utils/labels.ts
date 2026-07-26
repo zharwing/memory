@@ -1,3 +1,11 @@
+import { PROVIDER_DEFAULTS, type ProviderDefault } from "@zharwing/memory-core";
+import { titleCaseSlug } from "./format.js";
+
+export function providerLabel(runtimeType: string, fallback = "AI provider"): string {
+  const providerDefault = (PROVIDER_DEFAULTS as Partial<Record<string, ProviderDefault>>)[runtimeType];
+  return providerDefault?.label || fallback;
+}
+
 export function reviewModeLabel(mode: string): string {
   if (mode === "all") return "All updates require review";
   if (mode === "risky-only") return "Only risky updates";
@@ -83,13 +91,5 @@ export function searchResultTypeLabel(value: string | undefined): string {
 }
 
 export function humanizeEnum(value: string): string {
-  return value
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => {
-      if (part.toLowerCase() === "ai") return "AI";
-      if (part.toLowerCase() === "api") return "API";
-      return part.slice(0, 1).toUpperCase() + part.slice(1);
-    })
-    .join(" ");
+  return titleCaseSlug(value, { ai: "AI", api: "API" });
 }

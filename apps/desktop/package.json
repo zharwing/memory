@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@zharwing/memory-api-client": "workspace:*",
+    "@zharwing/memory-core": "workspace:*",
+    "@zharwing/memory-graph": "workspace:*",
+    "@zharwing/memory-semantic-graph": "workspace:*",
     "@zharwing/memory-theme": "workspace:*",
     "@lexical/rich-text": "^0.35.0",
     "@mdxeditor/editor": "^3.0.0",

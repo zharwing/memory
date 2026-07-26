@@ -47,8 +47,12 @@ import {
   type SemanticRelationshipDecision
 } from "@zharwing/memory-semantic-graph";
 import {
+  clamp01,
   createId,
+  isLoopbackHost,
   nowIso,
+  PROVIDER_DEFAULTS,
+  type ProviderDefault,
   type MemoryDocument,
   type ProposedMemoryUpdate,
   type Project,
@@ -566,7 +570,7 @@ export class SemanticGraphService {
       to: String(edge.to || ""),
       type: edge.type,
       status: "proposed",
-      confidence: clampConfidence(edge.confidence),
+      confidence: clamp01(edge.confidence),
       reason: edge.reason,
       evidence: normalizeEvidence(edge.evidence),
       source: {
@@ -620,8 +624,8 @@ export class SemanticGraphService {
       : undefined;
     const selectedPatchEdges = patch.edges.filter((edge, index) => {
       if (requestedIndexes && !requestedIndexes.has(index)) return false;
-      if (params.minConfidence !== undefined && edge.confidence < clampConfidence(params.minConfidence)) return false;
-      if (params.maxConfidence !== undefined && edge.confidence > clampConfidence(params.maxConfidence)) return false;
+      if (params.minConfidence !== undefined && edge.confidence < clamp01(params.minConfidence)) return false;
+      if (params.maxConfidence !== undefined && edge.confidence > clamp01(params.maxConfidence)) return false;
       return true;
     });
     if (selectedPatchEdges.length === 0) {
@@ -643,7 +647,7 @@ export class SemanticGraphService {
       to: edge.to,
       type: edge.type,
       status,
-      confidence: clampConfidence(edge.confidence),
+      confidence: clamp01(edge.confidence),
       reason: edge.reason,
       evidence: edge.evidence,
       source: {
@@ -816,20 +820,22 @@ function providerKindFromAssistantRuntime(runtimeType?: string): string | undefi
   return undefined;
 }
 
+// Endpoints come from the shared provider table; only the historical alias
+// spellings ("llama.cpp", "claude") remain daemon-side.
+const PROVIDER_KIND_ALIASES: Record<string, string> = {
+  "llama.cpp": "llama-cpp",
+  claude: "anthropic"
+};
+
 function defaultEndpointForProviderKind(providerKind?: string): string | undefined {
-  if (providerKind === "lm-studio") return "http://127.0.0.1:1234/v1";
-  if (providerKind === "ollama") return "http://127.0.0.1:11434";
-  if (providerKind === "llama-cpp" || providerKind === "llama.cpp") return "http://127.0.0.1:8080/v1";
-  if (providerKind === "openai") return "https://api.openai.com/v1";
-  if (providerKind === "anthropic" || providerKind === "claude") return "https://api.anthropic.com";
-  return undefined;
+  if (!providerKind) return undefined;
+  const defaults: Record<string, ProviderDefault | undefined> = PROVIDER_DEFAULTS;
+  return defaults[PROVIDER_KIND_ALIASES[providerKind] || providerKind]?.endpoint;
 }
 
 function isLocalProviderEndpoint(endpoint: string): boolean {
   try {
-    const url = new URL(endpoint);
-    const host = url.hostname.toLowerCase();
-    return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".localhost");
+    return isLoopbackHost(new URL(endpoint).hostname);
   } catch {
     return false;
   }
@@ -946,9 +952,9 @@ function metadataOwnerKey(edge: Pick<SemanticGraphEdge, "from" | "to">): string 
 function normalizeSettingsPatch(settings: SemanticGraphSettings): SemanticGraphSettings {
   return {
     ...settings,
-    autoAcceptThreshold: clampConfidence(settings.autoAcceptThreshold),
-    reviewThreshold: clampConfidence(settings.reviewThreshold),
-    discardBelowThreshold: clampConfidence(settings.discardBelowThreshold),
+    autoAcceptThreshold: clamp01(settings.autoAcceptThreshold),
+    reviewThreshold: clamp01(settings.reviewThreshold),
+    discardBelowThreshold: clamp01(settings.discardBelowThreshold),
     maxCandidatesPerDocument: clampInteger(settings.maxCandidatesPerDocument, 1, 100),
     maxClusterSize: clampInteger(settings.maxClusterSize, 1, 100)
   };
@@ -1083,11 +1089,6 @@ function confidenceForEdges(edges: SemanticGraphEdge[]): ProposedMemoryUpdate["c
   if (average >= 0.82) return "high";
   if (average >= 0.55) return "medium";
   return "low";
-}
-
-function clampConfidence(input: number): number {
-  if (Number.isNaN(input)) return 0;
-  return Math.max(0, Math.min(1, input));
 }
 
 function clampInteger(input: number, min: number, max: number): number {

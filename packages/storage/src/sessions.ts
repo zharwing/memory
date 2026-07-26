@@ -5,6 +5,9 @@ import {
   createSessionFilename,
   defaultSessionTitle,
   nowIso,
+  truncate,
+  truncateOptional,
+  unique,
   type Project,
   type Session,
   type SessionCheckpoint,
@@ -577,18 +580,10 @@ function numericOrUndefined(input: unknown): number | undefined {
   return typeof input === "number" && Number.isFinite(input) && input >= 0 ? input : undefined;
 }
 
-function truncate(input: string, maxChars: number): string {
-  return input.length <= maxChars ? input : `${input.slice(0, Math.max(0, maxChars - 1))}…`;
-}
-
-function truncateOptional(input: string | undefined, maxChars: number): string | undefined {
-  return input ? truncate(input, maxChars) : undefined;
-}
-
 function boundedStrings(input: string[], maxItems: number, maxChars: number): string[] {
   return input.filter(Boolean).slice(0, maxItems).map((item) => truncate(item, maxChars));
 }
 
 function mergeUnique(left: string[], right: string[]): string[] {
-  return [...new Set([...left, ...right].filter(Boolean))];
+  return unique([...left, ...right]);
 }
