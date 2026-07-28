@@ -16,11 +16,3 @@ memory-store/
 !.env.example
 .ai-memory.json
 .zharwing/memory.json
-
-# planning docs stay out of version control
-docs/TESTING_PLAN.md
-AGENTS.md
-CLAUDE.md
-.claude/
-.codex/
-.agents/
