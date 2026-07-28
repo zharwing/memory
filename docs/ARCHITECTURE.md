@@ -116,6 +116,7 @@ CLI, and authenticated daemon control plane.
 | `@zharwing/memory-context-engine` | Context selection, token estimates, inclusion/exclusion reasons, bundle Markdown |
 | `@zharwing/memory-search` | Dependency-free keyword search boundary |
 | `@zharwing/memory-graph` | Derived graph projection from metadata |
+| `@zharwing/memory-semantic-graph` | Optional LLM-assisted relationship analysis, edge proposals, and review policy |
 | `@zharwing/memory-assistant` | Optional local assistant boundary and deterministic proposal jobs |
 | `@zharwing/memory-api-client` | Shared daemon RPC client |
 | `@zharwing/memory-mcp` | Tool definitions and dispatch |
@@ -142,10 +143,12 @@ Zharwing Memory Root/
       glossary.md
       privacy.md
       sessions/
+      workstreams/
       docs/
       assets/
       generated/
       inbox/
+      semantic-graph/
       audit/
       backups/
 ```

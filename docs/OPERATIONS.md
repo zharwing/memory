@@ -39,7 +39,7 @@ Daemon:
 ```text
 ZHARWING_MEMORY_HOST=127.0.0.1
 ZHARWING_MEMORY_PORT=37841
-ZHARWING_MEMORY_AUTH_TOKEN=local-dev-token
+ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
 ZHARWING_MEMORY_ROOT=<memory-root>
 ZHARWING_MEMORY_AGENT_SURFACE=enabled
 ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=true
@@ -52,8 +52,15 @@ API client:
 
 ```text
 ZHARWING_MEMORY_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_MEMORY_AUTH_TOKEN=local-dev-token
+ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
 ```
+
+When `ZHARWING_MEMORY_AUTH_TOKEN` is unset, the daemon generates a random
+per-user token on first start and stores it in the OS user state directory
+(`%APPDATA%\zharwing-memory\daemon-token` on Windows, `$XDG_STATE_HOME` or
+`~/.local/state/zharwing-memory/daemon-token` on POSIX). Delete the file to
+rotate the token. Never commit a real token or use a placeholder token outside
+local development.
 
 Optional desktop-shell overrides use
 `ZHARWING_MEMORY_DESKTOP_PROJECT_ROOT`,
@@ -160,11 +167,14 @@ Tauri command requires the local Rust/Tauri toolchain.
 
 ## Security
 
-Production packaging should:
+Current daemon behavior:
 
-- generate a per-user local auth token
-- store the token in the OS app data directory or keychain-compatible location
-- bind daemon to localhost by default
+- generates a per-user local auth token when `ZHARWING_MEMORY_AUTH_TOKEN` is
+  unset, stored with restrictive permissions in the OS user state directory
+- binds to localhost by default
+
+Production packaging should additionally:
+
 - allow `ZHARWING_MEMORY_AUTH_MODE=none` only for loopback-only personal setups
 - keep remote access disabled by default
 - require confirmation for project creation, repo linking, and destructive

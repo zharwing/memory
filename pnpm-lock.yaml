@@ -26,6 +26,9 @@ importers:
       '@zharwing/memory-api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@zharwing/memory-core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@zharwing/memory-mcp':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
@@ -77,6 +80,15 @@ importers:
       '@zharwing/memory-api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@zharwing/memory-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@zharwing/memory-graph':
+        specifier: workspace:*
+        version: link:../../packages/graph
+      '@zharwing/memory-semantic-graph':
+        specifier: workspace:*
+        version: link:../../packages/semantic-graph
       '@zharwing/memory-theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -126,11 +138,18 @@ importers:
 
   apps/mcp-server:
     dependencies:
+      '@zharwing/memory-core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@zharwing/memory-mcp':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
 
-  packages/api-client: {}
+  packages/api-client:
+    dependencies:
+      '@zharwing/memory-core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/assistant-runtime:
     dependencies:
@@ -160,6 +179,9 @@ importers:
       '@zharwing/memory-api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@zharwing/memory-core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/privacy:
     dependencies:

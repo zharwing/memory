@@ -10,8 +10,12 @@ The daemon defaults to:
 
 ```text
 http://127.0.0.1:37841
-Authorization: Bearer local-dev-token
+Authorization: Bearer <auth-token>
 ```
+
+The token is `ZHARWING_MEMORY_AUTH_TOKEN` when set; otherwise the daemon
+generates a per-user token on first start and stores it in the OS user state
+directory. See [API Reference](API_REFERENCE.md) for details.
 
 ## Start The UI
 

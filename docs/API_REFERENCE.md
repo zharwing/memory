@@ -1,7 +1,7 @@
 # API Reference
 
 Zharwing Memory keeps behavior in the daemon. The CLI exposes broad operator
-workflows, while MCP intentionally exposes only the ten tools needed for an AI
+workflows, while MCP intentionally exposes only the eleven tools needed for an AI
 agent's daily memory loop. A daemon method appearing below does not
 automatically make it an MCP tool.
 
@@ -11,9 +11,18 @@ Default endpoint:
 
 ```text
 POST http://127.0.0.1:37841/rpc
-Authorization: Bearer local-dev-token
+Authorization: Bearer <auth-token>
 Content-Type: application/json
 ```
+
+The daemon uses token auth by default. The token comes from
+`ZHARWING_MEMORY_AUTH_TOKEN` when set; otherwise the daemon generates a random
+per-user token on first start and stores it in the OS user state directory
+(`%APPDATA%\zharwing-memory\daemon-token` on Windows, `$XDG_STATE_HOME` or
+`~/.local/state/zharwing-memory/daemon-token` on POSIX). Delete the file to
+rotate the token. Placeholder tokens copied from example configuration are for
+local development only and must never be exposed beyond the local machine or
+committed to a repo.
 
 Streamable HTTP MCP endpoint:
 
@@ -21,6 +30,10 @@ Streamable HTTP MCP endpoint:
 POST http://127.0.0.1:37841/mcp
 Content-Type: application/json
 ```
+
+The HTTP `/mcp` endpoint and the stdio MCP adapter stay disabled until
+`ZHARWING_MEMORY_AGENT_SURFACE=enabled` is set in the daemon/adapter
+environment.
 
 For localhost-only personal use, set `ZHARWING_MEMORY_AUTH_MODE=none` to allow MCP
 clients to connect without a bearer token. The daemon refuses no-auth mode when
@@ -408,6 +421,11 @@ search/context pipeline.
 - RPC requests require a bearer token unless `ZHARWING_MEMORY_AUTH_MODE=none` is used on
   a loopback-only daemon.
 - HTTP MCP requests follow the same daemon auth mode.
-- The default token is a development placeholder.
-- A packaged product should generate and store a per-user local token.
+- There is no built-in default token. When `ZHARWING_MEMORY_AUTH_TOKEN` is
+  unset, the daemon generates a random per-user token and stores it with
+  restrictive permissions in the OS user state directory.
+- Placeholder tokens from example files are for local development only; never
+  reuse them on a reachable interface or commit a real token to a repo.
+- Agent-facing surfaces (HTTP `/mcp` and stdio MCP) additionally require
+  `ZHARWING_MEMORY_AGENT_SURFACE=enabled`.
 - Remote access should remain disabled unless explicitly configured.

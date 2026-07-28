@@ -128,6 +128,7 @@ packages/
   context-engine/   Bundle selection, reasons, token estimates, markdown rendering
   search/           Dependency-free keyword search boundary
   graph/            Derived relationship graph
+  semantic-graph/   Optional LLM-assisted relationship analysis and proposals
   assistant-runtime/Optional local assistant boundary
   api-client/       Shared daemon API client
   mcp-tools/        MCP tool definitions and dispatch
@@ -141,6 +142,9 @@ docs/
   MCP_SETUP.md      Codex, Claude, HTTP/stdio, auth, and troubleshooting
   AGENT_AUTOMATION.md MCP, bootstrap, and skill setup for agents
   USER_FLOWS.md     Human and agent workflows
+  DESKTOP_UI.md     Desktop navigation and first-run flow
+  GRAPH_RULES.md    Graph extraction rules for imported layouts
+  SEMANTIC_GRAPH.md Optional LLM-assisted relationship analysis
   DIAGRAMS.md       Mermaid UML, ERD, sequence, state, flow diagrams
   OPERATIONS.md     Setup, runtime, backup, validation notes
   AI_TESTING.md     Manual AI-provider and semantic graph smoke tests
@@ -314,6 +318,7 @@ Zharwing Memory Root/
       assets/
       generated/
       inbox/
+      semantic-graph/
       audit/
       backups/
 ```

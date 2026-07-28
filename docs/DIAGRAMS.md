@@ -46,6 +46,7 @@ flowchart TB
     Context["context-engine\nBundle builder"]
     Search["search\nKeyword retrieval"]
     Graph["graph\nRelationship projection"]
+    SemanticGraph["semantic-graph\nLLM relationship analysis"]
     AssistantRuntime["assistant-runtime\nLocal assistant jobs"]
     ApiClient["api-client\nDaemon RPC client"]
     MCPTools["mcp-tools\nTool definitions"]
@@ -64,6 +65,7 @@ flowchart TB
   Daemon --> Context
   Daemon --> Search
   Daemon --> Graph
+  Daemon --> SemanticGraph
   Daemon --> AssistantRuntime
   Desktop --> Theme
 ```
@@ -577,6 +579,7 @@ flowchart TB
   Assets["assets/images screenshots attachments"]
   Generated["generated/context-bundles generated/index.json"]
   Inbox["inbox/proposed-updates/*.json"]
+  SemanticGraphStore["semantic-graph/edges.json"]
   Audit["audit/context-bundles/*.json"]
   Backups["backups/snapshots"]
 
@@ -591,6 +594,7 @@ flowchart TB
   Project --> Assets
   Project --> Generated
   Project --> Inbox
+  Project --> SemanticGraphStore
   Project --> Audit
   Project --> Backups
 ```
@@ -698,6 +702,7 @@ flowchart LR
   Daemon --> Context["context-engine"]
   Daemon --> Search["search"]
   Daemon --> Graph["graph"]
+  Daemon --> SemanticGraph["semantic-graph"]
   Daemon --> AssistantRuntime["assistant-runtime"]
   Storage --> Core
   Context --> Core
@@ -705,4 +710,6 @@ flowchart LR
   Privacy --> Core
   Search --> Core
   Graph --> Core
+  SemanticGraph --> Core
+  SemanticGraph --> Privacy
 ```

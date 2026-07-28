@@ -23,6 +23,12 @@ Prefer MCP tools when available. If MCP is unavailable, use the `zharwing-memory
 both are unavailable, continue with local files and mention that Zharwing Memory was
 not reachable.
 
+Discover Memory once per work round. If `mcp doctor` reports a healthy registered
+server but Memory tools are absent from an already-running agent task, do not
+reinstall or repeatedly rescan the project. The task's tool registry may predate the
+registration. Use the CLI fallback for that round and use a new task or app restart
+to pick up MCP later.
+
 1. Call `memory.get_startup_state` once for the current work round with the
    working directory and client name. Do not repeat startup on each user message.
    A refresh is justified only when the repository/project changes, app context
@@ -71,6 +77,19 @@ zharwing-memory search --project <project-id> "<query>"
 zharwing-memory session <session-id> --project <project-id> --section checkpoints
 zharwing-memory context --project <project-id> --preview --task "<task>"
 ```
+
+Use the first installed command (`zharwing-memory`, then the legacy `aimem`
+alias). When working inside the AI Memory source checkout and neither command is
+installed, invoke the built CLI with absolute source-checkout paths:
+
+```text
+node --env-file-if-exists=<ai-memory-project-root>/.env <ai-memory-project-root>/apps/cli/dist/index.js <command>
+```
+
+Keep the shell working directory at the target repository for commands such as
+`detect` and `start` that record working-directory context. This reuses the
+existing local environment wiring without reading it. Never read, print,
+summarize, or copy `.env` contents.
 
 ## During Work
 
