@@ -8,7 +8,7 @@ import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
 import { graphRulesFromProposalPatch } from "../utils/graph-proposals.js";
 import { semanticEdgesFromProposalPatch, type SemanticGraphProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
-import { formatConfidence, formatShortDateTime, titleCaseSlug } from "../utils/format.js";
+import { formatConfidence, formatShortDateTime, timestampRenderers, titleCaseSlug } from "../utils/format.js";
 import { graphNodeDisplayLabel, semanticGraphArea } from "./graph/graph-display.js";
 import { currentInboxItems } from "../utils/inbox.js";
 
@@ -85,6 +85,7 @@ export const InboxScreen = observer(function InboxScreen() {
       <DataTable
         columns={["created", "status", "type", "confidence", "reason"]}
         rows={inboxRows}
+        renderers={timestampRenderers("created")}
         selectedRowId={selectedProposal?.id}
         onRowClick={(proposal) => openInboxProposal(proposal.id)}
       />

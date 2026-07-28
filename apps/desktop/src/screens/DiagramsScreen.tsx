@@ -5,6 +5,7 @@ import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { DocumentEditorHost } from "../components/DocumentEditorHost.js";
 import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import { timestampRenderers } from "../utils/format.js";
 
 export const DiagramsScreen = observer(function DiagramsScreen() {
   const store = useStore();
@@ -32,6 +33,7 @@ export const DiagramsScreen = observer(function DiagramsScreen() {
       <DataTable
         columns={["updated", "status", "visibility", "title", "format"]}
         rows={diagrams}
+        renderers={timestampRenderers("updated")}
         selectedRowId={editingDocId}
         onRowClick={openDiagramEditor}
         rowActions={(doc) => (

@@ -1142,21 +1142,6 @@ input[type="checkbox"] {
   flex-wrap: wrap;
 }
 
-.session-summary-panel {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: grid;
-  gap: 10px;
-  margin: 12px 0;
-  padding: 12px;
-}
-
-.session-summary-panel p {
-  line-height: 1.5;
-  margin: 0;
-}
-
 .session-summary-advanced {
   padding: 8px 10px;
 }
@@ -1353,11 +1338,513 @@ input[type="checkbox"] {
 .document-modal,
 .diagram-viewer,
 .confirm-dialog,
-.link-discovery-dialog {
+.link-discovery-dialog,
+.session-modal,
+.session-closeout-dialog {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;
+}
+
+.session-modal,
+.session-closeout-dialog {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+}
+
+/* A compact workspace, not a confirmation box: the work log is the content. */
+.session-modal {
+  grid-template-rows: auto minmax(0, 1fr);
+  height: min(900px, calc(100dvh - 32px));
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  width: min(1180px, calc(100vw - 32px));
+}
+
+.session-reader-header {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 16px 20px;
+}
+
+.session-reader-heading {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  min-width: 0;
+}
+
+.session-reader-heading h3 {
+  font-size: 20px;
+  line-height: 27px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.session-status-badge {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 9px;
+  text-transform: uppercase;
+}
+
+.session-status-badge.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.session-reader-subline {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 7px;
+  margin: 0;
+  min-width: 0;
+}
+
+.session-reader-branch {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-reader-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.session-reader-body {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 304px;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 20px 20px;
+}
+
+/* The single scrolling region of the dialog. */
+.session-reader-main {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  padding-top: 18px;
+}
+
+.session-reader-main .rendered-markdown {
+  overflow: visible;
+  padding: 0;
+}
+
+/* The reader owns heading scale; document H1s must not shout in here. */
+.session-reader-main .rendered-markdown h1 {
+  font-size: 21px;
+  line-height: 1.35;
+}
+
+.session-reader-main .rendered-markdown h2 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.session-reader-main .rendered-markdown h3,
+.session-reader-main .rendered-markdown h4 {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.session-reader-main .rendered-markdown p,
+.session-reader-main .rendered-markdown li {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.session-close-reason {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+}
+
+.session-inspector {
+  align-self: start;
+  border-left: 1px solid var(--border);
+  display: grid;
+  gap: 20px;
+  max-height: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 18px 0 0 20px;
+}
+
+.inspector-section {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  min-width: 0;
+}
+
+.inspector-section h4 {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.inspector-section-head {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.inspector-summary {
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.inspector-summary:not(.is-expanded) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
+.inspector-empty,
+.inspector-help,
+.inspector-caption {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.inspector-caption {
+  font-size: 12px;
+}
+
+.inspector-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inspector-chips span {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 9px;
+}
+
+.inspector-facts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.inspector-fact {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 74px minmax(0, 1fr);
+  min-width: 0;
+  padding: 7px 0;
+}
+
+.inspector-fact:first-child {
+  border-top: 0;
+}
+
+.inspector-fact dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.inspector-fact dd {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-toggle {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.inspector-toggle span {
+  font-size: 14px;
+}
+
+.link-button {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  min-height: 0;
+  padding: 0;
+}
+
+.link-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.overflow-menu {
+  position: relative;
+}
+
+.overflow-menu-items {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  display: grid;
+  min-width: 208px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
+.overflow-menu-items button {
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  justify-content: flex-start;
+  min-height: 34px;
+  padding: 0 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.overflow-menu-items button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.overflow-menu-danger button {
+  color: var(--danger);
+}
+
+.overflow-menu-items hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 6px 4px;
+}
+
+/* Two class names so this wins over `.modal-backdrop`'s z-index regardless of
+   rule order: the closeout sheet stacks above the reader it opened from. */
+.modal-backdrop.session-closeout-backdrop {
+  z-index: 25;
+}
+
+.session-closeout-dialog {
+  gap: 14px;
+  padding: 20px;
+  width: min(560px, calc(100vw - 32px));
+}
+
+.session-closeout-dialog h3 {
+  margin: 0;
+}
+
+.stacked-field {
+  display: grid;
+  gap: 6px;
+}
+
+.stacked-field > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stacked-field textarea {
+  font: inherit;
+  min-height: 92px;
+  resize: vertical;
+  width: 100%;
+}
+
+.session-closeout-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* Narrow widths: full-screen reader, inspector stacked above the log. */
+@media (max-width: 980px) {
+  .modal-backdrop:has(.session-modal) {
+    padding: 0;
+  }
+
+  .session-modal {
+    border-radius: 0;
+    height: 100dvh;
+    width: 100vw;
+  }
+
+  .session-reader-body {
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .session-inspector {
+    border-left: 0;
+    border-bottom: 1px solid var(--border);
+    gap: 14px;
+    max-height: none;
+    overflow: visible;
+    padding: 14px 0;
+  }
+
+  .session-reader-main {
+    overflow: visible;
+    padding-top: 0;
+  }
+
+  .session-reader-branch {
+    max-width: 160px;
+  }
+}
+
+
+/* Current Work card: one routine action (checkpoint) kept prominent, the
+   consequential one (closing) separated below a rule and visually quieter. */
+.work-card {
+  max-width: 1060px;
+  padding: 20px 24px 24px;
+}
+
+.work-card-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.work-card-heading h3 {
+  margin: 0;
+  min-width: 0;
+}
+
+.work-meta {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.checkpoint-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.checkpoint-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.checkpoint-form {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.checkpoint-form input {
+  flex: 1 1 auto;
+  min-height: 42px;
+  min-width: 0;
+}
+
+.checkpoint-form button {
+  flex: 0 0 auto;
+  min-height: 42px;
+}
+
+.work-card-footer {
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+}
+
+.work-card-footer button {
+  min-height: 42px;
+}
+
+@media (max-width: 720px) {
+  .checkpoint-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.stale-sessions-notice {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stale-sessions-notice strong {
+  color: var(--text);
+}
+
+.stale-sessions-notice p {
+  margin: 4px 0 0;
 }
 
 .modal-backdrop {
@@ -1855,6 +2342,10 @@ td {
 
 .table-actions button {
   min-height: 32px;
+}
+
+.table-actions button + button {
+  margin-left: 8px;
 }
 
 tr.clickable-row {

@@ -5,6 +5,7 @@ import { Empty, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { ListRow } from "../components/ListRow.js";
+import { formatShortDateTime } from "../utils/format.js";
 
 export const BackupsScreen = observer(function BackupsScreen() {
   const store = useStore();
@@ -24,7 +25,7 @@ export const BackupsScreen = observer(function BackupsScreen() {
             {store.backups.map((backup) => (
               <ListRow
                 key={backup.snapshotPath}
-                title={backup.created}
+                title={formatShortDateTime(backup.created)}
                 details={
                   <>
                     <span>{backup.snapshotPath}</span>

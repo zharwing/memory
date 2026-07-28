@@ -22,6 +22,8 @@ import {
 import { applyPrivacyGate } from "@zharwing/memory-privacy";
 import {
   isLoopbackHost,
+  localDayKey,
+  nowIso,
   type Project,
   type Session,
   type SessionDetail,
@@ -30,32 +32,29 @@ import {
 } from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
 
+/** Recorded on sessions the daemon closes at day rollover. */
+export const STALE_SESSION_CLOSE_REASON =
+  "Auto-closed at day rollover: the session was still active when work resumed on a later day.";
+
+interface StartSessionParams {
+  projectId: string;
+  repoPath?: string;
+  workingDirectory?: string;
+  branch?: string;
+  agent?: string;
+  client?: string;
+  taskTitle?: string;
+  goal?: string;
+  workstreamIds?: string[];
+}
+
 export class SessionService {
   constructor(private readonly registry: ProjectRegistry) {}
 
-  async startSession(params: {
-    projectId: string;
-    repoPath?: string;
-    workingDirectory?: string;
-    branch?: string;
-    agent?: string;
-    client?: string;
-    taskTitle?: string;
-    goal?: string;
-    workstreamIds?: string[];
-  }) {
+  async startSession(params: StartSessionParams) {
     const project = await resolveProject(this.registry, params.projectId);
-    return startSession({
-      project,
-      repoPath: params.repoPath || project.repos[0]?.path || process.cwd(),
-      workingDirectory: params.workingDirectory || process.cwd(),
-      branch: params.branch,
-      agent: params.agent,
-      client: params.client,
-      taskTitle: params.taskTitle?.trim() || undefined,
-      goal: params.goal,
-      workstreamIds: params.workstreamIds
-    });
+    await this.autoCloseStaleSessions(project);
+    return this.createSession(project, params);
   }
 
   async startOrResumeSession(params: {
@@ -68,10 +67,13 @@ export class SessionService {
     goal?: string;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
+    // Runs before the resume check on purpose: yesterday's abandoned session
+    // must not be handed back as today's active session.
+    await this.autoCloseStaleSessions(project);
     const active = await getActiveSession(project);
     if (active && !params.taskTitle) return active;
 
-    return this.startSession({
+    return this.createSession(project, {
       projectId: params.projectId,
       workingDirectory: params.workingDirectory,
       branch: params.branch,
@@ -79,6 +81,79 @@ export class SessionService {
       client: params.client,
       taskTitle: params.taskTitle?.trim() || undefined,
       goal: params.goal
+    });
+  }
+
+  /**
+   * Operator-triggered version of the day-rollover sweep, for cleaning up
+   * sessions abandoned by agents without waiting for the next session start.
+   */
+  async closeStaleSessions(params: { projectId: string }) {
+    const project = await resolveProject(this.registry, params.projectId);
+    const closed = await this.autoCloseStaleSessions(project);
+    return {
+      projectId: project.id,
+      closed: closed.length,
+      sessionIds: closed.map((session) => session.id)
+    };
+  }
+
+  /**
+   * Closes sessions left active on an earlier local day. Agents routinely exit
+   * without an explicit close, so day rollover is treated as the implicit end
+   * of that day's work; otherwise abandoned sessions stay active forever and
+   * `getActiveSession` keeps resuming an old log instead of starting a new one.
+   *
+   * Summaries are filled in deterministically only: starting a session must
+   * stay fast and must not depend on a local model being reachable.
+   */
+  async autoCloseStaleSessions(project: Project): Promise<Session[]> {
+    const today = localDayKey();
+    const summaries = await listProjectSessionSummaries(project);
+    const stale = summaries.filter((session) => {
+      if (session.status !== "active") return false;
+      const day = localDayKey(session.updated || session.started);
+      return Boolean(day) && day < today;
+    });
+
+    const closed: Session[] = [];
+    for (const summary of stale) {
+      try {
+        const session = await getSession(project, summary.id);
+        if (!session) continue;
+        // Summarized as it will be stored, so the TLDR does not claim the
+        // session is still active.
+        const draft = session.summaryGeneratedAt
+          ? undefined
+          : summarizeSessionMetadataDeterministically({ ...session, status: "closed" });
+        closed.push(await storageCloseSession({
+          project,
+          sessionId: session.id,
+          summary: draft?.summary,
+          topics: draft?.topics,
+          summaryGeneratedAt: draft ? nowIso() : undefined,
+          summarySource: draft ? "deterministic" : undefined,
+          closedReason: STALE_SESSION_CLOSE_REASON,
+          preserveUpdated: true
+        }));
+      } catch {
+        // Housekeeping must never block the session the caller asked for.
+      }
+    }
+    return closed;
+  }
+
+  private async createSession(project: Project, params: StartSessionParams) {
+    return startSession({
+      project,
+      repoPath: params.repoPath || project.repos[0]?.path || process.cwd(),
+      workingDirectory: params.workingDirectory || process.cwd(),
+      branch: params.branch,
+      agent: params.agent,
+      client: params.client,
+      taskTitle: params.taskTitle?.trim() || undefined,
+      goal: params.goal,
+      workstreamIds: params.workstreamIds
     });
   }
 

@@ -119,6 +119,22 @@ Import is preview-first:
 Imported docs become project documents. Imported sessions become closed project
 session history.
 
+## Sessions
+
+Sessions is table-first, like Docs. Clicking a row (or its **Open** action)
+opens that session's detail panel and records the selection in the URL as
+`?session=<id>`, so a session view is linkable and survives a reload. **Close**
+dismisses the panel. Project-wide summary actions (**Summarize missing** and,
+under Advanced, **Regenerate all summaries**) sit in the toolbar above the
+table so they do not require opening a session first.
+
+Timestamps are shown in the viewer's locale (for example
+`Tue, Jul 28, 2026, 03:44 AM`). ISO strings are storage format only and are not
+displayed in tables or detail panels.
+
+A session closed automatically at day rollover shows its close reason in the
+detail panel. See [Agent Protocol](AGENT_PROTOCOL.md).
+
 ## Session Graph Visibility
 
 Every session stays in Session History, search, and eligible context whether or

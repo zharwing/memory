@@ -4,6 +4,7 @@ export function DataTable({
   columns,
   columnLabels,
   rows,
+  renderers,
   selectedRowId,
   onRowClick,
   rowActions
@@ -11,6 +12,8 @@ export function DataTable({
   columns: string[];
   columnLabels?: Record<string, string>;
   rows: any[];
+  /** Per-column cell renderers; columns without one fall back to the raw value. */
+  renderers?: Record<string, (row: any) => ReactNode>;
   selectedRowId?: string;
   onRowClick?: (row: any) => void;
   rowActions?: (row: any) => ReactNode;
@@ -31,7 +34,9 @@ export function DataTable({
               className={`${onRowClick ? "clickable-row" : ""} ${selectedRowId && row.id === selectedRowId ? "selected-row" : ""}`}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
-              {columns.map((column) => <td key={column}>{String(row[column] ?? "")}</td>)}
+              {columns.map((column) => (
+                <td key={column}>{renderers?.[column] ? renderers[column](row) : String(row[column] ?? "")}</td>
+              ))}
               {rowActions ? (
                 <td className="table-actions" onClick={(event) => event.stopPropagation()}>
                   {rowActions(row)}

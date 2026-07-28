@@ -93,6 +93,8 @@ async function callMethod(service: MemoryService, method: string, params: Record
       return service.updateSessionGraphVisibility(requireParams(params, method));
     case "memory.close_session":
       return service.closeSession(requireParams(params, method));
+    case "memory.close_stale_sessions":
+      return service.closeStaleSessions(requireParams(params, method));
     case "memory.generate_session_summary":
       return service.generateSessionSummary(requireParams(params, method));
     case "memory.generate_session_summaries":

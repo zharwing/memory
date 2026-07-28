@@ -7,6 +7,7 @@ import { DataTable } from "../components/DataTable.js";
 import { reviewModeLabel } from "../utils/labels.js";
 import { projectPath } from "../utils/routes.js";
 import { pendingInboxReviewCount } from "../utils/inbox.js";
+import { timestampRenderers } from "../utils/format.js";
 
 export const DashboardScreen = observer(function DashboardScreen() {
   const store = useStore();
@@ -77,6 +78,7 @@ function RecentSessions() {
         columns={["updated", "status", "taskTitle"]}
         columnLabels={{ updated: "Updated", status: "Status", taskTitle: "Task" }}
         rows={store.sessions.slice(0, 6)}
+        renderers={timestampRenderers("updated")}
       />
     </Panel>
   );

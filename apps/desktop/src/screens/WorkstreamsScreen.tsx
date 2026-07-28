@@ -7,7 +7,7 @@ import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { WorkstreamStatusActions } from "../components/WorkstreamStatusActions.js";
-import { splitList } from "../utils/format.js";
+import { formatShortDateTime, splitList, timestampRenderers } from "../utils/format.js";
 
 export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   const store = useStore();
@@ -134,7 +134,7 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
             <KeyValue label="Topics" value={detail.workstream.topics?.join(", ") || "none"} />
             <KeyValue label="Sessions" value={detail.sessions?.length || 0} />
             <KeyValue label="Documents" value={detail.documents?.length || 0} />
-            <KeyValue label="Updated" value={detail.workstream.updated} />
+            <KeyValue label="Updated" value={formatShortDateTime(detail.workstream.updated)} />
             <KeyValue label="File" value={detail.workstream.filePath || "not written"} />
           </div>
           <div className="button-row">
@@ -152,9 +152,14 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
             columns={["updated", "status", "agent", "taskTitle"]}
             columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", taskTitle: "Task" }}
             rows={detail.sessions || []}
+            renderers={timestampRenderers("updated")}
           />
           <h3>Related Docs</h3>
-          <DataTable columns={["updated", "status", "visibility", "type", "title"]} rows={detail.documents || []} />
+          <DataTable
+            columns={["updated", "status", "visibility", "type", "title"]}
+            rows={detail.documents || []}
+            renderers={timestampRenderers("updated")}
+          />
         </Panel>
       ) : null}
     </Screen>

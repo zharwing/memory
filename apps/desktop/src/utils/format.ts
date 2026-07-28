@@ -1,13 +1,29 @@
+/**
+ * Renders a stored ISO timestamp in the viewer's locale, e.g.
+ * `Tue, Jul 28, 2026, 03:44 AM`. Raw ISO strings are storage format, never
+ * something a person should have to read in the UI.
+ */
 export function formatShortDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
+    weekday: "short",
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+/**
+ * Builds `DataTable` cell renderers that format the named ISO timestamp
+ * columns, e.g. `renderers={timestampRenderers("updated")}`.
+ */
+export function timestampRenderers(...columns: string[]): Record<string, (row: any) => string> {
+  return Object.fromEntries(
+    columns.map((column) => [column, (row: any) => formatShortDateTime(String(row[column] ?? ""))])
+  );
 }
 
 export function splitList(input: string): string[] {

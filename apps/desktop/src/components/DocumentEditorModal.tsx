@@ -35,6 +35,7 @@ import { Modal } from "./Modal.js";
 import { ToggleGroup } from "./ToggleGroup.js";
 import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
 import { isLikelyMermaidSource } from "./markdown/MermaidDiagramPreview.js";
+import { formatShortDateTime } from "../utils/format.js";
 
 export function DocumentEditorModal({
   doc,
@@ -183,7 +184,7 @@ export function DocumentEditorModal({
           </div>
         </header>
         <div className="document-modal-meta">
-          <KeyValue label="Updated" value={doc.updated} />
+          <KeyValue label="Updated" value={formatShortDateTime(doc.updated)} />
           <KeyValue label="Import profile" value={doc.importProfile || "none"} />
           <KeyValue label="Source" value={<code className="path-value">{doc.filePath || "memory"}</code>} />
           <KeyValue label="Imported from" value={<code className="path-value">{doc.importSourcePath || "not imported"}</code>} />

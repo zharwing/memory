@@ -116,6 +116,7 @@ export async function writeSession(session: Session, body?: string): Promise<voi
       started: session.started,
       updated: session.updated,
       closed: session.closed,
+      closed_reason: session.closedReason,
       task_title: session.taskTitle,
       include_in_graph: session.includeInGraph,
       goal: session.goal,
@@ -227,6 +228,13 @@ export async function closeSession(args: {
   summaryGeneratedAt?: string;
   summarySource?: Session["summarySource"];
   summaryModel?: string;
+  /** Recorded when the close was not an explicit user or agent request. */
+  closedReason?: string;
+  /**
+   * Keeps `updated` at the last real activity. Housekeeping closes use this so
+   * a stale session does not jump to the top of the recency-sorted list.
+   */
+  preserveUpdated?: boolean;
 }): Promise<Session> {
   const session = await getSession(args.project, args.sessionId);
   if (!session) throw new Error(`Session not found: ${args.sessionId}`);
@@ -242,13 +250,15 @@ export async function closeSession(args: {
     nextSteps: args.nextSteps !== undefined ? mergeUnique([], args.nextSteps) : session.nextSteps,
     blockers: args.blockers !== undefined ? mergeUnique([], args.blockers) : session.blockers,
     workstreamIds: mergeUnique(session.workstreamIds, args.workstreamIds || []),
-    updated: now,
+    updated: args.preserveUpdated ? session.updated : now,
     closed: now,
+    closedReason: args.closedReason || session.closedReason,
     body: appendCloseToBody(session.body ?? sessionToBody(session), {
       closed: now,
       summary: args.summary,
       nextSteps: args.nextSteps,
-      blockers: args.blockers
+      blockers: args.blockers,
+      reason: args.closedReason
     }),
     stateSemanticsVersion: 2
   };
@@ -322,6 +332,7 @@ export async function readSession(filePath: string): Promise<Session> {
     started: String(fm.started || ""),
     updated: String(fm.updated || fm.started || ""),
     closed: stringOrUndefined(fm.closed),
+    closedReason: stringOrUndefined(fm.closed_reason),
     taskTitle: String(fm.task_title || path.basename(filePath, ".md")),
     includeInGraph: fm.include_in_graph === true,
     goal: stringOrUndefined(fm.goal),
@@ -374,6 +385,7 @@ export async function readSessionSummary(filePath: string): Promise<SessionSumma
     started: String(fm.started || ""),
     updated: String(fm.updated || fm.started || ""),
     closed: stringOrUndefined(fm.closed),
+    closedReason: truncateOptional(stringOrUndefined(fm.closed_reason), MAX_STATE_ITEM_CHARS),
     summary: truncateOptional(stringOrUndefined(fm.summary), MAX_SESSION_SUMMARY_CHARS),
     topics: boundedStrings(arrayOfStrings(fm.topics), 12, MAX_TOPIC_CHARS),
     summaryGeneratedAt: stringOrUndefined(fm.summary_generated_at),
@@ -492,8 +504,9 @@ ${checkpoint.touchedFiles.map((file) => `- ${file}`).join("\n") || "- None recor
 
 function appendCloseToBody(
   body: string,
-  close: { closed: string; summary?: string; nextSteps?: string[]; blockers?: string[] }
+  close: { closed: string; summary?: string; nextSteps?: string[]; blockers?: string[]; reason?: string }
 ): string {
+  const reason = close.reason ? `\n\nClose reason: ${close.reason}` : "";
   const nextSteps = close.nextSteps !== undefined
     ? `\n\nNext steps:\n${close.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}`
     : "";
@@ -502,7 +515,7 @@ function appendCloseToBody(
     : "";
   const section = `## Session Closed - ${close.closed}
 
-${close.summary || "No final summary recorded."}${nextSteps}${blockers}
+${close.summary || "No final summary recorded."}${reason}${nextSteps}${blockers}
 `;
 
   return `${body.trim()}\n\n${section.trim()}\n`;

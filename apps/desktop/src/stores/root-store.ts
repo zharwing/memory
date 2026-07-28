@@ -946,6 +946,17 @@ export class RootStore {
     });
   }
 
+  /** Closes every session left active on an earlier day, without starting a new one. */
+  async closeStaleSessions() {
+    if (!this.selectedProjectId) return;
+    await this.run(async () => {
+      await this.client.call("memory.close_stale_sessions", {
+        projectId: this.selectedProjectId
+      });
+      await this.refreshProject();
+    });
+  }
+
   async generateSessionSummary(sessionId: string, force = true) {
     if (!this.selectedProjectId) return;
     await this.run(async () => {

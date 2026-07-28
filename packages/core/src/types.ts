@@ -143,6 +143,8 @@ export interface Session {
   started: ISODateString;
   updated: ISODateString;
   closed?: ISODateString;
+  /** Why the session was closed; set when the daemon closed it without an explicit request. */
+  closedReason?: string;
   taskTitle: string;
   includeInGraph: boolean;
   goal?: string;
@@ -180,6 +182,7 @@ export interface SessionSummary {
   started: ISODateString;
   updated: ISODateString;
   closed?: ISODateString;
+  closedReason?: string;
   summary?: string;
   topics: string[];
   summaryGeneratedAt?: ISODateString;

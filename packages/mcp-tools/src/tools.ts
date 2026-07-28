@@ -41,7 +41,7 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     checkpointLimit: { type: "number", minimum: 1, maximum: 100 },
     cursor: { type: "string" }
   }, ["projectId", "sessionId"]),
-  tool("memory.start_session", "Start a fresh project-scoped work session.", {
+  tool("memory.start_session", "Start a fresh project-scoped work session. Sessions still active from an earlier day are closed automatically first.", {
     projectId: { type: "string" },
     taskTitle: { type: "string" },
     goal: { type: "string" },

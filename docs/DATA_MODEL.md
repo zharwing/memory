@@ -123,6 +123,7 @@ status: active
 started: 2026-06-08T00:00:00.000Z
 updated: 2026-06-08T00:00:00.000Z
 closed:
+closed_reason:
 task_title: Fix settings page save bug
 include_in_graph: false
 goal: Make settings save reliably
@@ -140,6 +141,14 @@ import_source_hash:
 imported_at:
 import_profile:
 ```
+
+`closed_reason` is set only when the daemon closed the session on its own. A
+session left `active` on an earlier local day is auto-closed the next time a
+session is started for that project, because agents routinely exit without an
+explicit close. The auto-close keeps `updated` at the last real activity, fills
+a missing TLDR deterministically (never through an AI provider), and appends a
+`Close reason` line to the session body. See
+[Agent Protocol](AGENT_PROTOCOL.md).
 
 `include_in_graph` defaults to `false`, including for older session files where
 the field is absent. Every session remains available in Session History,

@@ -1,108 +1,126 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { useStore } from "../stores/store-context.js";
-import { Empty, KeyValue, Panel, RawTextPreview, Screen } from "../components/layout.js";
+import { Empty, Screen } from "../components/layout.js";
 import { WorkTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
-import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
+import { SessionDetailModal } from "../components/SessionDetailModal.js";
+import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import { timestampRenderers } from "../utils/format.js";
+import { isStaleActiveSession } from "../utils/sessions.js";
 
 export const SessionsScreen = observer(function SessionsScreen() {
   const store = useStore();
-  const [selectedSessionId, setSelectedSessionId] = useState("");
-  const selectedSession = store.sessions.find((session) => session.id === selectedSessionId) || store.sessions[0];
+  const [selectedSessionId, setSessionSearchParam] = useSearchParamState("session");
+  const selectedSession = store.sessions.find((session) => session.id === selectedSessionId);
+  const staleSessions = store.sessions.filter(isStaleActiveSession);
+
+  useCloseWhenMissing(
+    selectedSessionId,
+    store.sessions.length > 0 && !store.sessions.some((session) => session.id === selectedSessionId),
+    () => closeSessionDetail(true)
+  );
+
   useEffect(() => {
     if (selectedSession && selectedSession.body === undefined) {
       void store.loadSessionDetail(selectedSession.id);
     }
   }, [selectedSession?.id, selectedSession?.body, store]);
+
+  function openSessionDetail(session: { id: string }) {
+    setSessionSearchParam(session.id);
+  }
+
+  function closeSessionDetail(replace = false) {
+    setSessionSearchParam(null, { replace });
+  }
+
   return (
     <Screen title="Sessions for this project">
       <WorkTabs />
-      <DataTable
-        columns={["updated", "status", "agent", "branch", "taskTitle"]}
-        columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", branch: "Branch", taskTitle: "Task" }}
-        rows={store.sessions}
-      />
-      {selectedSession ? (
-        <Panel title="Session Markdown">
-          <div className="inline-form compact">
-            <select value={selectedSession.id} onChange={(event) => setSelectedSessionId(event.target.value)}>
-              {store.sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.updated} - {session.taskTitle}
-                </option>
-              ))}
-            </select>
-            <ConfirmDeleteButton
-              itemType="session"
-              title={selectedSession.taskTitle}
-              critical={selectedSession.status === "active"}
-              label="Move to Trash"
-              onConfirm={() => store.deleteSession(selectedSession.id)}
-            />
-          </div>
-          <div className="session-summary-panel">
-            <div className="semantic-graph-mini-stats">
-              <KeyValue label="TLDR source" value={selectedSession.summarySource || "Not generated"} />
-              <KeyValue label="Generated" value={selectedSession.summaryGeneratedAt || "Never"} />
-              <KeyValue label="Topics" value={selectedSession.topics?.join(", ") || "None"} />
-              <KeyValue label="Graph" value={selectedSession.includeInGraph ? "Included" : "Not included"} />
-            </div>
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={Boolean(selectedSession.includeInGraph)}
-                disabled={store.loading}
-                onChange={(event) =>
-                  void store.updateSessionGraphVisibility(selectedSession.id, event.target.checked)
-                }
-              />
-              <span>Include in graph</span>
-            </label>
-            <p className="panel-help">
-              Keep this off for routine history. Turn it on only when the session is important enough to appear in the project graph.
+      {staleSessions.length ? (
+        <div className="notice stale-sessions-notice">
+          <div>
+            <strong>
+              {staleSessions.length} session{staleSessions.length === 1 ? " is" : "s are"} still open from an earlier day
+            </strong>
+            <p>
+              Agents that exit without closing leave their session active. Closing them records a
+              summary and keeps the history tidy; this also happens automatically the next time a
+              session starts.
             </p>
-            <p>{selectedSession.summary || "No searchable session TLDR has been generated yet."}</p>
-            <div className="button-row">
-              <button
-                type="button"
-                className="icon-text-button"
-                disabled={store.loading}
-                onClick={() => void store.generateSessionSummary(selectedSession.id, true)}
-              >
-                Generate TLDR
-              </button>
-              <button
-                type="button"
-                className="icon-text-button"
-                disabled={store.loading}
-                onClick={() => void store.generateSessionSummaries("missing")}
-              >
-                Summarize missing
-              </button>
-              <details className="advanced-fields session-summary-advanced">
-                <summary>Advanced</summary>
-                <div className="advanced-fields-body">
-                  <button
-                    type="button"
-                    className="danger-button"
-                    disabled={store.loading}
-                    onClick={() => void store.generateSessionSummaries("all")}
-                  >
-                    Regenerate all summaries
-                  </button>
-                </div>
-              </details>
-            </div>
           </div>
-          <RawTextPreview
-            text={selectedSession.body === undefined ? "Loading session body…" : selectedSession.body}
-            fallback="No session body recorded."
-          />
-        </Panel>
+          <button
+            type="button"
+            className="icon-text-button primary"
+            disabled={store.loading}
+            onClick={() => void store.closeStaleSessions()}
+          >
+            Close {staleSessions.length === 1 ? "it" : "them all"}
+          </button>
+        </div>
+      ) : null}
+      <div className="table-toolbar">
+        <span className="panel-help">Select a session to read its work log.</span>
+        <div className="row-actions">
+          <button
+            type="button"
+            className="icon-text-button"
+            disabled={store.loading}
+            onClick={() => void store.generateSessionSummaries("missing")}
+          >
+            Summarize missing
+          </button>
+          <details className="advanced-fields session-summary-advanced">
+            <summary>Advanced</summary>
+            <div className="advanced-fields-body">
+              <button
+                type="button"
+                className="danger-button"
+                disabled={store.loading}
+                onClick={() => void store.generateSessionSummaries("all")}
+              >
+                Regenerate all summaries
+              </button>
+            </div>
+          </details>
+        </div>
+      </div>
+      {store.sessions.length ? (
+        <DataTable
+          columns={["updated", "status", "agent", "branch", "taskTitle"]}
+          columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", branch: "Branch", taskTitle: "Task" }}
+          rows={store.sessions}
+          renderers={timestampRenderers("updated")}
+          selectedRowId={selectedSessionId}
+          onRowClick={openSessionDetail}
+          rowActions={(session) => (
+            <>
+              <button type="button" onClick={() => openSessionDetail(session)}>
+                Open
+              </button>
+              {session.status === "active" ? (
+                <button
+                  type="button"
+                  disabled={store.loading}
+                  onClick={() => void store.closeSession(session.id)}
+                >
+                  Close session
+                </button>
+              ) : null}
+            </>
+          )}
+        />
       ) : (
         <Empty text="No sessions recorded yet." />
       )}
+      {selectedSession ? (
+        <SessionDetailModal
+          session={selectedSession}
+          onClose={() => closeSessionDetail()}
+          onDeleted={() => closeSessionDetail(true)}
+        />
+      ) : null}
     </Screen>
   );
 });

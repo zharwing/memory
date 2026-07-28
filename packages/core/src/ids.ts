@@ -25,6 +25,19 @@ export function shortLocalSessionDate(date = new Date()): string {
   return `${month}-${day}-${year}`;
 }
 
+/**
+ * Local calendar day (`YYYY-MM-DD`) for a timestamp, or `""` when unparseable.
+ * Session files are already bucketed by local day (see `createSessionFilename`),
+ * so day-rollover checks use the same local boundary instead of UTC.
+ */
+export function localDayKey(value: string | Date = new Date()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function filenameSafe(input: string): string {
   return slugify(input).slice(0, 80) || "untitled";
 }

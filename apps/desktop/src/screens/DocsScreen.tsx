@@ -19,6 +19,7 @@ import {
   useSemanticRunDraft
 } from "../features/semantic-review/index.js";
 import { filterDocuments, isStarterDraftDoc } from "../utils/documents.js";
+import { timestampRenderers } from "../utils/format.js";
 import { providerLabel } from "../utils/labels.js";
 import { projectPath } from "../utils/routes.js";
 import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
@@ -241,6 +242,7 @@ export const DocsScreen = observer(function DocsScreen() {
           <DataTable
             columns={["updated", "status", "visibility", "type", "title"]}
             rows={pagedDocs}
+            renderers={timestampRenderers("updated")}
             selectedRowId={selectedDocId}
             onRowClick={openDocEditor}
             rowActions={(doc) => (

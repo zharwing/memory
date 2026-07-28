@@ -23,6 +23,7 @@ const CONTROL_PLANE_PARAMS: Record<string, readonly string[]> = {
   "memory.backup_project": ["projectId"],
   "memory.check_semantic_graph_provider": ["projectId"],
   "memory.classify_imported_doc": ["projectId", "documentId"],
+  "memory.close_stale_sessions": ["projectId"],
   "memory.commit_import": ["projectId"],
   "memory.create_doc": ["projectId", "title", "type", "body"],
   "memory.create_project": ["preview"],

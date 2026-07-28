@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   DEFAULT_ASSISTANT_POLICY,
   DEFAULT_MEMORY_WRITE_POLICY,
+  localDayKey,
   nowIso,
   type AssistantPolicy,
   type AssistantRuntimeType,
@@ -102,7 +103,15 @@ export class ProjectService {
       (workstream) => workstream.status === "active" || workstream.status === "paused"
     );
     const workstreams = allOpenWorkstreams.slice(0, 12).map(compactWorkstream);
-    const recommendedAction = activeSession
+    // Agents routinely exit without closing, so a session still marked active
+    // on an earlier local day is abandoned rather than resumable.
+    // `memory.start_session` closes it at day rollover; until then startup must
+    // not send the agent back into yesterday's log.
+    const activeSessionDay = activeSession
+      ? localDayKey(activeSession.updated || activeSession.started)
+      : "";
+    const activeSessionIsStale = Boolean(activeSessionDay) && activeSessionDay < localDayKey();
+    const recommendedAction = activeSession && !activeSessionIsStale
       ? "resume-active"
       : latestSession && project.contextPolicy.startupMode !== "always-start-new-session"
         ? "resume-latest"
@@ -128,7 +137,9 @@ export class ProjectService {
       recommendedAction,
       contextReadiness: activeSession || latestSession ? "ready" : "needs-session",
       safetyStatus: "clean",
-      messageForClient: `Resolved Zharwing Memory project ${boundedString(project.name, 160)}.`
+      messageForClient: activeSessionIsStale
+        ? `Resolved Zharwing Memory project ${boundedString(project.name, 160)}. The open session is from an earlier day and will be closed automatically; start a new session for today's work.`
+        : `Resolved Zharwing Memory project ${boundedString(project.name, 160)}.`
     };
     return withStartupRevision(snapshot, params.knownRevision);
   }

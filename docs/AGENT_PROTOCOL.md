@@ -33,6 +33,17 @@ tracking.
 If memory tooling is unavailable, continue with the user's task using local
 project files and report that Zharwing Memory was unavailable.
 
+### Day rollover
+
+Agents frequently exit without closing their session. `memory.start_session`
+and `memory.start_or_resume_session` therefore close any session still marked
+`active` from an earlier local day before they create or resume anything, so
+`start_or_resume` never hands back yesterday's log as today's session. The
+auto-close records `closed_reason`, keeps `updated` at the last real activity,
+and fills a missing TLDR deterministically. Closing a session explicitly is
+still preferred: only an explicit close records the real summary, next steps,
+and blockers.
+
 ## During Work
 
 - Save checkpoints after meaningful progress, decision points, or interruptions.

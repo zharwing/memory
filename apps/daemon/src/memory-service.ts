@@ -193,6 +193,10 @@ export class MemoryService {
     return this.sessions.closeSession(params);
   }
 
+  async closeStaleSessions(params: Parameters<SessionService["closeStaleSessions"]>[0]) {
+    return this.sessions.closeStaleSessions(params);
+  }
+
   async generateSessionSummary(params: Parameters<SessionService["generateSessionSummary"]>[0]) {
     return this.sessions.generateSessionSummary(params);
   }
