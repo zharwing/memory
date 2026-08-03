@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Local-first project context manager for AI-assisted coding tools.",
+  "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@9.0.0",
   "engines": {

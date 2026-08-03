@@ -496,3 +496,7 @@ Start here:
 - The versioned JSON index is a supported rebuildable project manifest. Search
   continues to read Markdown-backed project records; SQLite/FTS5 is optional
   future scaling work.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE). Security reports: see [SECURITY.md](SECURITY.md).
