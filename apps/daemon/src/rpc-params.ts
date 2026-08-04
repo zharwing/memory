@@ -1,10 +1,25 @@
 import { MEMORY_TOOLS } from "@zharwing/memory-mcp";
+import { assertSupportedSchema, validateValue, type SchemaNode } from "./schema-validate.js";
 
 // Runtime parameter validation for the RPC boundary (M3). Every method's
 // required-parameter set is declared here; requireParams enforces it before
 // the params reach a typed service method, replacing unchecked `as never`
-// boundary casts. Agent-exposed methods derive their required sets from the
-// MCP tool definitions; control-plane-only methods are declared alongside.
+// boundary casts. Agent-exposed methods additionally get full JSON-Schema
+// validation (types, enums, bounds) from the MCP tool definitions;
+// control-plane-only methods are declared alongside with presence checks.
+
+/**
+ * Full input schemas for agent-exposed methods, keyed by RPC method and
+ * checked for validator support at module load so a future schema keyword
+ * the validator does not implement fails every test run loudly instead of
+ * silently going unvalidated.
+ */
+const METHOD_SCHEMAS: Record<string, SchemaNode> = Object.fromEntries(
+  MEMORY_TOOLS.map((tool) => {
+    assertSupportedSchema(tool.inputSchema as unknown as Record<string, unknown>, tool.rpcMethod);
+    return [tool.rpcMethod, tool.inputSchema as unknown as SchemaNode];
+  })
+);
 
 /**
  * Required-param sets for agent-exposed methods, derived at module load from
@@ -98,9 +113,12 @@ export class RpcValidationError extends Error {}
 
 /**
  * Validate that params is an object carrying every required key for the
- * method, then return it typed to the call site's expected parameter type.
- * The single `as T` here is a validated coercion, not the unchecked
- * boundary cast this replaces.
+ * method and, for agent-exposed methods, that every provided value conforms
+ * to the MCP tool's input schema (types, enums, bounds). The single `as T`
+ * here is a validated coercion, not the unchecked boundary cast this
+ * replaces. REQUIRED_PARAMS and the schemas agree by construction for tool
+ * methods (the former is derived from the latter); the presence check runs
+ * first so missing-key errors keep their established message shape.
  */
 export function requireParams<T>(params: Record<string, unknown>, method: string): T {
   if (typeof params !== "object" || params === null || Array.isArray(params)) {
@@ -110,6 +128,13 @@ export function requireParams<T>(params: Record<string, unknown>, method: string
   const missing = required.filter((key) => params[key] === undefined || params[key] === null);
   if (missing.length > 0) {
     throw new RpcValidationError(`Missing required params for ${method}: ${missing.join(", ")}`);
+  }
+  const schema = METHOD_SCHEMAS[method];
+  if (schema !== undefined) {
+    const errors = validateValue(params, schema, "params");
+    if (errors.length > 0) {
+      throw new RpcValidationError(`Invalid params for ${method}: ${errors.join("; ")}`);
+    }
   }
   return params as T;
 }

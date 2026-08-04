@@ -56,3 +56,25 @@ test("requireParams accepts params carrying every required key", () => {
 test("methods with no required params accept an empty object", () => {
   assert.doesNotThrow(() => requireParams({}, "memory.empty_trash"));
 });
+
+test("agent tool methods enforce their full input schema, not just presence", () => {
+  assert.throws(
+    () => requireParams({ projectId: "p1", limit: "5" }, "memory.get_recent_sessions"),
+    (error: unknown) => error instanceof RpcValidationError && /params\.limit/.test((error as Error).message)
+  );
+  assert.throws(
+    () => requireParams({ projectId: "p1", sessionId: "s1", autoSummarize: "yes" }, "memory.close_session"),
+    (error: unknown) => error instanceof RpcValidationError && /params\.autoSummarize must be a boolean/.test((error as Error).message)
+  );
+  assert.doesNotThrow(() => requireParams({ projectId: "p1", limit: 5 }, "memory.get_recent_sessions"));
+});
+
+test("schema validation allows unknown extra keys (open params)", () => {
+  assert.doesNotThrow(() => requireParams({ projectId: "p1", query: "q", extra: "ignored" }, "memory.search"));
+});
+
+test("control-plane methods without a tool schema keep presence-only checks", () => {
+  // memory.get_project has no MCP schema; a non-string projectId still passes
+  // requireParams and is coerced at the call site.
+  assert.doesNotThrow(() => requireParams({ projectId: 42 }, "memory.get_project"));
+});
