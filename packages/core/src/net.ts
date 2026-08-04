@@ -17,3 +17,15 @@ export function isLoopbackHost(host: string): boolean {
     normalized.endsWith(".localhost")
   );
 }
+
+/**
+ * True when the URL names a loopback endpoint. Invalid URLs are treated as
+ * non-local so callers fail closed.
+ */
+export function isLocalProviderEndpoint(endpoint: string): boolean {
+  try {
+    return isLoopbackHost(new URL(endpoint).hostname);
+  } catch {
+    return false;
+  }
+}

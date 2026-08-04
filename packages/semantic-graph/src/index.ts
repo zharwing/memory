@@ -1407,9 +1407,9 @@ function semanticEdgeFromDecision(input: {
   };
 }
 
-function normalizeEvidence(
+export function normalizeEvidence(
   evidence: Array<string | SemanticGraphEvidence> | undefined,
-  candidate: SemanticRelationshipCandidate | undefined
+  candidate?: SemanticRelationshipCandidate
 ): SemanticGraphEvidence[] {
   return (evidence || []).map((item) => {
     if (typeof item === "string") {

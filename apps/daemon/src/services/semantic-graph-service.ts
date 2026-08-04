@@ -24,6 +24,7 @@ import { buildProjectGraph } from "@zharwing/memory-graph";
 import {
   callAiProviderJson,
   checkAiProvider,
+  providerKindFromAssistantRuntime,
   type AiProviderConfig
 } from "@zharwing/memory-assistant";
 import {
@@ -39,6 +40,7 @@ import {
   semanticExtractionMessagesForChunk,
   semanticExtractionMessagesForItem,
   semanticJudgementMessages,
+  normalizeEvidence,
   semanticProposalSummaryFromProviderJson,
   semanticProposalSummaryMessages,
   type SemanticCandidateIndex,
@@ -49,7 +51,7 @@ import {
 import {
   clamp01,
   createId,
-  isLoopbackHost,
+  isLocalProviderEndpoint,
   nowIso,
   PROVIDER_DEFAULTS,
   type ProviderDefault,
@@ -810,16 +812,6 @@ function semanticProviderKind(
   return providerKind || settings.providerKind || providerKindFromAssistantRuntime(project.assistantPolicy.runtimeType) || "openai-compatible";
 }
 
-function providerKindFromAssistantRuntime(runtimeType?: string): string | undefined {
-  if (runtimeType === "lm-studio") return "lm-studio";
-  if (runtimeType === "ollama") return "ollama";
-  if (runtimeType === "llama-cpp" || runtimeType === "app-managed-llamacpp") return "llama-cpp";
-  if (runtimeType === "openai") return "openai";
-  if (runtimeType === "anthropic") return "anthropic";
-  if (runtimeType === "custom-openai-compatible") return "openai-compatible";
-  return undefined;
-}
-
 // Endpoints come from the shared provider table; only the historical alias
 // spellings ("llama.cpp", "claude") remain daemon-side.
 const PROVIDER_KIND_ALIASES: Record<string, string> = {
@@ -831,14 +823,6 @@ function defaultEndpointForProviderKind(providerKind?: string): string | undefin
   if (!providerKind) return undefined;
   const defaults: Record<string, ProviderDefault | undefined> = PROVIDER_DEFAULTS;
   return defaults[PROVIDER_KIND_ALIASES[providerKind] || providerKind]?.endpoint;
-}
-
-function isLocalProviderEndpoint(endpoint: string): boolean {
-  try {
-    return isLoopbackHost(new URL(endpoint).hostname);
-  } catch {
-    return false;
-  }
 }
 
 function optionalPositiveInteger(input: number | undefined): number | undefined {
@@ -1022,20 +1006,6 @@ function countByStatus(edges: SemanticGraphEdge[]): Record<SemanticGraphEdgeStat
 function statusSet(input: SemanticGraphEdgeStatus | SemanticGraphEdgeStatus[] | undefined): Set<SemanticGraphEdgeStatus> | undefined {
   if (!input) return undefined;
   return new Set(Array.isArray(input) ? input : [input]);
-}
-
-function normalizeEvidence(input: Array<string | SemanticGraphEvidence> | undefined): SemanticGraphEvidence[] {
-  return (input || []).map((item) => {
-    if (typeof item === "string") {
-      return { quote: item };
-    }
-    return {
-      documentId: item.documentId,
-      quote: item.quote,
-      location: item.location,
-      sourcePath: item.sourcePath
-    };
-  });
 }
 
 function semanticSourceKindForProposal(proposal: ProposedMemoryUpdate): SemanticGraphEdge["source"]["kind"] {

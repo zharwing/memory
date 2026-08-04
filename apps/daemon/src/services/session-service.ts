@@ -13,6 +13,7 @@ import {
 } from "@zharwing/memory-store";
 import {
   callAiProviderJson,
+  providerKindFromAssistantRuntime,
   sessionSummaryFromProviderJson,
   sessionSummaryMessages,
   summarizeSessionMetadataDeterministically,
@@ -21,7 +22,7 @@ import {
 } from "@zharwing/memory-assistant";
 import { applyPrivacyGate } from "@zharwing/memory-privacy";
 import {
-  isLoopbackHost,
+  isLocalProviderEndpoint,
   localDayKey,
   nowIso,
   type Project,
@@ -427,22 +428,6 @@ function assistantProviderConfig(
     temperature: 0,
     jsonMode: params.jsonMode ?? false
   };
-}
-
-function providerKindFromAssistantRuntime(runtimeType?: string): string {
-  if (runtimeType === "lm-studio") return "lm-studio";
-  if (runtimeType === "ollama") return "ollama";
-  if (runtimeType === "llama-cpp" || runtimeType === "app-managed-llamacpp") return "llama-cpp";
-  if (runtimeType === "custom-openai-compatible") return "openai-compatible";
-  return "openai-compatible";
-}
-
-function isLocalProviderEndpoint(endpoint: string): boolean {
-  try {
-    return isLoopbackHost(new URL(endpoint).hostname);
-  } catch {
-    return false;
-  }
 }
 
 function normalizeLimit(value: number | undefined, fallback: number, maximum: number): number {

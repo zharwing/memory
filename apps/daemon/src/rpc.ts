@@ -31,11 +31,11 @@ async function callMethod(service: MemoryService, method: string, params: Record
     case "memory.list_projects":
       return service.listProjects();
     case "memory.get_project":
-      return service.getProject(String(params.projectId));
+      return service.getProject(String(requireParams<{ projectId: unknown }>(params, method).projectId));
     case "memory.detect_project":
       return service.detectProject({ workingDirectory: String(params.workingDirectory || process.cwd()) });
     case "memory.get_startup_state":
-      return service.getStartupState(params);
+      return service.getStartupState(requireParams(params, method));
     case "memory.prepare_project_creation":
       return service.prepareProjectCreation(requireParams(params, method));
     case "memory.create_project":
