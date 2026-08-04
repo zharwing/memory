@@ -16,15 +16,15 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
   const [writePointerFile, setWritePointerFile] = useState(true);
 
   useEffect(() => {
-    if (store.selectedProjectId) void store.loadRepoLinks();
-  }, [store, store.selectedProjectId]);
+    if (store.projects.selectedProjectId) void store.projects.loadRepoLinks();
+  }, [store, store.projects.selectedProjectId]);
 
-  const projectName = store.selectedProject?.name || "this project";
-  const hasLinkedRepos = store.repoLinks.length > 0;
+  const projectName = store.projects.selectedProject?.name || "this project";
+  const hasLinkedRepos = store.projects.repoLinks.length > 0;
 
   return (
-    <Screen title="Repositories" actions={<button disabled={!store.selectedProjectId} onClick={() => store.loadRepoLinks()}>Refresh</button>}>
-      {store.selectedProjectId && !hasLinkedRepos ? (
+    <Screen title="Repositories" actions={<button disabled={!store.projects.selectedProjectId} onClick={() => store.projects.loadRepoLinks()}>Refresh</button>}>
+      {store.projects.selectedProjectId && !hasLinkedRepos ? (
         <Panel title="Next: Add Repositories">
           <ol className="setup-steps">
             <li>Add every code repo that belongs to {projectName}.</li>
@@ -51,7 +51,7 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
       <Panel title="Link Repo">
         <form className="stacked-form" onSubmit={(event) => {
           event.preventDefault();
-          void store.linkRepo({
+          void store.projects.linkRepo({
             repoPath,
             role: role || "other",
             name: repoName,
@@ -97,10 +97,10 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
           <p className="field-help">
             Pointer files are small `.zharwing/memory.json` files in linked repos (legacy `.ai-memory.json` files are still detected). They help agents auto-detect this project from the repo.
           </p>
-          <button type="submit" disabled={!store.selectedProjectId}>Link Repo</button>
+          <button type="submit" disabled={!store.projects.selectedProjectId}>Link Repo</button>
         </form>
       </Panel>
-      {store.selectedProjectId && hasLinkedRepos ? (
+      {store.projects.selectedProjectId && hasLinkedRepos ? (
         <Panel title="Next: Import Existing Memory">
           <p className="panel-help">
             Repos are linked. Open Import next, preview old MEMORY folders as Memory Docs,
@@ -109,9 +109,9 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
         </Panel>
       ) : null}
       <Panel title="Linked Repos">
-        {store.repoLinks.length ? (
+        {store.projects.repoLinks.length ? (
           <div className="repo-list">
-            {store.repoLinks.map((repo) => (
+            {store.projects.repoLinks.map((repo) => (
               <ListRow
                 key={repo.path}
                 title={repo.name || repo.path.split(/[\\/]/).pop() || repo.role}
@@ -127,7 +127,7 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
                     itemType="repo"
                     title={repo.name || repo.path}
                     label="Move to Trash"
-                    onConfirm={() => store.deleteRepo(repo.path, true)}
+                    onConfirm={() => store.projects.deleteRepo(repo.path, true)}
                   />
                 }
               />

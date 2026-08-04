@@ -12,18 +12,18 @@ import { isStaleActiveSession } from "../utils/sessions.js";
 export const SessionsScreen = observer(function SessionsScreen() {
   const store = useStore();
   const [selectedSessionId, setSessionSearchParam] = useSearchParamState("session");
-  const selectedSession = store.sessions.find((session) => session.id === selectedSessionId);
-  const staleSessions = store.sessions.filter(isStaleActiveSession);
+  const selectedSession = store.sessions.list.find((session) => session.id === selectedSessionId);
+  const staleSessions = store.sessions.list.filter(isStaleActiveSession);
 
   useCloseWhenMissing(
     selectedSessionId,
-    store.sessions.length > 0 && !store.sessions.some((session) => session.id === selectedSessionId),
+    store.sessions.list.length > 0 && !store.sessions.list.some((session) => session.id === selectedSessionId),
     () => closeSessionDetail(true)
   );
 
   useEffect(() => {
     if (selectedSession && selectedSession.body === undefined) {
-      void store.loadSessionDetail(selectedSession.id);
+      void store.sessions.loadDetail(selectedSession.id);
     }
   }, [selectedSession?.id, selectedSession?.body, store]);
 
@@ -53,8 +53,8 @@ export const SessionsScreen = observer(function SessionsScreen() {
           <button
             type="button"
             className="icon-text-button primary"
-            disabled={store.loading}
-            onClick={() => void store.closeStaleSessions()}
+            disabled={store.sessions.loading}
+            onClick={() => void store.sessions.closeStaleSessions()}
           >
             Close {staleSessions.length === 1 ? "it" : "them all"}
           </button>
@@ -66,8 +66,8 @@ export const SessionsScreen = observer(function SessionsScreen() {
           <button
             type="button"
             className="icon-text-button"
-            disabled={store.loading}
-            onClick={() => void store.generateSessionSummaries("missing")}
+            disabled={store.sessions.loading}
+            onClick={() => void store.sessions.generateSummaries("missing")}
           >
             Summarize missing
           </button>
@@ -77,8 +77,8 @@ export const SessionsScreen = observer(function SessionsScreen() {
               <button
                 type="button"
                 className="danger-button"
-                disabled={store.loading}
-                onClick={() => void store.generateSessionSummaries("all")}
+                disabled={store.sessions.loading}
+                onClick={() => void store.sessions.generateSummaries("all")}
               >
                 Regenerate all summaries
               </button>
@@ -86,11 +86,11 @@ export const SessionsScreen = observer(function SessionsScreen() {
           </details>
         </div>
       </div>
-      {store.sessions.length ? (
+      {store.sessions.list.length ? (
         <DataTable
           columns={["updated", "status", "agent", "branch", "taskTitle"]}
           columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", branch: "Branch", taskTitle: "Task" }}
-          rows={store.sessions}
+          rows={store.sessions.list}
           renderers={timestampRenderers("updated")}
           selectedRowId={selectedSessionId}
           onRowClick={openSessionDetail}
@@ -102,8 +102,8 @@ export const SessionsScreen = observer(function SessionsScreen() {
               {session.status === "active" ? (
                 <button
                   type="button"
-                  disabled={store.loading}
-                  onClick={() => void store.closeSession(session.id)}
+                  disabled={store.sessions.loading}
+                  onClick={() => void store.sessions.closeSession(session.id)}
                 >
                   Close session
                 </button>

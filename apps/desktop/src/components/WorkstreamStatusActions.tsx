@@ -18,7 +18,7 @@ export const WorkstreamStatusActions = observer(function WorkstreamStatusActions
           type="button"
           key={status}
           disabled={workstream.status === status}
-          onClick={() => store.updateWorkstreamStatus(workstream.id, status)}
+          onClick={() => store.workstreams.updateStatus(workstream.id, status)}
         >
           {status}
         </button>

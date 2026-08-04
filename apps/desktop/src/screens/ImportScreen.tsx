@@ -14,22 +14,22 @@ export const ImportScreen = observer(function ImportScreen() {
   const [conflictStrategy, setConflictStrategy] = useState("skip");
 
   useEffect(() => {
-    if (!store.importProfiles.length) void store.loadImportProfiles();
+    if (!store.system.importProfiles.length) void store.system.loadImportProfiles();
   }, [store]);
 
   useEffect(() => {
-    if (store.importProfiles.length && !store.importProfiles.some((candidate) => candidate.name === profile)) {
-      setProfile(store.importProfiles[0].name);
+    if (store.system.importProfiles.length && !store.system.importProfiles.some((candidate) => candidate.name === profile)) {
+      setProfile(store.system.importProfiles[0].name);
     }
-  }, [store.importProfiles, profile]);
+  }, [store.system.importProfiles, profile]);
 
-  const candidates = store.importPlan?.candidates || [];
-  const selectedProfile = store.importProfiles.find((candidate) => candidate.name === profile);
+  const candidates = store.system.importPlan?.candidates || [];
+  const selectedProfile = store.system.importProfiles.find((candidate) => candidate.name === profile);
   const importPresets = [
     { label: "Memory Docs", profile: "markdown-memory", help: "Old MEMORY folders" },
     { label: "Session History", profile: "markdown-sessions", help: "Old SESSIONS folders" },
     { label: "Mixed Workspace", profile: "workspace-markdown", help: "One folder with both" }
-  ].filter((preset) => store.importProfiles.some((candidate) => candidate.name === preset.profile));
+  ].filter((preset) => store.system.importProfiles.some((candidate) => candidate.name === preset.profile));
 
   return (
     <Screen title="Import">
@@ -47,7 +47,7 @@ export const ImportScreen = observer(function ImportScreen() {
       <Panel title="Prepare Import">
         <form className="stacked-form" onSubmit={(event) => {
           event.preventDefault();
-          void store.prepareImport({
+          void store.system.prepareImport({
             sourceRoot,
             profile,
             limit: limit ? Number(limit) : undefined
@@ -77,7 +77,7 @@ export const ImportScreen = observer(function ImportScreen() {
           <label>
             <span>Profile</span>
             <select value={profile} onChange={(event) => setProfile(event.target.value)}>
-              {store.importProfiles.map((candidate) => (
+              {store.system.importProfiles.map((candidate) => (
                 <option key={candidate.name} value={candidate.name}>{candidate.name}</option>
               ))}
             </select>
@@ -90,26 +90,26 @@ export const ImportScreen = observer(function ImportScreen() {
             <input type="number" min="1" value={limit} onChange={(event) => setLimit(event.target.value)} placeholder="optional" />
             <p className="field-help">Use a small limit for a first test import. Leave empty to preview the whole folder.</p>
           </label>
-          {!store.selectedProjectId ? (
+          {!store.projects.selectedProjectId ? (
             <p className="field-help">Create or select a project before importing.</p>
           ) : null}
-          <button type="submit" disabled={!store.selectedProjectId}>Preview Only</button>
+          <button type="submit" disabled={!store.projects.selectedProjectId}>Preview Only</button>
         </form>
       </Panel>
-      {store.importPlan ? (
+      {store.system.importPlan ? (
         <Panel title="Import Plan">
           <p className="panel-help">Nothing has been written yet. Review the counts and sample rows before committing.</p>
           <div className="dashboard-grid tight">
-            <KeyValue label="Plan" value={store.importPlan.id} />
-            <KeyValue label="Profile" value={store.importPlan.profileName} />
-            <KeyValue label="Total" value={store.importPlan.counts?.total || 0} />
-            <KeyValue label="Documents" value={store.importPlan.counts?.documents || 0} />
-            <KeyValue label="Sessions" value={store.importPlan.counts?.sessions || 0} />
-            <KeyValue label="Warnings" value={store.importPlan.counts?.warnings || 0} />
+            <KeyValue label="Plan" value={store.system.importPlan.id} />
+            <KeyValue label="Profile" value={store.system.importPlan.profileName} />
+            <KeyValue label="Total" value={store.system.importPlan.counts?.total || 0} />
+            <KeyValue label="Documents" value={store.system.importPlan.counts?.documents || 0} />
+            <KeyValue label="Sessions" value={store.system.importPlan.counts?.sessions || 0} />
+            <KeyValue label="Warnings" value={store.system.importPlan.counts?.warnings || 0} />
           </div>
           <form className="inline-form" onSubmit={(event) => {
             event.preventDefault();
-            void store.commitImport(conflictStrategy);
+            void store.system.commitImport(conflictStrategy);
           }}>
             <select value={conflictStrategy} onChange={(event) => setConflictStrategy(event.target.value)}>
               <option value="skip">Skip conflicts</option>
@@ -124,12 +124,12 @@ export const ImportScreen = observer(function ImportScreen() {
           }))} />
         </Panel>
       ) : null}
-      {store.importResult ? (
+      {store.system.importResult ? (
         <Panel title="Import Result">
-          <KeyValue label="Committed" value={store.importResult.committed || 0} />
-          <KeyValue label="Documents" value={store.importResult.documents || 0} />
-          <KeyValue label="Sessions" value={store.importResult.sessions || 0} />
-          <KeyValue label="Skipped" value={store.importResult.skipped || 0} />
+          <KeyValue label="Committed" value={store.system.importResult.committed || 0} />
+          <KeyValue label="Documents" value={store.system.importResult.documents || 0} />
+          <KeyValue label="Sessions" value={store.system.importResult.sessions || 0} />
+          <KeyValue label="Skipped" value={store.system.importResult.skipped || 0} />
           <p className="panel-help">
             Imported items are now available in Session History, Docs Library, Search, and Context Preview. Documents can appear in Graph immediately; imported sessions stay out until you enable Include in graph for each important session.
           </p>

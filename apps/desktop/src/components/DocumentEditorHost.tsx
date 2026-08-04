@@ -4,8 +4,8 @@ import { DocumentEditorModal } from "./DocumentEditorModal.js";
 
 /**
  * Standard wiring for DocumentEditorModal: save goes through
- * `store.updateDocument`, delete goes through `store.deleteDocument` and
- * then closes. `onDeleted` overrides the close call after a delete (for
+ * `store.docs.updateDocument`, delete goes through `store.docs.deleteDocument`
+ * and then closes. `onDeleted` overrides the close call after a delete (for
  * screens that close with `replace: true` history semantics).
  */
 export const DocumentEditorHost = observer(function DocumentEditorHost({
@@ -22,11 +22,11 @@ export const DocumentEditorHost = observer(function DocumentEditorHost({
   return (
     <DocumentEditorModal
       doc={doc}
-      saving={store.loading}
+      saving={store.docs.loading}
       onClose={onClose}
-      onSave={(changes) => store.updateDocument(doc.id, changes)}
+      onSave={(changes) => store.docs.updateDocument(doc.id, changes)}
       onDelete={async () => {
-        await store.deleteDocument(doc.id);
+        await store.docs.deleteDocument(doc.id);
         (onDeleted || onClose)();
       }}
     />

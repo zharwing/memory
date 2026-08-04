@@ -17,7 +17,7 @@ type SemanticProposalEdge = SemanticGraphProposalPatch["edges"][number];
 export const InboxScreen = observer(function InboxScreen() {
   const store = useStore();
   const [selectedProposalId, setProposalSearchParam] = useSearchParamState("proposal");
-  const visibleInbox = useMemo(() => currentInboxItems(store.inbox), [store.inbox]);
+  const visibleInbox = useMemo(() => currentInboxItems(store.inbox.items), [store.inbox.items]);
   const selectedProposal = visibleInbox.find((item) => item.id === selectedProposalId) || visibleInbox[0];
   const graphProposalRules = selectedProposal?.type === "graph-update"
     ? graphRulesFromProposalPatch(selectedProposal.proposedPatch)
@@ -30,8 +30,8 @@ export const InboxScreen = observer(function InboxScreen() {
     [selectedProposal?.id, selectedProposal?.proposedPatch]
   );
   const documentTitles = useMemo(
-    () => new Map<string, string>(store.docs.map((doc) => [String(doc.id), String(doc.title || doc.id)])),
-    [store.docs]
+    () => new Map<string, string>(store.docs.list.map((doc) => [String(doc.id), String(doc.title || doc.id)])),
+    [store.docs.list]
   );
   const semanticProposalPlainSummary = useMemo(
     () => semanticProposalPatch ? summarizeSemanticProposalForReview(semanticProposalPatch, documentTitles) : undefined,
@@ -59,7 +59,7 @@ export const InboxScreen = observer(function InboxScreen() {
   }
 
   function regenerateRelationshipReview() {
-    void store.analyzeSemanticGraph({
+    void store.semantic.analyze({
       mode: "review",
       dryRun: false
     });
@@ -69,10 +69,10 @@ export const InboxScreen = observer(function InboxScreen() {
     if (!selectedProposal || !semanticProposalPatch) return;
     const remainingEdges = semanticProposalPatch.edges.filter((_, index) => index !== edgeIndex);
     if (remainingEdges.length === 0) {
-      void store.updateInboxStatus(selectedProposal.id, "rejected");
+      void store.inbox.updateStatus(selectedProposal.id, "rejected");
       return;
     }
-    void store.updateInboxStatus(
+    void store.inbox.updateStatus(
       selectedProposal.id,
       "edited",
       JSON.stringify({ ...semanticProposalPatch, edges: remainingEdges }, null, 2)
@@ -105,39 +105,39 @@ export const InboxScreen = observer(function InboxScreen() {
               label="Move to Trash"
               onConfirm={async () => {
                 const deletedProposalId = selectedProposal.id;
-                await store.deleteInboxItem(deletedProposalId);
+                await store.inbox.deleteItem(deletedProposalId);
                 if (selectedProposalId === deletedProposalId) closeInboxProposal(true);
               }}
             />
             {semanticProposalPatch ? (
               <>
-                <button type="button" onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id)}>
+                <button type="button" onClick={() => store.semantic.acceptEdgesProposal(selectedProposal.id)}>
                   Accept all
                 </button>
                 <button
                   type="button"
                   disabled={!semanticProposalSummary?.confidenceBands.high}
-                  onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id, { minConfidence: 0.85 })}
+                  onClick={() => store.semantic.acceptEdgesProposal(selectedProposal.id, { minConfidence: 0.85 })}
                 >
                   Accept high confidence
                 </button>
                 <button
                   type="button"
                   disabled={!semanticProposalSummary || semanticProposalSummary.confidenceBands.high + semanticProposalSummary.confidenceBands.review === 0}
-                  onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id, { minConfidence: 0.55 })}
+                  onClick={() => store.semantic.acceptEdgesProposal(selectedProposal.id, { minConfidence: 0.55 })}
                 >
                   Accept high + review
                 </button>
-                <button type="button" disabled={store.loading} onClick={regenerateRelationshipReview}>
+                <button type="button" disabled={store.semantic.loading} onClick={regenerateRelationshipReview}>
                   Regenerate review
                 </button>
               </>
             ) : (
-              <button type="button" onClick={() => store.updateInboxStatus(selectedProposal.id, "accepted")}>Mark Accepted</button>
+              <button type="button" onClick={() => store.inbox.updateStatus(selectedProposal.id, "accepted")}>Mark Accepted</button>
             )}
-            <button type="button" onClick={() => store.updateInboxStatus(selectedProposal.id, "rejected")}>Reject all</button>
+            <button type="button" onClick={() => store.inbox.updateStatus(selectedProposal.id, "rejected")}>Reject all</button>
             {graphProposalRules ? (
-              <button type="button" onClick={() => store.applyGraphRulesProposal(selectedProposal.id, graphProposalRules)}>
+              <button type="button" onClick={() => store.graph.applyGraphRulesProposal(selectedProposal.id, graphProposalRules)}>
                 Apply Graph Rules
               </button>
             ) : null}
@@ -189,15 +189,15 @@ export const InboxScreen = observer(function InboxScreen() {
                       <div className="semantic-connection-actions">
                         <button
                           type="button"
-                          disabled={store.loading}
-                          onClick={() => store.acceptSemanticEdgesProposal(selectedProposal.id, { edgeIndexes: [index] })}
+                          disabled={store.semantic.loading}
+                          onClick={() => store.semantic.acceptEdgesProposal(selectedProposal.id, { edgeIndexes: [index] })}
                         >
                           Accept
                         </button>
                         <button
                           type="button"
                           className="danger-button"
-                          disabled={store.loading}
+                          disabled={store.inbox.loading}
                           onClick={() => removeSemanticProposalEdge(index)}
                         >
                           Remove

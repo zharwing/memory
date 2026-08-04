@@ -7,16 +7,16 @@ import { useDraft } from "../hooks/useDraft.js";
 
 export const SettingsScreen = observer(function SettingsScreen() {
   const store = useStore();
-  const project = store.selectedProject;
-  const memoryWritePolicy = store.selectedMemoryWritePolicy;
+  const project = store.projects.selectedProject;
+  const memoryWritePolicy = store.projects.selectedMemoryWritePolicy;
   const [graphRulesDraft, setGraphRulesDraft] = useState("[]");
   const [graphRulesError, setGraphRulesError] = useState("");
   const [semanticDraft, updateSemanticDraft, setSemanticDraft] = useDraft<any>({});
   const graphRulesSignature = JSON.stringify(project?.graphRules || []);
-  const semanticSettingsSignature = JSON.stringify(store.semanticGraphSettings || {});
-  const edgeCounts = store.semanticGraphEdgeCounts;
-  const latestSemanticRun = store.semanticGraphStatus?.runCounts?.latest;
-  const semanticPreview = store.semanticAnalysisPreview;
+  const semanticSettingsSignature = JSON.stringify(store.semantic.settings || {});
+  const edgeCounts = store.semantic.edgeCounts;
+  const latestSemanticRun = store.semantic.status?.runCounts?.latest;
+  const semanticPreview = store.semantic.analysisPreview;
 
   useEffect(() => {
     setGraphRulesDraft(JSON.stringify(project?.graphRules || [], null, 2));
@@ -35,7 +35,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
       includeDeterministicSignals: true,
       includeVectorCandidates: false,
       remoteProvidersEnabled: false,
-      ...store.semanticGraphSettings
+      ...store.semantic.settings
     });
   }, [project?.id, semanticSettingsSignature]);
 
@@ -58,10 +58,10 @@ export const SettingsScreen = observer(function SettingsScreen() {
             <span>Review mode</span>
             <select
               value={memoryWritePolicy.reviewMode}
-              disabled={!store.selectedProjectId}
+              disabled={!store.projects.selectedProjectId}
               onChange={(event) => {
                 const reviewMode = event.target.value;
-                return store.updateMemoryWritePolicy({
+                return store.projects.updateMemoryWritePolicy({
                   reviewMode,
                   allowAgentDirectWrites: reviewMode === "all" ? false : true
                 });
@@ -76,8 +76,8 @@ export const SettingsScreen = observer(function SettingsScreen() {
             <input
               type="checkbox"
               checked={memoryWritePolicy.allowAgentDirectWrites}
-              disabled={!store.selectedProjectId || memoryWritePolicy.reviewMode === "all"}
-              onChange={(event) => store.updateMemoryWritePolicy({ allowAgentDirectWrites: event.target.checked })}
+              disabled={!store.projects.selectedProjectId || memoryWritePolicy.reviewMode === "all"}
+              onChange={(event) => store.projects.updateMemoryWritePolicy({ allowAgentDirectWrites: event.target.checked })}
             />
             <span>Allow agents to write memory directly</span>
           </label>
@@ -94,7 +94,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
         </div>
         <form className="stacked-form semantic-settings-form" onSubmit={(event) => {
           event.preventDefault();
-          void store.updateSemanticGraphSettings({
+          void store.semantic.updateSettings({
             enabled: Boolean(semanticDraft.enabled),
             mode: semanticDraft.mode || "review",
             providerId: semanticDraft.providerId?.trim() || undefined,
@@ -115,7 +115,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
               <input
                 type="checkbox"
                 checked={Boolean(semanticDraft.enabled)}
-                disabled={!store.selectedProjectId}
+                disabled={!store.projects.selectedProjectId}
                 onChange={(event) => updateSemanticDraft({ enabled: event.target.checked })}
               />
               <span>Enable AI relationship analysis</span>
@@ -124,7 +124,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
               <span>Mode</span>
               <select
                 value={semanticDraft.mode || "review"}
-                disabled={!store.selectedProjectId}
+                disabled={!store.projects.selectedProjectId}
                 onChange={(event) => updateSemanticDraft({ mode: event.target.value })}
               >
                 <option value="review">Review</option>
@@ -250,18 +250,18 @@ export const SettingsScreen = observer(function SettingsScreen() {
             </label>
           </div>
           <div className="inline-form compact">
-            <button type="submit" disabled={!store.selectedProjectId || store.loading}>Save Semantic Graph</button>
+            <button type="submit" disabled={!store.projects.selectedProjectId || store.semantic.loading}>Save Semantic Graph</button>
             <button
               type="button"
-              disabled={!store.selectedProjectId || store.loading}
-              onClick={() => store.previewSemanticGraphAnalysis({ kind: "all-docs" })}
+              disabled={!store.projects.selectedProjectId || store.semantic.loading}
+              onClick={() => store.semantic.previewAnalysis({ kind: "all-docs" })}
             >
               Preview Analysis
             </button>
             <button
               type="button"
-              disabled={store.loading}
-              onClick={() => setSemanticDraft({ ...store.semanticGraphSettings })}
+              disabled={store.semantic.loading}
+              onClick={() => setSemanticDraft({ ...store.semantic.settings })}
             >
               Reset
             </button>
@@ -288,7 +288,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
             const parsed = JSON.parse(graphRulesDraft || "[]");
             if (!Array.isArray(parsed)) throw new Error("Graph rules must be a JSON array.");
             setGraphRulesError("");
-            void store.updateGraphRules(parsed);
+            void store.graph.updateGraphRules(parsed);
           } catch (error) {
             setGraphRulesError(error instanceof Error ? error.message : String(error));
           }
@@ -305,10 +305,10 @@ export const SettingsScreen = observer(function SettingsScreen() {
           </label>
           {graphRulesError ? <p className="form-error">{graphRulesError}</p> : null}
           <div className="inline-form compact">
-            <button type="submit" disabled={!store.selectedProjectId || store.loading}>Save Graph Rules</button>
+            <button type="submit" disabled={!store.projects.selectedProjectId || store.graph.loading}>Save Graph Rules</button>
             <button
               type="button"
-              disabled={store.loading}
+              disabled={store.graph.loading}
               onClick={() => {
                 setGraphRulesDraft(JSON.stringify(project?.graphRules || [], null, 2));
                 setGraphRulesError("");

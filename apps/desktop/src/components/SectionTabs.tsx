@@ -30,7 +30,7 @@ export function WorkTabs() {
 
 export function LibraryTabs() {
   const store = useStore();
-  const pendingInboxCount = pendingInboxReviewCount(store.inbox);
+  const pendingInboxCount = pendingInboxReviewCount(store.inbox.items);
   return <SectionTabs tabs={libraryTabs} badges={{ "/inbox": pendingInboxCount }} />;
 }
 
@@ -53,7 +53,7 @@ export function SectionTabs({
       {tabs.map(([label, href]) => (
         <NavLink
           key={href}
-          to={projectPath(store.selectedProjectId, href)}
+          to={projectPath(store.projects.selectedProjectId, href)}
           className={() => `section-tab ${appPath === href ? "active" : ""}`}
         >
           {label}

@@ -11,9 +11,9 @@ import { timestampRenderers } from "../utils/format.js";
 
 export const DashboardScreen = observer(function DashboardScreen() {
   const store = useStore();
-  const summary = store.summary;
-  const memoryWritePolicy = store.selectedMemoryWritePolicy;
-  const pendingReviewCount = pendingInboxReviewCount(store.inbox);
+  const summary = store.projects.summary;
+  const memoryWritePolicy = store.projects.selectedMemoryWritePolicy;
+  const pendingReviewCount = pendingInboxReviewCount(store.inbox.items);
   return (
     <Screen title="Project Dashboard" actions={<DashboardActions />}>
       <div className="dashboard-grid">
@@ -24,10 +24,10 @@ export const DashboardScreen = observer(function DashboardScreen() {
         </Panel>
         <Panel title="Context Preview">
           <p className="panel-help">Preview only. These items are not sent anywhere unless an agent or user asks for a context bundle.</p>
-          <KeyValue label="Safety" value={store.contextBundle?.safetyStatus || "unknown"} />
-          <KeyValue label="Would include" value={store.contextBundle?.includedItems?.length || 0} />
-          <KeyValue label="Would skip" value={store.contextBundle?.excludedItems?.length || 0} />
-          <KeyValue label="Estimated tokens" value={store.contextBundle?.tokenEstimate || 0} />
+          <KeyValue label="Safety" value={store.assistant.contextBundle?.safetyStatus || "unknown"} />
+          <KeyValue label="Would include" value={store.assistant.contextBundle?.includedItems?.length || 0} />
+          <KeyValue label="Would skip" value={store.assistant.contextBundle?.excludedItems?.length || 0} />
+          <KeyValue label="Estimated tokens" value={store.assistant.contextBundle?.tokenEstimate || 0} />
         </Panel>
         <Panel title="Memory Updates">
           <p className="panel-help">
@@ -38,8 +38,8 @@ export const DashboardScreen = observer(function DashboardScreen() {
           <KeyValue label="Pending review" value={pendingReviewCount} />
         </Panel>
         <Panel title="Graph Snapshot">
-          <KeyValue label="Nodes" value={store.graph?.nodes?.length || 0} />
-          <KeyValue label="Edges" value={store.graph?.edges?.length || 0} />
+          <KeyValue label="Nodes" value={store.graph.data?.nodes?.length || 0} />
+          <KeyValue label="Edges" value={store.graph.data?.edges?.length || 0} />
         </Panel>
       </div>
       <RecentSessions />
@@ -54,18 +54,18 @@ function DashboardActions() {
   return (
     <form className="inline-form compact" onSubmit={(event) => {
       event.preventDefault();
-      void store.startSession(task, workstreamId ? [workstreamId] : []).then(() => setTask(""));
+      void store.sessions.startSession(task, workstreamId ? [workstreamId] : []).then(() => setTask(""));
     }}>
       <input value={task} onChange={(event) => setTask(event.target.value)} placeholder="Optional session title" />
       <select value={workstreamId} onChange={(event) => setWorkstreamId(event.target.value)}>
         <option value="">No workstream</option>
-        {store.workstreams.map((workstream) => (
+        {store.workstreams.list.map((workstream) => (
           <option key={workstream.id} value={workstream.id}>{workstream.name}</option>
         ))}
       </select>
-      <NavLink className="button-link" to={projectPath(store.selectedProjectId, "/workstreams")}>Create Workstream</NavLink>
+      <NavLink className="button-link" to={projectPath(store.projects.selectedProjectId, "/workstreams")}>Create Workstream</NavLink>
       <button type="submit">Start Today's Session</button>
-      <button type="button" onClick={() => store.refreshProject()}>Refresh</button>
+      <button type="button" onClick={() => store.refreshAll()}>Refresh</button>
     </form>
   );
 }
@@ -77,7 +77,7 @@ function RecentSessions() {
       <DataTable
         columns={["updated", "status", "taskTitle"]}
         columnLabels={{ updated: "Updated", status: "Status", taskTitle: "Task" }}
-        rows={store.sessions.slice(0, 6)}
+        rows={store.sessions.list.slice(0, 6)}
         renderers={timestampRenderers("updated")}
       />
     </Panel>

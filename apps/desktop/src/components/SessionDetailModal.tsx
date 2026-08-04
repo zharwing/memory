@@ -37,7 +37,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
   const topics: string[] = session.topics || [];
 
   function generateSummary() {
-    void store.generateSessionSummary(session.id, true);
+    void store.sessions.generateSummary(session.id, true);
   }
 
   return (
@@ -73,7 +73,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
               <button
                 type="button"
                 className="icon-text-button primary"
-                disabled={store.loading}
+                disabled={store.sessions.loading}
                 onClick={() => setCloseoutOpen(true)}
               >
                 Close session
@@ -104,7 +104,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                   ) : null}
                   <button
                     type="button"
-                    disabled={store.loading}
+                    disabled={store.sessions.loading}
                     onClick={() => {
                       generateSummary();
                       closeMenu();
@@ -122,7 +122,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                       critical={isActive}
                       label="Move to trash"
                       onConfirm={async () => {
-                        await store.deleteSession(session.id);
+                        await store.sessions.deleteSession(session.id);
                         (onDeleted || onClose)();
                       }}
                     />
@@ -159,7 +159,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
               <div className="inspector-section-head">
                 <h4>TL;DR</h4>
                 {summary ? (
-                  <button type="button" className="link-button" disabled={store.loading} onClick={generateSummary}>
+                  <button type="button" className="link-button" disabled={store.sessions.loading} onClick={generateSummary}>
                     Regenerate
                   </button>
                 ) : null}
@@ -188,7 +188,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                   <button
                     type="button"
                     className="icon-text-button"
-                    disabled={store.loading}
+                    disabled={store.sessions.loading}
                     onClick={generateSummary}
                   >
                     Generate TL;DR
@@ -221,8 +221,8 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                 <input
                   type="checkbox"
                   checked={Boolean(session.includeInGraph)}
-                  disabled={store.loading}
-                  onChange={(event) => void store.updateSessionGraphVisibility(session.id, event.target.checked)}
+                  disabled={store.sessions.loading}
+                  onChange={(event) => void store.sessions.updateGraphVisibility(session.id, event.target.checked)}
                 />
               </label>
               <p className="inspector-help">
@@ -263,9 +263,9 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
 
   async function closeSession() {
     if (includeInGraph !== Boolean(session.includeInGraph)) {
-      await store.updateSessionGraphVisibility(session.id, includeInGraph);
+      await store.sessions.updateGraphVisibility(session.id, includeInGraph);
     }
-    await store.closeSession(session.id, summary);
+    await store.sessions.closeSession(session.id, summary);
     onCancel();
   }
 
@@ -300,7 +300,7 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
       </label>
       <div className="session-closeout-actions">
         <button type="button" onClick={onCancel}>Cancel</button>
-        <button type="button" className="icon-text-button primary" disabled={store.loading} onClick={() => void closeSession()}>
+        <button type="button" className="icon-text-button primary" disabled={store.sessions.loading} onClick={() => void closeSession()}>
           {confirmLabel}
         </button>
       </div>

@@ -10,7 +10,7 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
   const navigate = useNavigate();
 
   async function openProject(projectId: string) {
-    await store.selectProject(projectId);
+    await store.projects.selectProject(projectId);
     if (!store.error) navigate(projectPath(projectId, "/dashboard"));
   }
 
@@ -20,14 +20,14 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
       actions={(
         <div className="button-row">
           <NavLink className="button-link primary" to="/setup">Create Project</NavLink>
-          <button onClick={() => store.loadProjects()}>Refresh</button>
+          <button onClick={() => store.projects.load()}>Refresh</button>
         </div>
       )}
     >
       <div className="project-grid">
-        {store.projects.map((project) => (
+        {store.projects.list.map((project) => (
           <div className="managed-card" key={project.id}>
-            <button className={`project-card ${store.selectedProjectId === project.id ? "selected" : ""}`} onClick={() => void openProject(project.id)}>
+            <button className={`project-card ${store.projects.selectedProjectId === project.id ? "selected" : ""}`} onClick={() => void openProject(project.id)}>
               <strong>{project.name}</strong>
               <span>{project.id}</span>
               <small>{project.memoryRoot}</small>
@@ -37,12 +37,12 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
               title={project.name}
               critical
               label="Move to Trash"
-              onConfirm={() => store.deleteProject(project.id)}
+              onConfirm={() => store.projects.deleteProject(project.id)}
             />
           </div>
         ))}
       </div>
-      {store.projects.length === 0 ? <Empty text="No projects registered yet. Use Setup to create one." /> : null}
+      {store.projects.list.length === 0 ? <Empty text="No projects registered yet. Use Setup to create one." /> : null}
     </Screen>
   );
 });

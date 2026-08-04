@@ -10,19 +10,19 @@ import { formatShortDateTime } from "../utils/format.js";
 export const BackupsScreen = observer(function BackupsScreen() {
   const store = useStore();
   useEffect(() => {
-    if (store.selectedProjectId) void store.loadBackups();
-  }, [store, store.selectedProjectId]);
+    if (store.projects.selectedProjectId) void store.system.loadBackups();
+  }, [store, store.projects.selectedProjectId]);
   return (
-    <Screen title="Backups" actions={<button disabled={!store.selectedProjectId} onClick={() => store.loadBackups()}>Refresh</button>}>
+    <Screen title="Backups" actions={<button disabled={!store.projects.selectedProjectId} onClick={() => store.system.loadBackups()}>Refresh</button>}>
       <SettingsTabs />
       <Panel title="Project Snapshot">
         <p>Snapshots copy project memory into `backups/snapshots` while excluding previous backups.</p>
-        <button disabled={!store.selectedProjectId} onClick={() => store.createBackup()}>Create Snapshot</button>
+        <button disabled={!store.projects.selectedProjectId} onClick={() => store.system.createBackup()}>Create Snapshot</button>
       </Panel>
       <Panel title="Snapshots">
-        {store.backups.length ? (
+        {store.system.backups.length ? (
           <div className="repo-list">
-            {store.backups.map((backup) => (
+            {store.system.backups.map((backup) => (
               <ListRow
                 key={backup.snapshotPath}
                 title={formatShortDateTime(backup.created)}
@@ -37,7 +37,7 @@ export const BackupsScreen = observer(function BackupsScreen() {
                     itemType="backup"
                     title={`Snapshot ${backup.created}`}
                     label="Move to Trash"
-                    onConfirm={() => store.deleteBackup(backup.snapshotPath)}
+                    onConfirm={() => store.system.deleteBackup(backup.snapshotPath)}
                   />
                 }
               />

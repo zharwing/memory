@@ -29,14 +29,14 @@ export const App = observer(function App() {
   const routeProjectId = projectIdFromPathname(location.pathname);
 
   useEffect(() => {
-    void store.loadProjects(routeProjectId).then(() => store.refreshProject());
+    void store.projects.load(routeProjectId).then(() => store.refreshAll());
   }, [store]);
 
   useEffect(() => {
-    if (!routeProjectId || routeProjectId === store.selectedProjectId) return;
-    if (!store.projects.some((project) => project.id === routeProjectId)) return;
-    void store.selectProject(routeProjectId);
-  }, [routeProjectId, store, store.projects.length, store.selectedProjectId]);
+    if (!routeProjectId || routeProjectId === store.projects.selectedProjectId) return;
+    if (!store.projects.list.some((project) => project.id === routeProjectId)) return;
+    void store.projects.selectProject(routeProjectId);
+  }, [routeProjectId, store, store.projects.list.length, store.projects.selectedProjectId]);
 
   return (
     <Shell>

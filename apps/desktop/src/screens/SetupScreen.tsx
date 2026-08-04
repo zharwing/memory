@@ -19,12 +19,12 @@ export const SetupScreen = observer(function SetupScreen() {
   const [bootstrapFiles, setBootstrapFiles] = useState("AGENTS.md");
 
   useEffect(() => {
-    if (!store.daemonHealth) void store.loadDaemonHealth();
+    if (!store.system.daemonHealth) void store.system.loadDaemonHealth();
   }, [store]);
 
-  const preview = store.projectCreationPreview;
-  const memoryRoot = store.daemonHealth?.memoryRoot || "not connected";
-  const mcpInstall = store.mcpInstallResult as {
+  const preview = store.projects.projectCreationPreview;
+  const memoryRoot = store.system.daemonHealth?.memoryRoot || "not connected";
+  const mcpInstall = store.system.mcpInstallResult as {
     changed?: boolean;
     client?: string;
     scope?: string;
@@ -42,7 +42,7 @@ export const SetupScreen = observer(function SetupScreen() {
     skipped?: Array<{ client?: string; scope?: string; reason?: string }>;
     warnings?: string[];
   } | undefined;
-  const mcpDoctor = store.mcpDoctor as {
+  const mcpDoctor = store.system.mcpDoctor as {
     daemon?: { reachable?: boolean; url?: string };
     stdio?: { toolCount?: number };
   } | undefined;
@@ -50,11 +50,11 @@ export const SetupScreen = observer(function SetupScreen() {
   const mcpAutoInstalls = Array.isArray(mcpInstall?.installs) ? mcpInstall.installs : [];
   const mcpSkipped = Array.isArray(mcpInstall?.skipped) ? mcpInstall.skipped : [];
   return (
-    <Screen title="Setup" actions={<button onClick={() => store.loadDaemonHealth()}>Check Daemon</button>}>
+    <Screen title="Setup" actions={<button onClick={() => store.system.loadDaemonHealth()}>Check Daemon</button>}>
       <SettingsTabs />
       <div className="dashboard-grid">
         <Panel title="Daemon">
-          <KeyValue label="Status" value={store.daemonHealth?.status || "unknown"} />
+          <KeyValue label="Status" value={store.system.daemonHealth?.status || "unknown"} />
           <KeyValue label="Private store" value={memoryRoot} />
           <p className="panel-help">
             The private store is local data, not app source code. It holds your projects, sessions,
@@ -75,11 +75,11 @@ export const SetupScreen = observer(function SetupScreen() {
               Install Zharwing Memory as a local MCP server for coding agents. Restart the agent after installation.
             </p>
             <div className="button-row">
-              <button type="button" onClick={() => store.installMcpClient("auto")}>Install Auto</button>
-              <button type="button" onClick={() => store.installMcpClient("codex")}>Install Codex</button>
-              <button type="button" onClick={() => store.installMcpClient("claude-code")}>Install Claude Code</button>
-              <button type="button" onClick={() => store.installMcpClient("claude-desktop")}>Install Claude Desktop</button>
-              <button type="button" onClick={() => store.loadMcpDoctor()}>Check MCP</button>
+              <button type="button" onClick={() => store.system.installMcpClient("auto")}>Install Auto</button>
+              <button type="button" onClick={() => store.system.installMcpClient("codex")}>Install Codex</button>
+              <button type="button" onClick={() => store.system.installMcpClient("claude-code")}>Install Claude Code</button>
+              <button type="button" onClick={() => store.system.installMcpClient("claude-desktop")}>Install Claude Desktop</button>
+              <button type="button" onClick={() => store.system.loadMcpDoctor()}>Check MCP</button>
             </div>
             {mcpInstall ? (
               <div className="setup-guidance">
@@ -123,7 +123,7 @@ export const SetupScreen = observer(function SetupScreen() {
           <form className="stacked-form" onSubmit={(event) => {
             event.preventDefault();
             const shouldLinkInitialRepo = setupMode === "initial-repo" && workingDirectory.trim();
-            void store.prepareProjectCreation({
+            void store.projects.prepareProjectCreation({
               workingDirectory: shouldLinkInitialRepo ? workingDirectory : undefined,
               projectName,
               createPointerFile: shouldLinkInitialRepo ? createPointerFile : false,
@@ -195,8 +195,8 @@ export const SetupScreen = observer(function SetupScreen() {
             <button
               type="button"
               onClick={async () => {
-                const created = await store.createProjectFromPreview();
-                if (created) navigate(projectPath(store.selectedProjectId, "/repositories"));
+                const created = await store.projects.createProjectFromPreview();
+                if (created) navigate(projectPath(store.projects.selectedProjectId, "/repositories"));
               }}
             >
               Create Project and Add Repos

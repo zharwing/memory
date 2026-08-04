@@ -20,11 +20,11 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   const [relatedFiles, setRelatedFiles] = useState("");
 
   useEffect(() => {
-    if (store.selectedProjectId) void store.loadWorkstreams();
-  }, [store, store.selectedProjectId]);
+    if (store.projects.selectedProjectId) void store.workstreams.load();
+  }, [store, store.projects.selectedProjectId]);
 
-  const detail = store.workstreamDetail;
-  const repoCategoryOptions = [...new Set(store.repoLinks.map((repo) => repo.role).filter(Boolean))].sort();
+  const detail = store.workstreams.detail;
+  const repoCategoryOptions = [...new Set(store.projects.repoLinks.map((repo) => repo.role).filter(Boolean))].sort();
   const selectedRepoCategories = splitList(repoRoles);
   function toggleRepoCategory(category: string) {
     const next = selectedRepoCategories.includes(category)
@@ -34,13 +34,13 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   }
 
   return (
-    <Screen title="Workstreams" actions={<button disabled={!store.selectedProjectId} onClick={() => store.loadWorkstreams()}>Refresh</button>}>
+    <Screen title="Workstreams" actions={<button disabled={!store.projects.selectedProjectId} onClick={() => store.workstreams.load()}>Refresh</button>}>
       <WorkTabs />
       <div className="dashboard-grid">
         <Panel title="Create Workstream">
           <form className="stacked-form" onSubmit={(event) => {
             event.preventDefault();
-            void store.createWorkstream({
+            void store.workstreams.createWorkstream({
               name,
               summary,
               goal,
@@ -102,18 +102,18 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                 </label>
               </div>
             </details>
-            <button type="submit" disabled={!store.selectedProjectId}>Create Workstream</button>
+            <button type="submit" disabled={!store.projects.selectedProjectId}>Create Workstream</button>
           </form>
         </Panel>
         <Panel title="Workstream List">
-          {store.workstreams.length ? (
+          {store.workstreams.list.length ? (
             <div className="repo-list">
-              {store.workstreams.map((workstream) => (
+              {store.workstreams.list.map((workstream) => (
                 <button
                   type="button"
-                  className={`project-card compact ${store.selectedWorkstreamId === workstream.id ? "selected" : ""}`}
+                  className={`project-card compact ${store.workstreams.selectedWorkstreamId === workstream.id ? "selected" : ""}`}
                   key={workstream.id}
-                  onClick={() => store.selectWorkstream(workstream.id)}
+                  onClick={() => store.workstreams.selectWorkstream(workstream.id)}
                 >
                   <strong>{workstream.name}</strong>
                   <span>{workstream.status}</span>
@@ -143,7 +143,7 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
               itemType="workstream"
               title={detail.workstream.name}
               label="Move to Trash"
-              onConfirm={() => store.deleteWorkstream(detail.workstream.id)}
+              onConfirm={() => store.workstreams.deleteWorkstream(detail.workstream.id)}
             />
           </div>
           <RawTextPreview text={detail.workstream.body} />

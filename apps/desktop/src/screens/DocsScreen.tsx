@@ -41,17 +41,17 @@ export const DocsScreen = observer(function DocsScreen() {
   } = useSemanticRunDraft();
   const [page, setPage] = useState(0);
   const pageSize = 25;
-  const docs = store.docs.filter((doc) => doc.type !== "diagram");
+  const docs = store.docs.list.filter((doc) => doc.type !== "diagram");
   // Mirrors the daemon-side semantic analysis eligibility: only ai-eligible
   // and ai-pinned documents are ever sent to the provider.
   const aiEligibleDocs = docs.filter((doc) => doc.visibility === "ai-eligible" || doc.visibility === "ai-pinned");
   const filteredDocs = filterDocuments(docs, filter);
-  const starterDraftDocs = store.docs.filter(isStarterDraftDoc);
+  const starterDraftDocs = store.docs.list.filter(isStarterDraftDoc);
   const pageCount = Math.max(1, Math.ceil(filteredDocs.length / pageSize));
   const pageIndex = Math.min(page, pageCount - 1);
   const pagedDocs = filteredDocs.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
-  const editingDoc = store.docs.find((doc) => doc.id === editingDocId);
-  const pendingRelationshipApprovals = pendingInboxItems(store.inbox).filter((item) =>
+  const editingDoc = store.docs.list.find((doc) => doc.id === editingDocId);
+  const pendingRelationshipApprovals = pendingInboxItems(store.inbox.items).filter((item) =>
     item.type === "graph-update" &&
     semanticEdgesFromProposalPatch(item.proposedPatch)?.edges.length
   );
@@ -59,41 +59,41 @@ export const DocsScreen = observer(function DocsScreen() {
   const pendingRelationshipSuggestions = pendingRelationshipApprovals.reduce((total, item) => {
     return total + (semanticEdgesFromProposalPatch(item.proposedPatch)?.edges.length || 0);
   }, 0);
-  const assistantPolicy: Partial<AssistantPolicy> = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || {};
+  const assistantPolicy: Partial<AssistantPolicy> = store.projects.summary?.project?.assistantPolicy || store.projects.selectedProject?.assistantPolicy || {};
   const assistantRuntimeType = String(assistantPolicy.runtimeType || "disabled");
   const relationshipProviderEndpoint = assistantPolicy.endpoint || "";
-  const relationshipProviderModel = store.semanticGraphSettings?.model || assistantPolicy.modelName || "";
+  const relationshipProviderModel = store.semantic.settings?.model || assistantPolicy.modelName || "";
   const relationshipProviderName = providerLabel(assistantRuntimeType);
   const relationshipProviderModelDisplayName = modelDisplayNameForLinkDiscovery({
     assistantPolicy,
-    providerCheck: store.assistantProviderCheck,
+    providerCheck: store.assistant.providerCheck,
     modelId: relationshipProviderModel
   });
-  const relationshipProviderConnected = Boolean(store.assistantProviderCheck?.ok);
+  const relationshipProviderConnected = Boolean(store.assistant.providerCheck?.ok);
   const relationshipProviderReady = Boolean(
     assistantPolicy.enabled &&
     assistantRuntimeType !== "disabled" &&
     relationshipProviderEndpoint &&
     relationshipProviderModel
   );
-  const semanticEdgeCounts = store.semanticGraphEdgeCounts;
-  const semanticLatestRun = store.semanticGraphStatus?.runCounts?.latest;
-  const semanticResult = store.semanticAnalysisResult;
+  const semanticEdgeCounts = store.semantic.edgeCounts;
+  const semanticLatestRun = store.semantic.status?.runCounts?.latest;
+  const semanticResult = store.semantic.analysisResult;
   const savedLinkCount = (semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0);
-  const semanticDisplayRun = store.semanticAnalysisProgressRun || semanticResult?.run || semanticLatestRun;
+  const semanticDisplayRun = store.semantic.analysisProgressRun || semanticResult?.run || semanticLatestRun;
   const semanticRunCounts = semanticDisplayRun?.counts || {};
-  const runProgress = semanticRunStatus(semanticDisplayRun, store.semanticAnalysisRunning);
+  const runProgress = semanticRunStatus(semanticDisplayRun, store.semantic.analysisRunning);
   const semanticRunRunning = runProgress.running;
   const semanticRunFinished = runProgress.finished;
   const semanticProposalId = semanticResult?.proposal?.id || pendingRelationshipApprovals[0]?.id;
   const semanticInboxPath = semanticProposalId
-    ? projectPath(store.selectedProjectId, `/inbox?proposal=${encodeURIComponent(semanticProposalId)}`)
-    : projectPath(store.selectedProjectId, "/inbox");
+    ? projectPath(store.projects.selectedProjectId, `/inbox?proposal=${encodeURIComponent(semanticProposalId)}`)
+    : projectPath(store.projects.selectedProjectId, "/inbox");
   const showSemanticRunBanner = Boolean(semanticDisplayRun && !showLinkDiscoveryDialog && (semanticRunRunning || semanticRunFinished));
 
   useCloseWhenMissing(
     editingDocId,
-    store.docs.length > 0 && !store.docs.some((doc) => doc.id === editingDocId),
+    store.docs.list.length > 0 && !store.docs.list.some((doc) => doc.id === editingDocId),
     () => closeDocEditor(true)
   );
 
@@ -124,7 +124,7 @@ export const DocsScreen = observer(function DocsScreen() {
   }
 
   function runRelationshipReview() {
-    void store.analyzeSemanticGraph(relationshipRunPayload({
+    void store.semantic.analyze(relationshipRunPayload({
       scope: { kind: "all-docs" },
       fallbackMode: "review"
     }));
@@ -300,7 +300,7 @@ export const DocsScreen = observer(function DocsScreen() {
                   <strong>AI provider not connected</strong>
                   <p>Connect an AI provider before creating graph-link suggestions.</p>
                 </div>
-                <Link className="button-link primary" to={projectPath(store.selectedProjectId, "/assistant")}>
+                <Link className="button-link primary" to={projectPath(store.projects.selectedProjectId, "/assistant")}>
                   Open AI Assistant settings
                 </Link>
               </div>
@@ -318,7 +318,7 @@ export const DocsScreen = observer(function DocsScreen() {
                 {pendingRelationshipSuggestions > 0 ? (
                   <div className="link-discovery-pending-note">
                     <strong>{pendingRelationshipSuggestions} suggestions already waiting in Inbox.</strong>
-                    <Link className="button-link" to={projectPath(store.selectedProjectId, "/inbox")}>
+                    <Link className="button-link" to={projectPath(store.projects.selectedProjectId, "/inbox")}>
                       Review Inbox
                     </Link>
                   </div>
@@ -327,7 +327,7 @@ export const DocsScreen = observer(function DocsScreen() {
                   <button
                     type="button"
                     className="icon-text-button primary"
-                    disabled={!store.selectedProjectId || store.loading || semanticRunRunning || aiEligibleDocs.length === 0}
+                    disabled={!store.projects.selectedProjectId || store.semantic.loading || semanticRunRunning || aiEligibleDocs.length === 0}
                     onClick={runRelationshipReview}
                   >
                     <Play size={14} />
@@ -348,7 +348,7 @@ export const DocsScreen = observer(function DocsScreen() {
                   <button
                     type="button"
                     className={`icon-text-button ${showRelationshipAdvanced ? "selected" : ""}`}
-                    disabled={store.loading || semanticRunRunning}
+                    disabled={store.semantic.loading || semanticRunRunning}
                     onClick={() => setShowRelationshipAdvanced((open) => !open)}
                     aria-expanded={showRelationshipAdvanced}
                   >
@@ -402,7 +402,7 @@ export const DocsScreen = observer(function DocsScreen() {
                       <SemanticRunForm
                         className="semantic-run-form-basic"
                         draft={relationshipRunDraft}
-                        disabled={store.loading}
+                        disabled={store.semantic.loading}
                         onPatch={updateRelationshipRunDraft}
                         fields={[
                           {
@@ -421,7 +421,7 @@ export const DocsScreen = observer(function DocsScreen() {
                       <h4>Run limits</h4>
                       <SemanticRunForm
                         draft={relationshipRunDraft}
-                        disabled={store.loading}
+                        disabled={store.semantic.loading}
                         onPatch={updateRelationshipRunDraft}
                         fields={[
                           { key: "maxDocuments", label: "Documents to scan", placeholder: "All" },
@@ -434,7 +434,7 @@ export const DocsScreen = observer(function DocsScreen() {
                       <h4>AI request</h4>
                       <SemanticRunForm
                         draft={relationshipRunDraft}
-                        disabled={store.loading}
+                        disabled={store.semantic.loading}
                         onPatch={updateRelationshipRunDraft}
                         fields={[
                           { key: "endpoint", label: "Endpoint for this run", wide: true, placeholder: "Use provider default" },
@@ -450,7 +450,7 @@ export const DocsScreen = observer(function DocsScreen() {
                       <SemanticRunField
                         field={{ key: "jsonMode", label: "Require strict JSON output" }}
                         draft={relationshipRunDraft}
-                        disabled={store.loading}
+                        disabled={store.semantic.loading}
                         onPatch={updateRelationshipRunDraft}
                       />
                     </div>

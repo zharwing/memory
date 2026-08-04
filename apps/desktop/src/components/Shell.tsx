@@ -36,14 +36,14 @@ const utilityNav = [
 
 export const Shell = observer(function Shell({ children }: { children: ReactNode }) {
   const store = useStore();
-  const project = store.selectedProject;
+  const project = store.projects.selectedProject;
   const location = useLocation();
   const appPath = appPathFromPathname(location.pathname);
-  const selectedProjectId = project?.id || store.selectedProjectId;
-  const pendingInboxCount = pendingInboxReviewCount(store.inbox);
-  const linkedRepoCount = store.repoLinks.length || project?.repos?.length || 0;
-  const semanticRun = store.semanticAnalysisProgressRun || store.semanticGraphStatus?.runCounts?.latest;
-  const { running: semanticRunRunning, progressLabel: semanticRunProgress } = semanticRunStatus(semanticRun, store.semanticAnalysisRunning);
+  const selectedProjectId = project?.id || store.projects.selectedProjectId;
+  const pendingInboxCount = pendingInboxReviewCount(store.inbox.items);
+  const linkedRepoCount = store.projects.repoLinks.length || project?.repos?.length || 0;
+  const semanticRun = store.semantic.analysisProgressRun || store.semantic.status?.runCounts?.latest;
+  const { running: semanticRunRunning, progressLabel: semanticRunProgress } = semanticRunStatus(semanticRun, store.semantic.analysisRunning);
 
   return (
     <div className="app-shell">

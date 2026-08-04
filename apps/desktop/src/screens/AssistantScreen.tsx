@@ -25,9 +25,9 @@ const DEFAULT_ASSISTANT_DRAFT = {
 
 export const AssistantScreen = observer(function AssistantScreen() {
   const store = useStore();
-  const policy = store.summary?.project?.assistantPolicy || store.selectedProject?.assistantPolicy || DEFAULT_ASSISTANT_DRAFT;
-  const status = store.assistantStatus;
-  const providerCheck = store.assistantProviderCheck;
+  const policy = store.projects.summary?.project?.assistantPolicy || store.projects.selectedProject?.assistantPolicy || DEFAULT_ASSISTANT_DRAFT;
+  const status = store.assistant.status;
+  const providerCheck = store.assistant.providerCheck;
   const [draft, updateDraft, setDraft] = useDraft(DEFAULT_ASSISTANT_DRAFT);
   const [testApiKey, setTestApiKey] = useState("");
   const [connectionAction, setConnectionAction] = useState<"save-test" | "test" | null>(null);
@@ -46,7 +46,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
     });
     setTestApiKey("");
   }, [
-    store.selectedProjectId,
+    store.projects.selectedProjectId,
     policy.enabled,
     policy.runtimeType,
     policy.endpoint,
@@ -73,13 +73,13 @@ export const AssistantScreen = observer(function AssistantScreen() {
   }
 
   async function savePolicy() {
-    await store.updateAssistantPolicy(assistantPolicyPayload());
+    await store.assistant.updatePolicy(assistantPolicyPayload());
   }
 
   async function saveAndTestConnection() {
     setConnectionAction("save-test");
     try {
-      const result = await store.checkAssistantProvider({
+      const result = await store.assistant.checkProvider({
         providerKind: selectedProvider,
         endpoint: draft.endpoint.trim() || undefined,
         model: modelForProviderCheck(),
@@ -91,10 +91,10 @@ export const AssistantScreen = observer(function AssistantScreen() {
       if (result?.ok && result.model) {
         const modelDisplayName = typeof result.modelDisplayName === "string" ? result.modelDisplayName : "";
         updateDraft({ modelName: result.model, modelDisplayName });
-        await store.updateAssistantPolicy(assistantPolicyPayload({ modelName: result.model, modelDisplayName }));
+        await store.assistant.updatePolicy(assistantPolicyPayload({ modelName: result.model, modelDisplayName }));
         return;
       }
-      await store.updateAssistantPolicy(assistantPolicyPayload());
+      await store.assistant.updatePolicy(assistantPolicyPayload());
     } catch {
       return;
     } finally {
@@ -105,7 +105,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
   async function testProvider() {
     setConnectionAction("test");
     try {
-      const result = await store.checkAssistantProvider({
+      const result = await store.assistant.checkProvider({
         providerKind: selectedProvider,
         endpoint: draft.endpoint.trim() || undefined,
         model: modelForProviderCheck(),
@@ -170,7 +170,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
   const testingSaveAndConnection = connectionAction === "save-test";
   const testingConnectionOnly = connectionAction === "test";
   const testingConnection = Boolean(connectionAction);
-  const canTestConnection = Boolean(store.selectedProjectId && draft.enabled && draft.endpoint.trim());
+  const canTestConnection = Boolean(store.projects.selectedProjectId && draft.enabled && draft.endpoint.trim());
 
   return (
     <Screen title="AI Assistant">
@@ -196,7 +196,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
             <input
               type="checkbox"
               checked={Boolean(draft.enabled)}
-              disabled={!store.selectedProjectId || store.loading}
+              disabled={!store.projects.selectedProjectId || store.assistant.loading}
               onChange={(event) => setAssistantEnabled(event.target.checked)}
             />
             <span>Enable AI assistant</span>
@@ -215,7 +215,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                   <span>Provider</span>
                   <select
                     value={selectedProvider}
-                    disabled={!store.selectedProjectId || store.loading}
+                    disabled={!store.projects.selectedProjectId || store.assistant.loading}
                     onChange={(event) => chooseProvider(event.target.value)}
                   >
                     <option value="lm-studio">LM Studio</option>
@@ -233,7 +233,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                   <span>Endpoint</span>
                   <input
                     value={draft.endpoint}
-                    disabled={!store.selectedProjectId || store.loading}
+                    disabled={!store.projects.selectedProjectId || store.assistant.loading}
                     onChange={(event) => updateDraft({ endpoint: event.target.value, modelDisplayName: "" })}
                     placeholder={defaultEndpointForProvider(selectedProvider)}
                   />
@@ -252,7 +252,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                     <span>Model</span>
                     <input
                       value={draft.modelName}
-                      disabled={!store.selectedProjectId || store.loading}
+                      disabled={!store.projects.selectedProjectId || store.assistant.loading}
                       onChange={(event) => updateDraft({ modelName: event.target.value, modelDisplayName: "" })}
                       placeholder="Model name"
                     />
@@ -264,7 +264,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                     <input
                       type="password"
                       value={testApiKey}
-                      disabled={!store.selectedProjectId || store.loading}
+                      disabled={!store.projects.selectedProjectId || store.assistant.loading}
                       onChange={(event) => setTestApiKey(event.target.value)}
                       placeholder="Not saved"
                     />
@@ -301,7 +301,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
             <button
               type="submit"
               className="icon-text-button primary"
-              disabled={!canTestConnection || store.loading || testingConnection}
+              disabled={!canTestConnection || store.assistant.loading || testingConnection}
               aria-busy={testingSaveAndConnection}
               title={!draft.enabled ? "Turn on AI assistant to test the connection." : undefined}
             >
@@ -311,7 +311,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
             <button
               type="button"
               className="icon-text-button"
-              disabled={!store.selectedProjectId || store.loading}
+              disabled={!store.projects.selectedProjectId || store.assistant.loading}
               onClick={() => void savePolicy()}
             >
               <Save size={14} />
@@ -320,7 +320,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
             <button
               type="button"
               className="icon-text-button"
-              disabled={!canTestConnection || store.loading || testingConnection}
+              disabled={!canTestConnection || store.assistant.loading || testingConnection}
               aria-busy={testingConnectionOnly}
               onClick={() => void testProvider()}
               title={!draft.enabled ? "Turn on AI assistant to test the connection." : undefined}
@@ -338,7 +338,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                   <span>Model ID override</span>
                   <input
                     value={draft.modelName}
-                    disabled={!store.selectedProjectId || store.loading}
+                    disabled={!store.projects.selectedProjectId || store.assistant.loading}
                     onChange={(event) => updateDraft({ modelName: event.target.value, modelDisplayName: "" })}
                     placeholder="Leave blank to auto-detect"
                   />
@@ -348,7 +348,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 <span>Model path</span>
                 <input
                   value={draft.modelPath}
-                  disabled={!store.selectedProjectId || store.loading}
+                  disabled={!store.projects.selectedProjectId || store.assistant.loading}
                   onChange={(event) => updateDraft({ modelPath: event.target.value })}
                   placeholder="Only needed if Zharwing Memory launches the model itself"
                 />
@@ -357,7 +357,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 <input
                   type="checkbox"
                   checked={Boolean(draft.autoAcceptLowRiskMetadata)}
-                  disabled={!store.selectedProjectId || store.loading}
+                  disabled={!store.projects.selectedProjectId || store.assistant.loading}
                   onChange={(event) => updateDraft({ autoAcceptLowRiskMetadata: event.target.checked })}
                 />
                 <span>Auto-accept low-risk metadata</span>
@@ -370,7 +370,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
                   <KeyValue label="Saved endpoint" value={policy.endpoint || "Not set"} />
                   <KeyValue label="Saved model ID" value={policy.modelName || "Not set"} />
                   <KeyValue label="Runtime id" value={policy.runtimeType || "disabled"} />
-                  <KeyValue label="Graph link suggestions" value={store.semanticGraphSettings?.enabled ? "On" : "Off"} />
+                  <KeyValue label="Graph link suggestions" value={store.semantic.settings?.enabled ? "On" : "Off"} />
                 </div>
               </section>
             </div>

@@ -9,12 +9,12 @@ export const ContextScreen = observer(function ContextScreen() {
     <Screen title="AI Context for This Session">
       <LibraryTabs />
       <Panel title="Bundle Summary">
-        <KeyValue label="Safety" value={store.contextBundle?.safetyStatus || "unknown"} />
-        <KeyValue label="Tokens" value={store.contextBundle?.tokenEstimate || 0} />
-        <KeyValue label="Included" value={store.contextBundle?.includedItems?.length || 0} />
-        <KeyValue label="Excluded" value={store.contextBundle?.excludedItems?.length || 0} />
+        <KeyValue label="Safety" value={store.assistant.contextBundle?.safetyStatus || "unknown"} />
+        <KeyValue label="Tokens" value={store.assistant.contextBundle?.tokenEstimate || 0} />
+        <KeyValue label="Included" value={store.assistant.contextBundle?.includedItems?.length || 0} />
+        <KeyValue label="Excluded" value={store.assistant.contextBundle?.excludedItems?.length || 0} />
       </Panel>
-      <RawTextPreview text={store.contextBundle?.markdown} fallback="No context bundle available." />
+      <RawTextPreview text={store.assistant.contextBundle?.markdown} fallback="No context bundle available." />
     </Screen>
   );
 });

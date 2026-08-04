@@ -8,7 +8,7 @@ import { formatShortDateTime } from "../utils/format.js";
 
 export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
   const store = useStore();
-  const active = store.sessions.find((session) => session.status === "active");
+  const active = store.sessions.list.find((session) => session.status === "active");
   const [checkpoint, setCheckpoint] = useState("");
   const [closeoutOpen, setCloseoutOpen] = useState(false);
 
@@ -23,7 +23,7 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
 
   function saveCheckpoint() {
     if (!active || !checkpoint.trim()) return;
-    void store.saveCheckpoint(active.id, checkpoint.trim()).then(() => setCheckpoint(""));
+    void store.sessions.saveCheckpoint(active.id, checkpoint.trim()).then(() => setCheckpoint(""));
   }
 
   return (
@@ -59,7 +59,7 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
             <button
               type="submit"
               className="icon-text-button primary"
-              disabled={store.loading || !checkpoint.trim()}
+              disabled={store.sessions.loading || !checkpoint.trim()}
             >
               Save checkpoint
             </button>
@@ -72,7 +72,7 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
           <button
             type="button"
             className="icon-text-button"
-            disabled={store.loading}
+            disabled={store.sessions.loading}
             onClick={() => setCloseoutOpen(true)}
           >
             Close work log

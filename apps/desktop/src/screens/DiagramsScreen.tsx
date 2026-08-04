@@ -10,12 +10,12 @@ import { timestampRenderers } from "../utils/format.js";
 export const DiagramsScreen = observer(function DiagramsScreen() {
   const store = useStore();
   const [editingDocId, setDocSearchParam] = useSearchParamState("doc");
-  const diagrams = store.docs.filter((doc) => doc.type === "diagram");
+  const diagrams = store.docs.list.filter((doc) => doc.type === "diagram");
   const editingDoc = diagrams.find((doc) => doc.id === editingDocId);
 
   useCloseWhenMissing(
     editingDocId,
-    store.docs.length > 0 && !store.docs.some((doc) => doc.type === "diagram" && doc.id === editingDocId),
+    store.docs.list.length > 0 && !store.docs.list.some((doc) => doc.type === "diagram" && doc.id === editingDocId),
     () => closeDiagramEditor(true)
   );
 

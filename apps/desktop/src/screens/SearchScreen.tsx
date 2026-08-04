@@ -15,8 +15,8 @@ export const SearchScreen = observer(function SearchScreen() {
   const [query, setQuery] = useState("");
   const [selectedResultId, setSelectedResultId] = useState("");
   const [editingDocId, setEditingDocId] = useState("");
-  const searchRows = store.searchResults.map((result) => {
-    const doc = store.docs.find((candidate) => candidate.id === result.id);
+  const searchRows = store.docs.searchResults.map((result) => {
+    const doc = store.docs.list.find((candidate) => candidate.id === result.id);
     const resultKind = doc?.type === "diagram" ? "diagram" : result.type;
     return {
       ...result,
@@ -27,34 +27,34 @@ export const SearchScreen = observer(function SearchScreen() {
       type: resultKind
     };
   });
-  const selectedResult = store.searchResults.find((result) => result.id === selectedResultId);
+  const selectedResult = store.docs.searchResults.find((result) => result.id === selectedResultId);
   const selectedDoc = selectedResult?.type === "document"
-    ? store.docs.find((doc) => doc.id === selectedResult.id)
+    ? store.docs.list.find((doc) => doc.id === selectedResult.id)
     : undefined;
   const selectedSession = selectedResult?.type === "session"
-    ? store.sessions.find((session) => session.id === selectedResult.id)
+    ? store.sessions.list.find((session) => session.id === selectedResult.id)
     : undefined;
   const selectedWorkstream = selectedResult?.type === "workstream"
-    ? store.workstreams.find((workstream) => workstream.id === selectedResult.id)
+    ? store.workstreams.list.find((workstream) => workstream.id === selectedResult.id)
     : undefined;
   const selectedProposal = selectedResult?.type === "proposed-update"
-    ? store.inbox.find((item) => item.id === selectedResult.id)
+    ? store.inbox.items.find((item) => item.id === selectedResult.id)
     : undefined;
-  const editingDoc = store.docs.find((doc) => doc.id === editingDocId);
+  const editingDoc = store.docs.list.find((doc) => doc.id === editingDocId);
 
   useEffect(() => {
-    if (!store.searchResults.length) {
+    if (!store.docs.searchResults.length) {
       setSelectedResultId("");
       return;
     }
-    if (!store.searchResults.some((result) => result.id === selectedResultId)) {
-      setSelectedResultId(store.searchResults[0].id);
+    if (!store.docs.searchResults.some((result) => result.id === selectedResultId)) {
+      setSelectedResultId(store.docs.searchResults[0].id);
     }
-  }, [store.searchResults, selectedResultId]);
+  }, [store.docs.searchResults, selectedResultId]);
 
   useEffect(() => {
     if (selectedResult?.type === "session" && !selectedSession) {
-      void store.loadAllSessions();
+      void store.sessions.loadAll();
     }
   }, [store, selectedResult?.id, selectedResult?.type, selectedSession]);
 
@@ -62,11 +62,11 @@ export const SearchScreen = observer(function SearchScreen() {
     if (
       selectedResult?.type === "workstream" &&
       selectedWorkstream &&
-      store.workstreamDetail?.workstream?.id !== selectedWorkstream.id
+      store.workstreams.detail?.workstream?.id !== selectedWorkstream.id
     ) {
-      void store.loadWorkstreamDetail(selectedWorkstream.id);
+      void store.workstreams.loadDetail(selectedWorkstream.id);
     }
-  }, [store, selectedResult?.id, selectedResult?.type, selectedWorkstream, store.workstreamDetail?.workstream?.id]);
+  }, [store, selectedResult?.id, selectedResult?.type, selectedWorkstream, store.workstreams.detail?.workstream?.id]);
 
   function openSearchResult(row: any) {
     setSelectedResultId(row.id);
@@ -80,7 +80,7 @@ export const SearchScreen = observer(function SearchScreen() {
       <form className="inline-form" onSubmit={(event: FormEvent) => {
         event.preventDefault();
         setSelectedResultId("");
-        void store.search(query);
+        void store.docs.search(query);
       }}>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sessions, docs, commands, gotchas, diagrams" />
         <button type="submit">Search</button>
@@ -113,11 +113,11 @@ export const SearchScreen = observer(function SearchScreen() {
           session={selectedSession}
           workstream={selectedWorkstream}
           proposal={selectedProposal}
-          workstreamDetail={store.workstreamDetail}
+          workstreamDetail={store.workstreams.detail}
           store={store}
           onEditDoc={() => selectedDoc ? setEditingDocId(selectedDoc.id) : undefined}
         />
-      ) : store.searchResults.length ? null : (
+      ) : store.docs.searchResults.length ? null : (
         <Empty text="Run a search to inspect matching docs, diagrams, sessions, workstreams, and inbox proposals." />
       )}
       {editingDoc ? (
@@ -160,7 +160,7 @@ function SearchResultDetail({
               title={doc.title}
               critical={["overview", "privacy", "commands", "glossary"].includes(doc.type)}
               label="Move to Trash"
-              onConfirm={() => store.deleteDocument(doc.id)}
+              onConfirm={() => store.docs.deleteDocument(doc.id)}
             />
           ) : null}
         </div>
@@ -192,7 +192,7 @@ function SearchResultDetail({
               title={session.taskTitle}
               critical={session.status === "active"}
               label="Move to Trash"
-              onConfirm={() => store.deleteSession(session.id)}
+              onConfirm={() => store.sessions.deleteSession(session.id)}
             />
           ) : null}
         </div>
@@ -219,7 +219,7 @@ function SearchResultDetail({
                 itemType="workstream"
                 title={workstream.name}
                 label="Move to Trash"
-                onConfirm={() => store.deleteWorkstream(workstream.id)}
+                onConfirm={() => store.workstreams.deleteWorkstream(workstream.id)}
               />
             </>
           ) : null}
@@ -245,10 +245,10 @@ function SearchResultDetail({
         <div className="button-row">
           {proposal ? (
             <>
-              <button type="button" onClick={() => store.updateInboxStatus(proposal.id, "accepted")}>Mark Accepted</button>
-              <button type="button" onClick={() => store.updateInboxStatus(proposal.id, "rejected")}>Reject</button>
+              <button type="button" onClick={() => store.inbox.updateStatus(proposal.id, "accepted")}>Mark Accepted</button>
+              <button type="button" onClick={() => store.inbox.updateStatus(proposal.id, "rejected")}>Reject</button>
               {graphProposalRules ? (
-                <button type="button" onClick={() => store.applyGraphRulesProposal(proposal.id, graphProposalRules)}>
+                <button type="button" onClick={() => store.graph.applyGraphRulesProposal(proposal.id, graphProposalRules)}>
                   Apply Graph Rules
                 </button>
               ) : null}
@@ -256,7 +256,7 @@ function SearchResultDetail({
                 itemType="inbox-proposal"
                 title={proposal.reason || proposal.type}
                 label="Move to Trash"
-                onConfirm={() => store.deleteInboxItem(proposal.id)}
+                onConfirm={() => store.inbox.deleteItem(proposal.id)}
               />
             </>
           ) : null}

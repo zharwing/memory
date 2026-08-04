@@ -10,7 +10,7 @@ export const TrashScreen = observer(function TrashScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
-    void store.loadTrash();
+    void store.system.loadTrash();
   }, [store]);
 
   function toggleSelected(id: string) {
@@ -18,7 +18,7 @@ export const TrashScreen = observer(function TrashScreen() {
   }
 
   function selectAll() {
-    setSelectedIds(store.trashItems.map((item) => item.id));
+    setSelectedIds(store.system.trashItems.map((item) => item.id));
   }
 
   function clearSelection() {
@@ -26,10 +26,10 @@ export const TrashScreen = observer(function TrashScreen() {
   }
 
   return (
-    <Screen title="Trash" actions={<button onClick={() => store.loadTrash()}>Refresh</button>}>
+    <Screen title="Trash" actions={<button onClick={() => store.system.loadTrash()}>Refresh</button>}>
       <Panel title="Trash Controls">
         <div className="button-row">
-          <button type="button" disabled={!store.trashItems.length} onClick={selectAll}>Select All</button>
+          <button type="button" disabled={!store.system.trashItems.length} onClick={selectAll}>Select All</button>
           <button type="button" disabled={!selectedIds.length} onClick={clearSelection}>Clear Selection</button>
           <ConfirmDeleteButton
             itemType="trash-selection"
@@ -38,7 +38,7 @@ export const TrashScreen = observer(function TrashScreen() {
             permanent
             disabled={!selectedIds.length}
             label="Delete Selected Permanently"
-            onConfirm={() => store.emptyTrash(selectedIds).then(() => setSelectedIds([]))}
+            onConfirm={() => store.system.emptyTrash(selectedIds).then(() => setSelectedIds([]))}
           />
         </div>
         <p className="panel-help">
@@ -46,9 +46,9 @@ export const TrashScreen = observer(function TrashScreen() {
         </p>
       </Panel>
       <Panel title="Deleted Items">
-        {store.trashItems.length ? (
+        {store.system.trashItems.length ? (
           <div className="repo-list">
-            {store.trashItems.map((item) => (
+            {store.system.trashItems.map((item) => (
               <ListRow
                 key={item.id}
                 leading={
@@ -71,14 +71,14 @@ export const TrashScreen = observer(function TrashScreen() {
                 }
                 actions={
                   <div className="row-actions">
-                    <button type="button" disabled={!item.canRestore} onClick={() => store.restoreTrashItem(item.id)}>Restore</button>
+                    <button type="button" disabled={!item.canRestore} onClick={() => store.system.restoreTrashItem(item.id)}>Restore</button>
                     <ConfirmDeleteButton
                       itemType={`trash-${item.type}`}
                       title={item.title}
                       critical
                       permanent
                       label="Delete Permanently"
-                      onConfirm={() => store.purgeTrashItem(item.id)}
+                      onConfirm={() => store.system.purgeTrashItem(item.id)}
                     />
                   </div>
                 }

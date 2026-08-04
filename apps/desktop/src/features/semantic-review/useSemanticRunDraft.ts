@@ -5,7 +5,7 @@ import { numberOrUndefined } from "../../utils/format.js";
  * Canonical AI-run draft shared by DocsScreen (link discovery) and
  * GraphScreen (relationship review). The timeout is held in seconds and
  * converted to `timeoutMs` at the submit boundary, so both screens send the
- * same payload shape to `store.analyzeSemanticGraph`.
+ * same payload shape to `store.semantic.analyze`.
  */
 export const SEMANTIC_RUN_DRAFT_DEFAULTS = {
   mode: "review",
