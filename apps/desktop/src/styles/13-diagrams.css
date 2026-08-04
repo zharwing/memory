@@ -1,0 +1,180 @@
+/* =============================================================================
+   13 Diagrams — mermaid preview and viewer
+   .diagram-preview*, .mermaid-svg, .icon-button (generic, first used here —
+   kept in place to preserve cascade order), .diagram-open-button,
+   .diagram-viewer* full-screen viewer.
+   ============================================================================= */
+
+.diagram-preview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 18px;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+
+.diagram-preview-canvas {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  max-height: 420px;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.mermaid-svg > svg {
+  display: block;
+  height: auto !important;
+  margin: 0 auto;
+  max-width: none !important;
+  width: var(--diagram-svg-width, 100%) !important;
+}
+
+.mermaid-svg {
+  line-height: 0;
+  min-width: 720px;
+}
+
+.mermaid-svg .label {
+  color: var(--text);
+}
+
+.diagram-loading,
+.mermaid-error {
+  color: var(--muted);
+  padding: 18px;
+}
+
+.mermaid-error pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  margin: 10px 0 0;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+/* ===== Generic icon button (first used here) ===== */
+
+.icon-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-width: 38px;
+  padding: 0 11px;
+}
+
+.icon-button svg {
+  flex: 0 0 auto;
+}
+
+.icon-button.icon-only {
+  padding: 0;
+  width: 38px;
+}
+
+.diagram-open-button {
+  align-items: center;
+  background: var(--surface);
+  border-color: var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(17, 16, 15, 0.14);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 28px;
+  z-index: 1;
+}
+
+.diagram-open-button:hover {
+  background: var(--surface-2);
+}
+
+.diagram-open-button svg {
+  flex: 0 0 auto;
+}
+
+/* ===== Full-screen diagram viewer ===== */
+
+.diagram-viewer-backdrop {
+  background: rgba(17, 16, 15, 0.74);
+  padding: 18px;
+  z-index: 30;
+}
+
+.diagram-viewer {
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: min(96vh, 1100px);
+  min-width: 0;
+  overflow: hidden;
+  width: min(1500px, 98vw);
+}
+
+.diagram-viewer-header {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.diagram-viewer-title {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.diagram-viewer-title h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.diagram-viewer-title span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.diagram-viewer-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.diagram-viewer-canvas {
+  background: var(--surface-2);
+  cursor: grab;
+  min-height: 0;
+  min-width: 0;
+  overscroll-behavior: contain;
+  overflow: auto;
+  padding: 18px;
+  touch-action: none;
+}
+
+.diagram-viewer-canvas.panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.diagram-viewer-canvas.panning * {
+  pointer-events: none;
+}
+
+.diagram-viewer-canvas .mermaid-svg {
+  min-width: 960px;
+}

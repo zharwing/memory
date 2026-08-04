@@ -1,0 +1,215 @@
+/* =============================================================================
+   06 Form controls and small shared widgets
+   Field labels/help/errors, .graph-rules-editor, .setup-guidance, .path-examples,
+   .advanced-fields, .option-chips, .quick-presets, .segmented-control,
+   .checkbox-row, .button-row, .row-actions, .path-input-row.
+   ============================================================================= */
+
+.stacked-form label > span,
+.checkbox-row span,
+.field-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.form-error {
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.graph-rules-editor {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  min-height: 180px;
+  min-width: 100%;
+  resize: vertical;
+}
+
+/* ===== Setup guidance & path examples ===== */
+
+.setup-guidance,
+.setup-optional-section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.setup-guidance {
+  display: grid;
+  gap: 4px;
+}
+
+.setup-guidance p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.setup-steps {
+  color: var(--muted);
+  display: grid;
+  gap: 8px;
+  line-height: 1.45;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.path-examples {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.path-examples code {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+}
+
+.setup-optional-section {
+  display: grid;
+  gap: 12px;
+}
+
+/* ===== Advanced fields, chips, presets, segmented control ===== */
+
+.advanced-fields {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px 12px;
+}
+
+.advanced-fields summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.advanced-fields-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-chips button {
+  background: var(--surface);
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+/* Shared selected state for the ToggleGroup container classes. */
+.option-chips button.selected,
+.quick-presets button.selected,
+.segmented-control button.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fffdf9;
+}
+
+.quick-presets {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.quick-presets button {
+  align-items: flex-start;
+  background: var(--surface-2);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  min-height: 64px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.quick-presets small {
+  color: inherit;
+  font-size: 12px;
+  opacity: 0.78;
+}
+
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  width: min(100%, 460px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 4px;
+}
+
+.segmented-control button {
+  border-color: transparent;
+  background: transparent;
+  min-height: 36px;
+}
+
+/* ===== Row & layout utilities ===== */
+
+.checkbox-row {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.session-summary-advanced {
+  padding: 8px 10px;
+}
+
+.row-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.path-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.path-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.path-input-row button {
+  flex: 0 0 auto;
+}

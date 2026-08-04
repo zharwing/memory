@@ -1,0 +1,163 @@
+/* =============================================================================
+   04 Assistant setup screen
+   .assistant-setup-intro, .assistant-status-chips, .assistant-connect-*,
+   .assistant-connection-status, .assistant-diagnostics, .assistant-provider-check.
+   ============================================================================= */
+
+.assistant-setup-intro {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.assistant-setup-intro p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 760px;
+}
+
+.assistant-status-chips {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistant-status-chips span {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  min-height: 32px;
+  padding: 5px 10px;
+}
+
+.assistant-status-chips span.ok {
+  border-color: rgba(63, 122, 74, 0.34);
+  color: var(--success);
+}
+
+.assistant-status-chips span.blocked {
+  border-color: rgba(159, 63, 44, 0.36);
+  color: var(--danger);
+}
+
+.assistant-connect-form {
+  gap: 14px;
+}
+
+.assistant-enable-row {
+  font-weight: 750;
+}
+
+.assistant-disabled-state {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.assistant-disabled-state p {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.assistant-connect-fields {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(220px, 1fr) minmax(180px, 0.8fr);
+}
+
+.assistant-connect-fields label {
+  display: grid;
+  gap: 6px;
+}
+
+.assistant-provider-hint {
+  color: var(--muted);
+  line-height: 1.45;
+  margin: -4px 0 0;
+}
+
+.assistant-connection-status {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+}
+
+.assistant-connection-status span,
+.assistant-connection-status small {
+  color: var(--muted);
+}
+
+.assistant-connection-status span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.assistant-connection-status strong.ok {
+  color: var(--success);
+}
+
+.assistant-connection-status strong.blocked {
+  color: var(--danger);
+}
+
+.assistant-action-row {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.assistant-advanced-fields .advanced-fields-body label {
+  display: grid;
+  gap: 6px;
+}
+
+.assistant-diagnostics {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-diagnostics h4 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.assistant-provider-check {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+.assistant-provider-check.clean {
+  border-color: rgba(72, 133, 93, 0.35);
+}
+
+.assistant-provider-check.blocked {
+  border-color: rgba(176, 68, 68, 0.35);
+}
+
+.assistant-provider-check-title {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.assistant-provider-check.clean .assistant-provider-check-title {
+  color: var(--success);
+}
+
+.assistant-provider-check.blocked .assistant-provider-check-title {
+  color: var(--danger);
+}

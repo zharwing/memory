@@ -1,0 +1,112 @@
+/* =============================================================================
+   12 Rendered markdown
+   .rendered-markdown element styles and .markdown-table-wrap/.markdown-table.
+   Context-specific .rendered-markdown overrides live in 10-sessions.css
+   (.session-reader-main ...) and 14-tables-misc.css (.search-result-detail ...).
+   ============================================================================= */
+
+.rendered-markdown {
+  background: var(--surface);
+  color: var(--text);
+  line-height: 1.62;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 22px;
+  word-break: break-word;
+}
+
+.rendered-markdown.empty-preview {
+  color: var(--muted);
+}
+
+.rendered-markdown h1,
+.rendered-markdown h2,
+.rendered-markdown h3,
+.rendered-markdown h4,
+.rendered-markdown h5,
+.rendered-markdown h6,
+.rendered-markdown p,
+.rendered-markdown ul,
+.rendered-markdown ol,
+.rendered-markdown blockquote,
+.rendered-markdown pre,
+.rendered-markdown .markdown-table-wrap {
+  margin: 0 0 16px;
+}
+
+.rendered-markdown h1 {
+  font-size: 28px;
+}
+
+.rendered-markdown h2 {
+  border-bottom: 1px solid var(--border);
+  font-size: 22px;
+  padding-bottom: 7px;
+}
+
+.rendered-markdown h3 {
+  font-size: 18px;
+}
+
+.rendered-markdown h4,
+.rendered-markdown h5,
+.rendered-markdown h6 {
+  font-size: 15px;
+}
+
+.rendered-markdown ul,
+.rendered-markdown ol {
+  padding-left: 24px;
+}
+
+.rendered-markdown li + li {
+  margin-top: 5px;
+}
+
+.rendered-markdown blockquote {
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  padding: 4px 0 4px 14px;
+}
+
+.rendered-markdown code {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.92em;
+  padding: 1px 5px;
+}
+
+.rendered-markdown pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.rendered-markdown pre code {
+  background: transparent;
+  border: 0;
+  display: block;
+  padding: 0;
+  white-space: pre;
+}
+
+.rendered-markdown a {
+  color: var(--accent);
+}
+
+.markdown-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.markdown-table {
+  background: var(--surface);
+  min-width: 640px;
+}

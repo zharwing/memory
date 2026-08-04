@@ -1,0 +1,235 @@
+/* =============================================================================
+   99 Responsive overrides (load-order sensitive)
+   Final 980px and 900px media blocks plus .notice.danger, in original source
+   order. These must stay last: they override equal-specificity rules from
+   earlier files purely by order. Do not move rules out of this file.
+   ============================================================================= */
+
+/* ===== 980px breakpoint ===== */
+
+@media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    height: auto;
+    grid-template-columns: 1fr;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    height: auto;
+    overflow: visible;
+  }
+
+  .sidebar-nav {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .nav-section:first-child {
+    overflow: visible;
+  }
+
+  .nav-section.utility {
+    margin-top: 0;
+  }
+
+  .dashboard-grid,
+  .dashboard-grid.tight {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-connect-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-presets {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-library-toolbar-actions {
+    justify-content: flex-start;
+  }
+
+  .link-discovery-dialog {
+    max-height: calc(100vh - 20px);
+    padding: 14px;
+  }
+
+  .link-discovery-provider-required {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .link-discovery-provider-required .button-link {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  .workspace {
+    height: auto;
+    overflow: visible;
+  }
+
+  .repo-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .modal-backdrop {
+    padding: 10px;
+  }
+
+  .document-modal {
+    height: 94vh;
+    padding: 14px;
+    width: 100%;
+  }
+
+  .document-modal-header {
+    flex-direction: column;
+  }
+
+  .document-modal-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .document-modal-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .document-modal-meta .key-value {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .diagram-preview-canvas {
+    max-height: 360px;
+  }
+
+  .diagram-viewer-backdrop {
+    padding: 8px;
+  }
+
+  .diagram-viewer-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .diagram-viewer-controls {
+    flex-wrap: wrap;
+  }
+
+  .diagram-viewer-canvas {
+    padding: 10px;
+  }
+
+  .diagram-viewer-canvas .mermaid-svg {
+    min-width: 760px;
+  }
+
+  .graph-view-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .graph-mode-control {
+    width: 100%;
+  }
+
+  .graph-focus-control {
+    min-width: 0;
+  }
+
+  .graph-details-popover {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .semantic-review-header,
+  .semantic-review-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .semantic-review-meta {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    white-space: normal;
+  }
+
+  .semantic-review-meta time {
+    line-height: 1.25;
+  }
+
+  .semantic-run-form,
+  .semantic-run-wide {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .semantic-run-actions.primary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .semantic-run-secondary-actions {
+    justify-content: flex-start;
+  }
+
+  .path-input-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* ===== .notice.danger — kept between the media blocks to preserve source order ===== */
+
+.notice.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ===== 900px breakpoint ===== */
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .nav-section.utility {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .workspace {
+    padding: 20px;
+  }
+
+  .topbar,
+  .screen-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

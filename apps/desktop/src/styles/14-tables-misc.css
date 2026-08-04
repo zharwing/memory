@@ -1,0 +1,116 @@
+/* =============================================================================
+   14 Tables, badges, previews
+   .doc-badges, .key-value strong, .path-value, table/th/td element styles,
+   .table-actions, clickable/selected rows, .markdown-preview,
+   .search-result-detail (incl. its .rendered-markdown override).
+   ============================================================================= */
+
+.doc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.doc-badges span {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 12px;
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.key-value strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.path-value {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 720px;
+}
+
+th,
+td {
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  vertical-align: top;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 650;
+  background: var(--surface-2);
+}
+
+td {
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
+.table-actions {
+  max-width: none;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.table-actions button {
+  min-height: 32px;
+}
+
+.table-actions button + button {
+  margin-left: 8px;
+}
+
+tr.clickable-row {
+  cursor: pointer;
+}
+
+tr.clickable-row:hover td {
+  background: var(--surface-2);
+}
+
+tr.selected-row td {
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--border), inset 0 -1px 0 var(--border);
+}
+
+.markdown-preview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  padding: 18px;
+  white-space: pre-wrap;
+  overflow: auto;
+  word-break: break-word;
+  line-height: 1.55;
+}
+
+.search-result-detail {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 14px;
+  max-height: 560px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.search-result-detail .rendered-markdown {
+  border: 0;
+}

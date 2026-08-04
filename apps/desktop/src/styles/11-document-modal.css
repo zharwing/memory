@@ -1,0 +1,158 @@
+/* =============================================================================
+   11 Document modal and editors
+   .modal-backdrop background/z-index, .document-modal*, .document-title-input,
+   .segmented-control.compact, .markdown-source-editor, .mdx-rich-editor.
+   ============================================================================= */
+
+.modal-backdrop {
+  background: rgba(17, 16, 15, 0.54);
+  padding: 22px;
+  z-index: 15;
+}
+
+.document-modal {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+  gap: 14px;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  height: min(90vh, 960px);
+  min-width: 0;
+  padding: 18px;
+  width: min(1180px, 96vw);
+}
+
+.document-modal-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.document-title-block {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.document-title-input {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  font-size: 21px;
+  font-weight: 750;
+  min-width: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.document-title-input:focus {
+  background: var(--surface-2);
+  border-color: var(--border);
+  padding: 0 10px;
+}
+
+.document-modal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.document-modal-actions > button:last-child {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fffdf9;
+}
+
+.document-modal-actions > button:last-child:disabled {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.document-modal-meta {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 0 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  padding: 2px 12px;
+}
+
+.document-modal-meta .key-value {
+  grid-template-columns: 118px minmax(0, 1fr);
+  min-width: 0;
+  padding: 9px 0;
+}
+
+.document-editor-toolbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.segmented-control.compact {
+  grid-template-columns: repeat(2, minmax(118px, 1fr));
+  width: min(100%, 280px);
+}
+
+.document-editor-body {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.markdown-source-editor {
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+  height: 100%;
+  line-height: 1.55;
+  min-height: 0;
+  min-width: 0;
+  padding: 18px;
+  resize: none;
+  width: 100%;
+}
+
+.mdx-rich-editor {
+  background: var(--surface);
+  color: var(--text);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mdx-rich-editor .mdxeditor-toolbar {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.mdx-block-toggle-label {
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  justify-content: center;
+  min-width: 22px;
+}
+
+.mdx-rich-editor .mdxeditor-root-contenteditable {
+  min-height: 0;
+  overflow: auto;
+}
+
+.mdx-rich-editor .mdxeditor-root-contenteditable > div {
+  min-height: 100%;
+  padding: 22px;
+}

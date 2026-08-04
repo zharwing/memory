@@ -1,0 +1,88 @@
+/* =============================================================================
+   08 Table toolbars, docs library chrome, pagination
+   .table-wrap, .table-toolbar, .docs-filter-row, .section-kicker,
+   .docs-library-toolbar-actions, .docs-help-trigger, .pagination-controls.
+   Table cell styling (table/th/td) lives in 14-tables-misc.css.
+   ============================================================================= */
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.table-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.docs-filter-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-kicker {
+  color: var(--accent);
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.docs-library-toolbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.docs-library-toolbar-actions .icon-text-button small {
+  background: var(--surface-2);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 7px;
+}
+
+.docs-ai-relationship-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.docs-help-trigger {
+  color: var(--muted);
+}
+
+.docs-help-trigger.selected,
+.docs-help-trigger:hover {
+  color: var(--text);
+}
+
+.pagination-controls {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pagination-controls button {
+  min-height: 32px;
+}
+
+.pagination-controls.bottom-pagination {
+  justify-content: flex-end;
+  margin-top: 12px;
+}

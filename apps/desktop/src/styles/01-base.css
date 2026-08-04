@@ -1,0 +1,122 @@
+/* =============================================================================
+   01 Base — resets, typography root, form element defaults
+   Global element defaults: :root font/colors, box-sizing, html/body sizing,
+   button / input / select / textarea base styles, .button-link, .danger-button.
+   Theme custom properties are injected at runtime by theme-tokens.ts.
+   ============================================================================= */
+
+/*
+ * Theme custom-property values (and color-scheme) are injected at startup by
+ * src/styles/theme-tokens.ts from the @zharwing/memory-theme token objects.
+ */
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--background);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 38px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+button:hover,
+.button-link:hover {
+  border-color: var(--accent);
+}
+
+button[type="submit"],
+.project-card.selected,
+.button-link.primary,
+.icon-text-button.primary {
+  background: var(--accent);
+  color: #fffdf9;
+  border-color: var(--accent);
+}
+
+.button-link {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  display: inline-flex;
+  min-height: 38px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.button-link.compact-link {
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.danger-button {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.danger-button:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fffdf9;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 38px;
+  padding: 0 12px;
+  min-width: 240px;
+}
+
+select {
+  padding-right: 34px;
+}
+
+input[type="checkbox"] {
+  min-width: 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  accent-color: var(--accent);
+}

@@ -1,0 +1,292 @@
+/* =============================================================================
+   02 Layout — app shell, sidebar nav, workspace, topbar, tabs
+   .app-shell grid, .sidebar, .brand, .project-switcher, .nav-*, .workspace,
+   .topbar* pills and .status, .screen-heading, .section-tab*, .dashboard-grid.
+   Responsive overrides for these live in 99-responsive-overrides.css.
+   ============================================================================= */
+
+.app-shell {
+  height: 100vh;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px 14px 16px;
+}
+
+.brand {
+  color: var(--text);
+  text-decoration: none;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 750;
+  margin-bottom: 16px;
+}
+
+.project-switcher {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  display: grid;
+  gap: 2px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.project-switcher span,
+.project-switcher small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.project-switcher strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nav-section {
+  display: grid;
+  gap: 2px;
+  min-height: 0;
+}
+
+.nav-section:first-child {
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.nav-section.utility {
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 7px;
+  padding: 0 10px;
+  margin: 1px 0;
+}
+
+.nav-item.active {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.nav-item small {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fffdf9;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+}
+
+/* ===== Workspace & topbar ===== */
+
+.workspace {
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 28px 24px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  min-height: 34px;
+}
+
+.topbar h1,
+.screen h2,
+.panel h3 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.screen h2 {
+  font-size: 24px;
+}
+
+.topbar-project {
+  align-items: baseline;
+  color: var(--text);
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.topbar-project span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.topbar-project strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow {
+  color: var(--muted);
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.topbar-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar-meta-pill,
+.status {
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+}
+
+.topbar-meta-pill {
+  justify-content: center;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topbar-meta-pill.repo-count {
+  min-width: 148px;
+}
+
+.topbar-meta-pill.app-ready {
+  min-width: 72px;
+}
+
+.topbar-meta-pill.app-ready.working {
+  border-color: rgba(37, 99, 235, 0.24);
+  color: var(--accent);
+}
+
+.topbar-meta-pill.semantic-run-topbar {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.22);
+  color: var(--text);
+}
+
+.topbar-meta-pill.semantic-run-topbar svg {
+  color: var(--accent);
+}
+
+.status.clean {
+  color: var(--success);
+}
+
+.status.blocked {
+  color: var(--danger);
+}
+
+.status.needs-review,
+.status.index-stale {
+  color: var(--warning);
+}
+
+/* ===== Screen heading, tabs & dashboard grid ===== */
+
+.screen-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+  min-height: 38px;
+}
+
+.section-tabs {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -2px 0 14px;
+}
+
+.section-tab {
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  display: inline-flex;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px 6px;
+  text-decoration: none;
+}
+
+.section-tab small {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fffdf9;
+  display: inline-flex;
+  font-size: 0.74rem;
+  height: 19px;
+  justify-content: center;
+  min-width: 19px;
+  padding: 0 6px;
+}
+
+.section-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-grid.tight {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

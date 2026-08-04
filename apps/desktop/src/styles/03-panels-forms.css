@@ -1,0 +1,82 @@
+/* =============================================================================
+   03 Panels and basic forms
+   .panel, .panel-help, .key-value rows, .inline-form, .stacked-form,
+   .settings-columns, plus the small .semantic-status-grid /
+   .semantic-settings-form helpers (more semantic-* in 05 and 16).
+   ============================================================================= */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 10px 24px rgba(36, 30, 26, 0.06);
+}
+
+.panel h3 {
+  margin-bottom: 14px;
+  font-size: 17px;
+}
+
+.panel-help {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+
+.key-value {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 32px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+}
+
+.key-value:first-of-type {
+  border-top: 0;
+}
+
+.key-value span {
+  color: var(--muted);
+}
+
+.inline-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-form.compact input {
+  min-width: 260px;
+}
+
+.stacked-form {
+  display: grid;
+  gap: 12px;
+}
+
+.stacked-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-columns {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.settings-columns.checkbox-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.semantic-status-grid {
+  margin-bottom: 14px;
+}
+
+.semantic-settings-form input[type="number"] {
+  min-width: 0;
+  width: 100%;
+}

@@ -1,0 +1,76 @@
+/* =============================================================================
+   07 Projects and repos
+   .repo-list / .repo-row, .trash-select, .project-grid, .managed-card,
+   .project-card (selected state is in 01-base.css with the accent buttons).
+   ============================================================================= */
+
+.repo-list {
+  display: grid;
+  gap: 10px;
+}
+
+.repo-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 76px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  background: var(--surface);
+}
+
+.trash-select {
+  align-items: center;
+  display: flex;
+}
+
+.repo-row div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.repo-row span,
+.repo-row small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.repo-row p {
+  color: var(--muted);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.managed-card {
+  display: grid;
+  gap: 8px;
+}
+
+.project-card {
+  min-height: 140px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.project-card span,
+.project-card small {
+  overflow-wrap: anywhere;
+}
+
+.project-card.compact {
+  min-height: 92px;
+  width: 100%;
+}

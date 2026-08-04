@@ -1,0 +1,36 @@
+/* =============================================================================
+   09 Shared modal/dialog skeleton
+   Backdrop + panel declarations shared by every dialog. Per-dialog sizing and
+   z-index live with their feature files (10 sessions, 11 document modal,
+   13 diagram viewer, 18 dialogs).
+   ============================================================================= */
+
+/* Shared modal skeleton: every dialog backdrop/panel pair reuses these
+   declarations; the per-dialog classes below only add size, background
+   opacity, z-index, and spacing. */
+.modal-backdrop,
+.dialog-backdrop,
+.diagram-viewer-backdrop {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+}
+
+.document-modal,
+.diagram-viewer,
+.confirm-dialog,
+.link-discovery-dialog,
+.session-modal,
+.session-closeout-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+}
+
+.session-modal,
+.session-closeout-dialog {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+}
