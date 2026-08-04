@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -64,5 +65,10 @@ async function importTypeScriptModule(relativePath) {
     },
     fileName: relativePath
   }).outputText;
-  return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
+  // data: URLs cannot resolve bare specifiers; point workspace imports at the
+  // built package output (pnpm test always runs tsc -b first).
+  const resolved = output.replace(/from\s+"@zharwing\/memory-([a-z-]+)"/g, (_match, pkg) =>
+    `from "${pathToFileURL(path.join(repoRoot, "packages", pkg, "dist/index.js")).href}"`
+  );
+  return import(`data:text/javascript;base64,${Buffer.from(resolved).toString("base64")}`);
 }
