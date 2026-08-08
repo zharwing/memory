@@ -1,4 +1,4 @@
-# Deployment checklist for `/memory`
+# Cloudflare deployment for `/memory`
 
 This package is prepared for integration into the existing Zharwing website at:
 
@@ -6,13 +6,15 @@ This package is prepared for integration into the existing Zharwing website at:
 https://zharwing.barbutsa.com/memory/
 ```
 
-No deployment, DNS change, or external resource creation has been performed.
+The repository-level `wrangler.jsonc` deploys `website/` as static assets from
+the `zharwing-docs` Cloudflare Worker. The custom-domain binding creates and
+manages the DNS record and certificate for `zharwing.barbutsa.com`.
 
-## Preferred integration
+## Source layout
 
-Copy the complete `memory/` directory into the existing site's public route for
-`/memory`. Preserve the relative relationship between `index.html`,
-`styles.css`, `script.js`, and `assets/`.
+The complete `memory/` directory is deployed beneath `/memory`. Preserve the
+relative relationship between `index.html`, `styles.css`, `script.js`, and
+`assets/`.
 
 The page intentionally uses relative asset URLs, so it can be hosted beneath a
 path without a build-time base-path setting.
@@ -30,6 +32,21 @@ The host must serve:
 
 Direct requests to `/memory` should redirect to `/memory/` or serve the same
 HTML. The trailing slash ensures relative asset URLs resolve consistently.
+
+`website/_redirects` sends both the hostname root and `/memory` to
+`/memory/`. `website/_headers` adds baseline browser security headers.
+
+## Deploy
+
+Use a pinned Wrangler 4 release from the repository root:
+
+```text
+wrangler deploy --config wrangler.jsonc --dry-run
+wrangler deploy --config wrangler.jsonc
+```
+
+After deployment, verify `/`, `/memory`, `/memory/`, a static asset, the
+security headers, `robots.txt`, `sitemap.xml`, and the custom 404 response.
 
 ## Before publishing
 
@@ -70,6 +87,6 @@ publication.
 
 ## Rollback
 
-Because this is a static route, rollback is simply removing the `/memory`
-route or restoring the previous static directory from the site's normal source
-control/deployment history.
+Because this is a versioned static Worker deployment, rollback restores the
+previous `zharwing-docs` deployment. Removing the custom-domain binding is a
+separate, intentional Cloudflare configuration change.

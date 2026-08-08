@@ -1,0 +1,11 @@
+{
+  // Static product documentation only. The Memory application remains local.
+  "name": "zharwing-docs",
+  "compatibility_date": "2026-08-08",
+  "workers_dev": false,
+  "assets": {
+    "directory": "./website",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "zharwing.barbutsa.com", "custom_domain": true }]
+}
