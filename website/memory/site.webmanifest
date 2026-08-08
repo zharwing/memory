@@ -1,0 +1,14 @@
+{
+  "name": "Zharwing Memory",
+  "short_name": "Memory",
+  "description": "Local-first project memory for AI-assisted coding workflows.",
+  "start_url": "/memory/",
+  "scope": "/memory/",
+  "display": "standalone",
+  "background_color": "#100f0d",
+  "theme_color": "#100f0d",
+  "icons": [
+    { "src": "assets/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/brand/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

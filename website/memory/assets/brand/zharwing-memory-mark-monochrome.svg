@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Zharwing Memory monochrome context graph</title>
+  <desc id="desc">A one-color central memory node connected to four context nodes.</desc>
+  <rect x="8" y="8" width="240" height="240" rx="49" fill="#100f0d"/>
+  <g fill="none" stroke="#f4eee7" stroke-linecap="round" stroke-width="8">
+    <path d="M128 128L72 70M128 128L188 76M128 128L78 190M128 128L189 183"/>
+    <circle cx="72" cy="70" r="13"/><circle cx="188" cy="76" r="13"/><circle cx="78" cy="190" r="13"/><circle cx="189" cy="183" r="13"/>
+  </g>
+  <circle cx="128" cy="128" r="18" fill="#f4eee7"/>
+</svg>

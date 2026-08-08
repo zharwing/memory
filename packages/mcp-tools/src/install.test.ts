@@ -80,7 +80,8 @@ test("stdio install from the development CLI resolves the compiled entry", async
     nodePath: "node"
   });
 
-  assert.deepEqual(result.args, [compiledEntry, "mcp", "serve"]);
+  const resolvedCompiledEntry = await fs.realpath(compiledEntry);
+  assert.deepEqual(result.args, [resolvedCompiledEntry, "mcp", "serve"]);
 });
 
 test("canonical install removes the legacy Codex MCP table", async () => {

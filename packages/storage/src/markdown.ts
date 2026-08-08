@@ -79,7 +79,18 @@ function quote(input: string): string {
 }
 
 function unquote(input: string): string {
-  if ((input.startsWith('"') && input.endsWith('"')) || (input.startsWith("'") && input.endsWith("'"))) {
+  if (input.startsWith('"') && input.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(input);
+      if (typeof parsed === "string") {
+        return parsed;
+      }
+    } catch {
+      // Preserve compatibility with previously stored, non-JSON quoted values.
+    }
+    return input.slice(1, -1);
+  }
+  if (input.startsWith("'") && input.endsWith("'")) {
     return input.slice(1, -1);
   }
   return input;

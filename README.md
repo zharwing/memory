@@ -4,6 +4,20 @@ Zharwing Memory is a local-first project context manager for AI-assisted coding 
 
 The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the desktop app to understand current work, inspect AI context, inspect the graph, search previous work, and enable review workflows only when wanted.
 
+> **Status: standalone personal developer preview.** The current product is
+> intended for a trusted developer using a local, single-user environment. It
+> is not presented as a production, multi-tenant, or hardened harness release.
+> See the [developer preview boundary](docs/DEVELOPER_PREVIEW.md) for the exact
+> profile, limitations, compatibility policy, and validation gates.
+
+![Zharwing Memory project dashboard](docs/assets/zharwing-memory-dashboard.png)
+
+The dependency-free [public documentation website](website/memory/README.md)
+is maintained in this repository and is designed for
+`https://zharwing.barbutsa.com/memory/`. It explains the downloadable local
+application; it is not a hosted version of Memory and cannot access a user's
+memory store.
+
 ## Current Implementation Status
 
 This repository is the generic, project-neutral Zharwing Memory application source.
@@ -148,6 +162,9 @@ docs/
   DIAGRAMS.md       Mermaid UML, ERD, sequence, state, flow diagrams
   OPERATIONS.md     Setup, runtime, backup, validation notes
   AI_TESTING.md     Manual AI-provider and semantic graph smoke tests
+
+website/
+  memory/           Dependency-free public documentation website
 
 templates/
   bootstrap/        Generic AGENTS.md and CLAUDE.md templates for linked repos
@@ -474,6 +491,8 @@ The visual direction follows the Graphite + Copper theme from the product plan.
 
 Start here:
 
+- [Public Documentation Website Source](website/memory/README.md)
+- [Developer Preview Boundary](docs/DEVELOPER_PREVIEW.md)
 - [Documentation Index](docs/README.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Data Model](docs/DATA_MODEL.md)

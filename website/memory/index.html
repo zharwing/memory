@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#100f0d" />
+    <meta
+      name="description"
+      content="Zharwing Memory is a local-first, project-scoped memory layer for AI-assisted coding workflows."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Zharwing Memory — durable context for AI coding sessions" />
+    <meta
+      property="og:description"
+      content="Keep project sessions, decisions, diagrams, context, and graph relationships organized locally."
+    />
+    <meta property="og:url" content="https://zharwing.barbutsa.com/memory/" />
+    <meta property="og:image" content="https://zharwing.barbutsa.com/memory/assets/dashboard.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://zharwing.barbutsa.com/memory/" />
+    <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="assets/brand/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Zharwing Memory — Local memory for AI-assisted coding</title>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Zharwing Memory",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows, macOS, Linux",
+        "description": "A local-first, project-scoped memory layer for AI-assisted coding workflows.",
+        "codeRepository": "https://github.com/zharwing/memory",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "isAccessibleForFree": true
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="Zharwing home">
+          <span>Zharwing</span>
+          <span class="brand-product">Memory</span>
+        </a>
+
+        <button class="menu-button" type="button" aria-expanded="false" aria-controls="site-nav">
+          <span class="sr-only">Open navigation</span>
+          <span></span><span></span><span></span>
+        </button>
+
+        <nav class="site-nav" id="site-nav" aria-label="Primary navigation">
+          <a href="#overview">Overview</a>
+          <a href="#tour">Product tour</a>
+          <a href="#quick-start">Quick start</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#limitations">Limitations</a>
+          <a class="nav-github" href="https://github.com/zharwing/memory">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero section" id="overview">
+        <div class="hero-grid page-width">
+          <div class="hero-copy reveal">
+            <div class="eyebrow"><span class="status-dot"></span> Open-source developer preview</div>
+            <h1>Durable context for every <span>AI coding session.</span></h1>
+            <p class="hero-lede">
+              Coding agents forget between conversations. Preserve sessions, decisions, diagrams,
+              and current work across tools without turning project knowledge into another cloud
+              service.
+            </p>
+
+            <div class="hero-actions">
+              <a class="button button-primary" href="https://github.com/zharwing/memory">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .7a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2.02c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.72 1.27 3.38.97.1-.75.4-1.27.74-1.56-2.57-.29-5.27-1.28-5.27-5.68 0-1.26.45-2.28 1.2-3.08-.12-.3-.52-1.47.11-3.05 0 0 .97-.31 3.16 1.18a10.9 10.9 0 0 1 5.75 0c2.2-1.49 3.16-1.18 3.16-1.18.63 1.58.23 2.75.11 3.05.75.8 1.2 1.82 1.2 3.08 0 4.41-2.71 5.38-5.29 5.67.42.36.79 1.06.79 2.14v3.18c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z" /></svg>
+                View source on GitHub
+              </a>
+              <a class="button button-secondary" href="#quick-start">Read the quick start</a>
+            </div>
+
+            <ul class="hero-facts" aria-label="Project facts">
+              <li><strong>Local-first</strong><span>Markdown source of truth</span></li>
+              <li><strong>Project-scoped</strong><span>Context stays separated</span></li>
+              <li><strong>Apache 2.0</strong><span>Open-source license</span></li>
+            </ul>
+          </div>
+
+          <div class="hero-visual reveal reveal-delay-1">
+            <div class="window-frame">
+              <div class="window-bar">
+                <div class="window-dots"><i></i><i></i><i></i></div>
+                <span>EchoDesk · Project Dashboard</span>
+                <span class="window-state">Local</span>
+              </div>
+              <img
+                src="assets/dashboard.png"
+                alt="Zharwing Memory dashboard showing an active session, context preview, and graph statistics for the fictional EchoDesk project"
+                width="1280"
+                height="720"
+              />
+            </div>
+            <p class="demo-caption">Screenshots use EchoDesk, a fictional project created only for this public demo.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="local-notice">
+        <div class="page-width notice-inner reveal">
+          <div class="notice-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+          </div>
+          <div>
+            <strong>This documentation is on the web. Your memory is not.</strong>
+            <p>Zharwing Memory runs locally as desktop, daemon, CLI, and MCP tooling. This page explains the product; it does not upload or host your project memory.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section problem-section">
+        <div class="page-width narrow-grid">
+          <div class="section-heading reveal">
+            <span class="kicker">The problem</span>
+            <h2>Long projects outlive chat windows.</h2>
+          </div>
+          <div class="problem-copy reveal reveal-delay-1">
+            <p>
+              Coding agents are excellent at the current task and unreliable at remembering why a
+              decision was made three sessions ago. Context gets trapped in transcripts, copied into
+              oversized prompt files, or rebuilt manually every morning.
+            </p>
+            <p>
+              Zharwing Memory separates the agent from the memory layer. Your preferred coding tool
+              performs the work; Memory keeps the durable project record organized, searchable, and
+              explicitly scoped.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section feature-section" id="capabilities">
+        <div class="page-width">
+          <div class="section-heading centered reveal">
+            <span class="kicker">One durable project record</span>
+            <h2>Enough context to continue. Not enough noise to drown.</h2>
+            <p>Memory provides a human control plane and a focused daily interface for coding agents.</p>
+          </div>
+
+          <div class="feature-grid">
+            <article class="feature-card reveal">
+              <span class="feature-number">01</span>
+              <h3>Sessions and checkpoints</h3>
+              <p>Record goals, progress, touched files, blockers, and next steps so a future session can resume deliberately.</p>
+            </article>
+            <article class="feature-card reveal reveal-delay-1">
+              <span class="feature-number">02</span>
+              <h3>Docs and diagrams</h3>
+              <p>Keep decisions, runbooks, architecture notes, gotchas, and Mermaid diagrams beside the work they explain.</p>
+            </article>
+            <article class="feature-card reveal reveal-delay-2">
+              <span class="feature-number">03</span>
+              <h3>Context preview</h3>
+              <p>See what would be included, excluded, and estimated before a context bundle is used by an agent.</p>
+            </article>
+            <article class="feature-card reveal">
+              <span class="feature-number">04</span>
+              <h3>Relationship graph</h3>
+              <p>Connect workstreams, sessions, decisions, files, services, packages, and topics in a navigable project map.</p>
+            </article>
+            <article class="feature-card reveal reveal-delay-1">
+              <span class="feature-number">05</span>
+              <h3>Search and import</h3>
+              <p>Find prior work quickly and bring existing Markdown documentation or session archives into the same model.</p>
+            </article>
+            <article class="feature-card reveal reveal-delay-2">
+              <span class="feature-number">06</span>
+              <h3>Privacy boundaries</h3>
+              <p>Apply visibility rules, never-send patterns, secret scanning, redaction, and explicit review modes.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section tour-section" id="tour">
+        <div class="page-width">
+          <div class="section-heading reveal">
+            <span class="kicker">Product tour</span>
+            <h2>See the project, not another transcript.</h2>
+            <p>The desktop UI makes ongoing AI-assisted work understandable to a human.</p>
+          </div>
+
+          <div class="tour-shell reveal">
+            <div class="tour-tabs" role="tablist" aria-label="Product screenshots">
+              <button role="tab" aria-selected="true" aria-controls="tour-image" data-tour="graph" type="button">
+                <strong>Context graph</strong><span>Explore durable relationships</span>
+              </button>
+              <button role="tab" aria-selected="false" aria-controls="tour-image" data-tour="docs" type="button">
+                <strong>Docs library</strong><span>Organize reusable knowledge</span>
+              </button>
+              <button role="tab" aria-selected="false" aria-controls="tour-image" data-tour="sessions" type="button">
+                <strong>Session history</strong><span>Resume work with evidence</span>
+              </button>
+              <button role="tab" aria-selected="false" aria-controls="tour-image" data-tour="architecture" type="button">
+                <strong>Rendered diagrams</strong><span>Keep architecture visible</span>
+              </button>
+            </div>
+
+            <figure class="tour-stage" id="tour-image" aria-live="polite">
+              <img
+                src="assets/context-graph.png"
+                alt="Zharwing Memory context graph focused on the fictional EchoDesk transcription service"
+                width="1280"
+                height="720"
+                data-tour-image
+              />
+              <figcaption data-tour-caption>Focus a graph on one service to inspect the decisions, specifications, diagrams, and repository evidence connected to it.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="section workflow-section" id="workflow">
+        <div class="page-width">
+          <div class="section-heading centered reveal">
+            <span class="kicker">Daily workflow</span>
+            <h2>Memory follows the engineering work.</h2>
+          </div>
+
+          <ol class="workflow-list">
+            <li class="reveal">
+              <span>1</span>
+              <div><h3>Resolve the project</h3><p>A small repository pointer lets tools identify the matching local memory project.</p></div>
+            </li>
+            <li class="reveal reveal-delay-1">
+              <span>2</span>
+              <div><h3>Resume intentionally</h3><p>Read compact previous-work summaries, unfinished tasks, and blockers before starting today’s session.</p></div>
+            </li>
+            <li class="reveal reveal-delay-2">
+              <span>3</span>
+              <div><h3>Save meaningful progress</h3><p>The agent records checkpoints after decisions, milestones, or risky changes—not after every message.</p></div>
+            </li>
+            <li class="reveal reveal-delay-3">
+              <span>4</span>
+              <div><h3>Leave a clean handoff</h3><p>Close with what changed, what remains, and which files matter for the next session.</p></div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section quick-start-section" id="quick-start">
+        <div class="page-width quick-start-grid">
+          <div class="section-heading reveal">
+            <span class="kicker">Quick start from source</span>
+            <h2>Run it locally.</h2>
+            <p>
+              The developer preview currently runs from the repository. Use the supported Node version
+              declared by the project and pnpm 9.
+            </p>
+            <div class="requirements">
+              <span>Node 22.21 or 24</span>
+              <span>pnpm 9</span>
+              <span>Git</span>
+            </div>
+          </div>
+
+          <div class="code-card reveal reveal-delay-1">
+            <div class="code-card-header"><span>Terminal</span><button type="button" data-copy="quick-start-code">Copy</button></div>
+            <pre id="quick-start-code"><code><span class="code-comment"># Clone and prepare the local application</span>
+git clone https://github.com/zharwing/memory.git
+cd memory
+corepack pnpm install
+
+<span class="code-comment"># Create local configuration</span>
+copy .env.example .env
+
+<span class="code-comment"># Start the daemon and web UI in two terminals</span>
+corepack pnpm dev:daemon
+corepack pnpm dev:web</code></pre>
+            <p class="code-note">On macOS or Linux, replace <code>copy</code> with <code>cp</code>. Keep your configured memory store outside the source repository.</p>
+          </div>
+        </div>
+
+        <div class="page-width setup-steps reveal">
+          <article><span>01</span><h3>Create a project</h3><p>Open the UI, name the memory project, and choose its private local store.</p></article>
+          <article><span>02</span><h3>Link repositories</h3><p>Attach one or more Git roots and optionally create small detection pointers.</p></article>
+          <article><span>03</span><h3>Connect an agent</h3><p>Install the MCP configuration for Codex, Claude Code, or another compatible client.</p></article>
+        </div>
+
+        <div class="page-width docs-links reveal">
+          <a href="https://github.com/zharwing/memory/blob/main/docs/MCP_SETUP.md"><span>MCP setup</span><small>Codex, Claude, HTTP and stdio</small><b>→</b></a>
+          <a href="https://github.com/zharwing/memory/blob/main/docs/OPERATIONS.md"><span>Operations</span><small>Runtime, backup and validation</small><b>→</b></a>
+          <a href="https://github.com/zharwing/memory/tree/main/docs"><span>Complete documentation</span><small>Architecture, APIs and user flows</small><b>→</b></a>
+        </div>
+      </section>
+
+      <section class="section integration-section" id="integrations">
+        <div class="page-width integration-grid">
+          <div class="section-heading reveal">
+            <span class="kicker">Agent integration</span>
+            <h2>A focused memory API—not another agent.</h2>
+            <p>
+              Codex, Claude Code, Gemini CLI, local-model tools, and future MCP clients remain
+              responsible for engineering. Memory provides the durable context boundary.
+            </p>
+          </div>
+
+          <div class="tool-panel reveal reveal-delay-1">
+            <div class="tool-panel-title"><span class="status-dot"></span> MCP daily-memory surface <strong>11 tools</strong></div>
+            <div class="tool-list">
+              <code>memory.get_startup_state</code>
+              <code>memory.start_session</code>
+              <code>memory.search</code>
+              <code>memory.get_session_detail</code>
+              <code>memory.preview_context_bundle</code>
+              <code>memory.get_context_bundle</code>
+              <code>memory.save_checkpoint</code>
+              <code>memory.close_session</code>
+              <span>+ health and recent-session helpers</span>
+            </div>
+            <p>Project administration, imports, backups, Trash, and graph settings stay in the human-facing UI or CLI by design.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section privacy-section" id="privacy">
+        <div class="page-width">
+          <div class="privacy-card reveal">
+            <div class="privacy-copy">
+              <span class="kicker">Local-first by design</span>
+              <h2>Your project memory remains your local state.</h2>
+              <p>
+                Application source and private memory are separate. Markdown is the source of truth;
+                indexes are rebuildable projections. Normal operation does not require an AI provider.
+              </p>
+              <a class="text-link" href="https://github.com/zharwing/memory/blob/main/SECURITY.md">Read the security policy →</a>
+            </div>
+            <ul class="privacy-list">
+              <li><span>✓</span><div><strong>Explicit project scope</strong><p>Sessions and context resolve to the selected project.</p></div></li>
+              <li><span>✓</span><div><strong>Visibility controls</strong><p>Mark information human-only, private, or never-send.</p></div></li>
+              <li><span>✓</span><div><strong>Secret safety</strong><p>Apply ignore patterns, secret scanning, redaction, and high-risk blocking.</p></div></li>
+              <li><span>✓</span><div><strong>Recoverable operations</strong><p>Project records move through Trash and backup boundaries before permanent removal.</p></div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section architecture-section" id="architecture">
+        <div class="page-width architecture-grid">
+          <div class="architecture-copy reveal">
+            <span class="kicker">Architecture</span>
+            <h2>One behavior layer, several adapters.</h2>
+            <p>The daemon owns project, session, context, privacy, search, graph, and storage behavior. Desktop, CLI, web development mode, and MCP are adapters around the same rules.</p>
+            <div class="architecture-stack" aria-label="Architecture flow">
+              <span>Desktop UI</span><span>CLI</span><span>MCP</span>
+              <i>→</i>
+              <strong>Local daemon API</strong>
+              <i>→</i>
+              <strong>Shared packages</strong>
+              <i>→</i>
+              <span>Markdown + indexes</span>
+            </div>
+            <a class="text-link" href="https://github.com/zharwing/memory/blob/main/docs/ARCHITECTURE.md">Read the architecture documentation →</a>
+          </div>
+          <figure class="architecture-visual reveal reveal-delay-1">
+            <img src="assets/architecture.png" alt="Rendered EchoDesk architecture diagram in Zharwing Memory" width="1280" height="720" />
+            <figcaption>Mermaid diagrams are stored as Markdown and rendered inside the Library.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section limitations-section" id="limitations">
+        <div class="page-width limitations-grid">
+          <div class="section-heading reveal">
+            <span class="kicker">Developer preview</span>
+            <h2>Useful today. Still being productized.</h2>
+            <p>The status is intentionally explicit so users can evaluate the project without marketing ambiguity.</p>
+          </div>
+          <div class="limitations-list reveal reveal-delay-1">
+            <article><span>01</span><div><h3>Source-first installation</h3><p>The current public workflow runs from the repository. A polished installer and installer-level smoke coverage remain release work.</p></div></article>
+            <article><span>02</span><div><h3>Desktop coverage is growing</h3><p>Core behavior has deterministic tests, while broad end-to-end coverage across every desktop workflow remains incomplete.</p></div></article>
+            <article><span>03</span><div><h3>Local models are optional</h3><p>Normal sessions, search, graph, context, and MCP workflows do not require a model. Optional semantic analysis needs a configured local compatible provider.</p></div></article>
+            <article><span>04</span><div><h3>No hosted account</h3><p>Zharwing Memory is deliberately local software. There is no browser-hosted memory service or automatic synchronization in this preview.</p></div></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section faq-section" id="faq">
+        <div class="page-width faq-grid">
+          <div class="section-heading reveal"><span class="kicker">Questions</span><h2>Before you try it.</h2></div>
+          <div class="faq-list reveal reveal-delay-1">
+            <details open><summary>Is Zharwing Memory an AI coding agent?</summary><p>No. Your coding agent performs the engineering work. Memory provides durable project context, session history, and human controls.</p></details>
+            <details><summary>Does my project data go to this website?</summary><p>No. This is documentation only. Memory runs locally and uses a private store path chosen on your machine.</p></details>
+            <details><summary>Do I need a local language model?</summary><p>No. The core workflow is deterministic. A local OpenAI-compatible provider is optional for assistant summaries and semantic relationship proposals.</p></details>
+            <details><summary>Can one Memory project link several repositories?</summary><p>Yes. A product can link multiple repository roots while preserving one project-scoped memory record.</p></details>
+            <details><summary>Which agents can connect?</summary><p>The repository documents MCP setup for Codex, Claude Code, and Claude Desktop. Other compatible clients can use HTTP or stdio integration.</p></details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section final-cta">
+        <div class="page-width cta-card reveal">
+          <span class="kicker">Open-source developer preview</span>
+          <h2>Give your next coding session the context your last one earned.</h2>
+          <p>Explore the source, read the technical documentation, and decide whether Zharwing Memory fits your local workflow.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="https://github.com/zharwing/memory">View source on GitHub</a>
+            <a class="button button-secondary" href="https://github.com/zharwing/memory/tree/main/docs">Browse documentation</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-width footer-grid">
+        <div>
+          <a class="brand" href="/"><span>Zharwing Memory</span></a>
+          <p>Local-first project memory for AI-assisted coding workflows.</p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/zharwing/memory">GitHub</a>
+          <a href="https://github.com/zharwing/memory/tree/main/docs">Documentation</a>
+          <a href="https://github.com/zharwing/memory/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/zharwing/memory/blob/main/LICENSE">Apache 2.0</a>
+        </div>
+        <p class="footer-note">EchoDesk is a fictional demonstration project. No private project data appears on this page.</p>
+      </div>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>

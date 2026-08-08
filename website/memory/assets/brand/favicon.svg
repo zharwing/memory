@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Zharwing Memory context graph</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#100f0d" stroke="#3b332d"/>
+  <g fill="none" stroke="#e9955d" stroke-linecap="round" stroke-width="2.5">
+    <path d="M31 32L17 17M31 32L48 18M31 32L18 48M31 32L48 46"/>
+    <circle cx="17" cy="17" r="3.5" fill="#100f0d"/>
+    <circle cx="48" cy="18" r="3.5" fill="#100f0d"/>
+    <circle cx="18" cy="48" r="3.5" fill="#100f0d"/>
+    <circle cx="48" cy="46" r="3.5" fill="#100f0d"/>
+  </g>
+  <circle cx="31" cy="32" r="4.7" fill="#f4eee7"/>
+</svg>
