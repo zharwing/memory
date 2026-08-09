@@ -32,9 +32,13 @@ This folder contains product and engineering documentation for the Zharwing Memo
 - [User Flows](USER_FLOWS.md)
   First-time setup, daily coding, project return, context preview, inbox review, assistant workflows, backup, and recovery.
 
-- [Desktop UI](DESKTOP_UI.md)
-  Browser and Tauri runtime modes, lightweight sidebar model, first-run setup,
-  import workflow, opt-in session graph visibility, and Trash behavior.
+- [Browser UI](WEB_UI.md)
+  Complete local browser startup, daemon and token configuration, daily use,
+  browser-versus-desktop differences, and troubleshooting.
+
+- [Browser And Desktop UI](DESKTOP_UI.md)
+  Shared navigation, browser and Tauri runtime modes, first-run setup, import
+  workflow, opt-in session graph visibility, and Trash behavior.
 
 - [Diagrams](DIAGRAMS.md)
   Mermaid diagrams: architecture, UML class diagram, ERD, sequence diagrams, state machines, user flow, context pipeline, storage layout, and backup flow.
@@ -68,18 +72,19 @@ This folder contains product and engineering documentation for the Zharwing Memo
 2. Read [Architecture](ARCHITECTURE.md).
 3. Review [Diagrams](DIAGRAMS.md) for system shape.
 4. Use [User Flows](USER_FLOWS.md) to understand behavior.
-5. Use [Desktop UI](DESKTOP_UI.md) when operating the browser or Tauri app.
-6. Use [API Reference](API_REFERENCE.md) when wiring clients.
-7. Use [Agent Protocol](AGENT_PROTOCOL.md) when wiring agents or generating agent-specific instructions.
-8. Use [MCP Setup](MCP_SETUP.md) when connecting Codex, Claude, or another MCP client.
-9. Use [Agent Automation](AGENT_AUTOMATION.md) when configuring bootstrap files or the generic skill.
-10. Use [Repositories](REPOSITORIES.md) when linking multiple repos to one memory project.
-11. Use [Workstreams](WORKSTREAMS.md) when grouping multi-day topics.
-12. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
-13. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
-14. Use [Semantic Graph Analysis](SEMANTIC_GRAPH.md) when enabling AI-reviewed relationships.
-15. Use [Testing With AI Providers](AI_TESTING.md) when checking LM Studio, session TLDR generation, or another model-backed provider.
-16. Use [Operations](OPERATIONS.md) when running or packaging the app.
+5. Use [Browser UI](WEB_UI.md) to run Memory in a browser.
+6. Use [Browser And Desktop UI](DESKTOP_UI.md) for the shared navigation and workflows.
+7. Use [API Reference](API_REFERENCE.md) when wiring clients.
+8. Use [Agent Protocol](AGENT_PROTOCOL.md) when wiring agents or generating agent-specific instructions.
+9. Use [MCP Setup](MCP_SETUP.md) when connecting Codex, Claude, or another MCP client.
+10. Use [Agent Automation](AGENT_AUTOMATION.md) when configuring bootstrap files or the generic skill.
+11. Use [Repositories](REPOSITORIES.md) when linking multiple repos to one memory project.
+12. Use [Workstreams](WORKSTREAMS.md) when grouping multi-day topics.
+13. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
+14. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
+15. Use [Semantic Graph Analysis](SEMANTIC_GRAPH.md) when enabling AI-reviewed relationships.
+16. Use [Testing With AI Providers](AI_TESTING.md) when checking LM Studio, session TLDR generation, or another model-backed provider.
+17. Use [Operations](OPERATIONS.md) when running or packaging the app.
 
 ## Documentation Policy
 

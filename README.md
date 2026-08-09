@@ -2,7 +2,7 @@
 
 Zharwing Memory is a local-first project context manager for AI-assisted coding workflows. It is not the coding agent. External agents such as Codex, Claude Code, Gemini CLI, Ollama-based tools, LM Studio workflows, and future MCP-capable clients do the engineering work. Zharwing Memory provides their durable, project-scoped memory layer.
 
-The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the desktop app to understand current work, inspect AI context, inspect the graph, search previous work, and enable review workflows only when wanted.
+The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the local browser UI or native desktop app to understand current work, inspect AI context, inspect the graph, search previous work, and enable review workflows only when wanted.
 
 > **Status: standalone personal developer preview.** The current product is
 > intended for a trusted developer using a local, single-user environment. It
@@ -130,7 +130,7 @@ check.
 
 ```text
 apps/
-  desktop/          Tauri + React human control plane
+  desktop/          Shared React browser UI and Tauri human control plane
   daemon/           Localhost JSON-RPC daemon
   cli/              zharwing-memory command-line helper
   mcp-server/       MCP-style stdio adapter
@@ -150,6 +150,7 @@ packages/
 
 docs/
   README.md         Documentation index
+  WEB_UI.md         Local browser startup, auth, usage, and troubleshooting
   ARCHITECTURE.md   System architecture
   DATA_MODEL.md     Entities, storage, and metadata
   API_REFERENCE.md  Daemon, CLI, and MCP surfaces
@@ -198,14 +199,38 @@ ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
 VITE_ZHARWING_MEMORY_AUTH_TOKEN=<same-local-random-token>
 ```
 
-Start the daemon and browser UI:
+### Local Browser UI
+
+The browser UI is a complete local interface for normal daily use, not a demo
+or a reduced documentation view. It exposes the same React pages and workflows
+as the native desktop window.
+
+Start the daemon in the first terminal:
 
 ```bash
 corepack pnpm dev:daemon
+```
+
+Start the browser UI in a second terminal:
+
+```bash
 corepack pnpm dev:web
 ```
 
-For the native desktop app, run:
+Open `http://localhost:5174/`. Keep both processes running. The browser UI calls
+the daemon at `http://127.0.0.1:37841`; `dev:web` does not start it.
+
+The values of `ZHARWING_MEMORY_AUTH_TOKEN` and
+`VITE_ZHARWING_MEMORY_AUTH_TOKEN` must match. Restart `dev:web` after changing
+Vite environment variables. Browser path fields accept typed or pasted
+absolute paths because browsers cannot expose arbitrary local folders.
+
+See the dedicated [Browser UI guide](docs/WEB_UI.md) for the full setup,
+browser-versus-desktop comparison, local authentication, and troubleshooting.
+
+### Native Desktop UI
+
+For the native Tauri app, run:
 
 ```bash
 corepack pnpm dev:desktop
@@ -213,12 +238,13 @@ corepack pnpm dev:desktop
 
 In a source checkout, the desktop shell starts or reuses the local daemon
 automatically. A copied release executable reuses an already-running daemon or
-uses `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND` when configured. Browser mode
-keeps the normal separate daemon + web server flow.
+uses `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND` when configured. The native shell
+adds OS folder pickers; the core project, session, library, graph, and settings
+workflows are shared with the browser UI.
 
-Open `http://localhost:5174/`, create a project, then link repos from
-Repositories. For multi-repo products, create the project first and add each Git
-repo root afterward.
+In either UI, create a project, then link repos from Repositories. For
+multi-repo products, create the project first and add each Git repo root
+afterward.
 
 ### Pointer Files
 
@@ -286,9 +312,10 @@ restore, single-item permanent delete, selected permanent delete, and full empty
 ## Architecture Summary
 
 ```text
-Desktop UI     \
-CLI             -> daemon API -> shared packages -> Markdown source of truth
-MCP adapter    /                              \-> rebuildable indexes
+Browser UI     \
+Desktop UI      \
+CLI              -> daemon API -> shared packages -> Markdown source of truth
+MCP adapter     /                              \-> rebuildable indexes
 ```
 
 The daemon owns:
@@ -306,7 +333,7 @@ The daemon owns:
 - trash, restore, and permanent purge
 - optional assistant jobs
 
-The desktop app, CLI, and MCP server are adapters.
+The browser UI, native desktop app, CLI, and MCP server are adapters.
 
 ## Memory Root Shape
 
@@ -456,10 +483,12 @@ project administration, repository links, workstreams, document editing,
 imports, graph settings, backups, Trash, and other control-plane operations.
 See [API Reference](docs/API_REFERENCE.md) for both surfaces.
 
-## Desktop UI
+## Browser And Desktop UI
 
-The desktop app is the human control plane. The sidebar stays intentionally
-small:
+The local browser UI and native desktop app share the same React human control
+plane. The browser UI is often the fastest way to use Memory from a source
+checkout: run the daemon, run `dev:web`, and open `http://localhost:5174/`.
+The sidebar stays intentionally small:
 
 - project switcher for selecting, creating, and deleting projects
 - Dashboard
@@ -478,12 +507,12 @@ Secondary pages live inside section tabs:
 - Settings: Project, Setup, Assistant, Backups
 
 In the native Tauri desktop window, Setup, Repositories, and Import provide
-Browse buttons for selecting folders with the OS file picker. Browser dev mode
-keeps typed paths as a fallback because browsers do not expose arbitrary local
-folder paths to web apps.
+Browse buttons for selecting folders with the OS file picker. The browser UI
+provides the same underlying workflows but uses typed or pasted absolute paths
+because browsers do not expose arbitrary local folder paths to web apps.
 
-See [Desktop UI](docs/DESKTOP_UI.md) for the current navigation and first-run
-flow.
+See [Browser UI](docs/WEB_UI.md) for startup and troubleshooting, and
+[Browser And Desktop UI](docs/DESKTOP_UI.md) for navigation and first-run flow.
 
 The visual direction follows the Graphite + Copper theme from the product plan.
 
@@ -498,7 +527,8 @@ Start here:
 - [Data Model](docs/DATA_MODEL.md)
 - [API Reference](docs/API_REFERENCE.md)
 - [User Flows](docs/USER_FLOWS.md)
-- [Desktop UI](docs/DESKTOP_UI.md)
+- [Browser UI](docs/WEB_UI.md)
+- [Browser And Desktop UI](docs/DESKTOP_UI.md)
 - [Graph Rules](docs/GRAPH_RULES.md)
 - [Diagrams](docs/DIAGRAMS.md)
 - [Operations](docs/OPERATIONS.md)

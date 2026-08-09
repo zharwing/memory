@@ -25,15 +25,19 @@ Browser UI:
 pnpm dev:web
 ```
 
+Run this in a second terminal while `pnpm dev:daemon` remains active, then open
+`http://localhost:5174/`. The local browser UI contains the complete React
+control plane. See [Browser UI](WEB_UI.md) for environment setup and
+troubleshooting.
+
 Native Tauri window:
 
 ```text
 pnpm dev:desktop
 ```
 
-Use `dev:web` when you only need the browser app at
-`http://localhost:5174/`. Use `dev:desktop` when you need the Tauri desktop
-window and OS folder picker support.
+Use `dev:web` for daily browser-based use or development. Use `dev:desktop`
+when you want the same UI in a Tauri window with OS folder picker support.
 
 ## UI First Run
 

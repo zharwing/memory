@@ -119,7 +119,7 @@
           </div>
           <div>
             <strong>This documentation is on the web. Your memory is not.</strong>
-            <p>Zharwing Memory runs locally as desktop, daemon, CLI, and MCP tooling. This page explains the product; it does not upload or host your project memory.</p>
+            <p>Zharwing Memory runs locally through its browser UI, desktop app, daemon, CLI, and MCP tooling. This page explains the product; it does not upload or host your project memory.</p>
           </div>
         </div>
       </section>
@@ -193,7 +193,7 @@
           <div class="section-heading reveal">
             <span class="kicker">Product tour</span>
             <h2>See the project, not another transcript.</h2>
-            <p>The desktop UI makes ongoing AI-assisted work understandable to a human.</p>
+            <p>The local browser UI and native desktop app make ongoing AI-assisted work understandable to a human.</p>
           </div>
 
           <div class="tour-shell reveal">
@@ -280,22 +280,50 @@ corepack pnpm install
 <span class="code-comment"># Create local configuration</span>
 copy .env.example .env
 
-<span class="code-comment"># Start the daemon and web UI in two terminals</span>
+<span class="code-comment"># In .env, choose a private store and keep the two auth tokens identical</span>
+<span class="code-comment">#   ZHARWING_MEMORY_ROOT=&lt;absolute-private-store-path&gt;</span>
+<span class="code-comment">#   ZHARWING_MEMORY_AUTH_TOKEN=&lt;local-random-token&gt;</span>
+<span class="code-comment">#   VITE_ZHARWING_MEMORY_AUTH_TOKEN=&lt;same-local-random-token&gt;</span>
+
+<span class="code-comment"># Terminal 1 - keep the local daemon running</span>
 corepack pnpm dev:daemon
-corepack pnpm dev:web</code></pre>
-            <p class="code-note">On macOS or Linux, replace <code>copy</code> with <code>cp</code>. Keep your configured memory store outside the source repository.</p>
+
+<span class="code-comment"># Terminal 2 - start the full browser UI</span>
+corepack pnpm dev:web
+
+<span class="code-comment"># Open in your browser</span>
+http://localhost:5174/</code></pre>
+            <p class="code-note">On macOS or Linux, replace <code>copy</code> with <code>cp</code>. Both local processes must stay running. Keep your configured memory store outside the source repository.</p>
           </div>
         </div>
 
         <div class="page-width setup-steps reveal">
-          <article><span>01</span><h3>Create a project</h3><p>Open the UI, name the memory project, and choose its private local store.</p></article>
-          <article><span>02</span><h3>Link repositories</h3><p>Attach one or more Git roots and optionally create small detection pointers.</p></article>
+          <article><span>01</span><h3>Open the local Web UI</h3><p>Visit <code>http://localhost:5174/</code>. This is the full React control plane, not a reduced demo.</p></article>
+          <article><span>02</span><h3>Create and link</h3><p>Create a project, choose its private store, then attach one or more Git repository roots.</p></article>
           <article><span>03</span><h3>Connect an agent</h3><p>Install the MCP configuration for Codex, Claude Code, or another compatible client.</p></article>
         </div>
 
+        <div class="page-width feature-grid reveal" aria-label="Zharwing Memory interfaces">
+          <article class="feature-card">
+            <span class="feature-number">LOCAL WEB UI</span>
+            <h3>Full browser control plane</h3>
+            <p>Use Dashboard, Repos, Work, Library, Import, Search, Trash, and Settings in a local browser tab. Start the daemon separately and type or paste absolute folder paths.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-number">NATIVE DESKTOP</span>
+            <h3>The same UI with OS integration</h3>
+            <p>The Tauri window renders the same React application, starts or reuses the daemon from source, and adds native folder Browse buttons.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-number">PUBLIC WEBSITE</span>
+            <h3>Documentation only</h3>
+            <p>This hosted page explains Memory. It cannot read your projects. Your actual Web UI and private store remain local on your machine.</p>
+          </article>
+        </div>
+
         <div class="page-width docs-links reveal">
+          <a href="https://github.com/zharwing/memory/blob/main/docs/WEB_UI.md"><span>Browser UI guide</span><small>Startup, authentication and troubleshooting</small><b>→</b></a>
           <a href="https://github.com/zharwing/memory/blob/main/docs/MCP_SETUP.md"><span>MCP setup</span><small>Codex, Claude, HTTP and stdio</small><b>→</b></a>
-          <a href="https://github.com/zharwing/memory/blob/main/docs/OPERATIONS.md"><span>Operations</span><small>Runtime, backup and validation</small><b>→</b></a>
           <a href="https://github.com/zharwing/memory/tree/main/docs"><span>Complete documentation</span><small>Architecture, APIs and user flows</small><b>→</b></a>
         </div>
       </section>
@@ -356,9 +384,9 @@ corepack pnpm dev:web</code></pre>
           <div class="architecture-copy reveal">
             <span class="kicker">Architecture</span>
             <h2>One behavior layer, several adapters.</h2>
-            <p>The daemon owns project, session, context, privacy, search, graph, and storage behavior. Desktop, CLI, web development mode, and MCP are adapters around the same rules.</p>
+            <p>The daemon owns project, session, context, privacy, search, graph, and storage behavior. The browser UI, native desktop app, CLI, and MCP are adapters around the same rules.</p>
             <div class="architecture-stack" aria-label="Architecture flow">
-              <span>Desktop UI</span><span>CLI</span><span>MCP</span>
+              <span>Web UI</span><span>Desktop</span><span>CLI</span><span>MCP</span>
               <i>→</i>
               <strong>Local daemon API</strong>
               <i>→</i>
@@ -384,9 +412,9 @@ corepack pnpm dev:web</code></pre>
           </div>
           <div class="limitations-list reveal reveal-delay-1">
             <article><span>01</span><div><h3>Source-first installation</h3><p>The current public workflow runs from the repository. A polished installer and installer-level smoke coverage remain release work.</p></div></article>
-            <article><span>02</span><div><h3>Desktop coverage is growing</h3><p>Core behavior has deterministic tests, while broad end-to-end coverage across every desktop workflow remains incomplete.</p></div></article>
+            <article><span>02</span><div><h3>UI coverage is growing</h3><p>Core behavior has deterministic tests, while broad end-to-end coverage across every browser and desktop workflow remains incomplete.</p></div></article>
             <article><span>03</span><div><h3>Local models are optional</h3><p>Normal sessions, search, graph, context, and MCP workflows do not require a model. Optional semantic analysis needs a configured local compatible provider.</p></div></article>
-            <article><span>04</span><div><h3>No hosted account</h3><p>Zharwing Memory is deliberately local software. There is no browser-hosted memory service or automatic synchronization in this preview.</p></div></article>
+            <article><span>04</span><div><h3>No hosted account</h3><p>Zharwing Memory is deliberately local software. Its Web UI runs on localhost; there is no cloud-hosted memory service or automatic synchronization in this preview.</p></div></article>
           </div>
         </div>
       </section>
@@ -396,6 +424,7 @@ corepack pnpm dev:web</code></pre>
           <div class="section-heading reveal"><span class="kicker">Questions</span><h2>Before you try it.</h2></div>
           <div class="faq-list reveal reveal-delay-1">
             <details open><summary>Is Zharwing Memory an AI coding agent?</summary><p>No. Your coding agent performs the engineering work. Memory provides durable project context, session history, and human controls.</p></details>
+            <details><summary>Does Zharwing Memory have a Web UI?</summary><p>Yes. Run the daemon and <code>corepack pnpm dev:web</code>, then open <code>http://localhost:5174/</code>. It is the full local React interface used by the desktop app. Browser mode uses typed paths instead of native folder pickers.</p></details>
             <details><summary>Does my project data go to this website?</summary><p>No. This is documentation only. Memory runs locally and uses a private store path chosen on your machine.</p></details>
             <details><summary>Do I need a local language model?</summary><p>No. The core workflow is deterministic. A local OpenAI-compatible provider is optional for assistant summaries and semantic relationship proposals.</p></details>
             <details><summary>Can one Memory project link several repositories?</summary><p>Yes. A product can link multiple repository roots while preserving one project-scoped memory record.</p></details>

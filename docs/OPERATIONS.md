@@ -98,15 +98,36 @@ CLI:
 corepack pnpm dev:cli projects
 ```
 
-Browser UI:
+### Local Browser UI
+
+The browser UI is a full local control plane for daily use. It renders the same
+React application as the Tauri window, but it does not manage the daemon
+process. Start the daemon first and keep it running:
+
+```text
+corepack pnpm dev:daemon
+```
+
+Then start the UI in a second terminal:
 
 ```text
 corepack pnpm dev:web
 ```
 
-The React/Vite dev server is pinned to `http://localhost:5174` so it does
+Open `http://localhost:5174/`. The React/Vite dev server is pinned to that port so it does
 not collide with other local product runtimes that commonly use Vite's default
 `5173`.
+
+In token mode, the daemon and browser bundle must use the same local token:
+
+```text
+ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
+VITE_ZHARWING_MEMORY_AUTH_TOKEN=<same-local-random-token>
+```
+
+Vite loads `.env` when the process starts. Restart `dev:web` after changing a
+`VITE_` value. See [Browser UI](WEB_UI.md) for complete setup and
+troubleshooting.
 
 Desktop/web UI workflows currently include setup, project selection, project
 delete, repo links, import preview/commit, workstreams, sessions, docs, search,

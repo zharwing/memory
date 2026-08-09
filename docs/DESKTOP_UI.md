@@ -1,13 +1,13 @@
-# Desktop And Web UI
+# Browser And Desktop UI
 
-The desktop/web UI is the human control plane for Zharwing Memory. It is not an
-agent. It lets a user create memory projects, link repos, import old notes,
-review context, inspect sessions, manage durable memory, and recover deleted
-items.
+The local browser UI and native desktop app are two runtime modes for the same
+React human control plane. Neither is an agent. Both let a user create memory
+projects, link repos, import old notes, review context, inspect sessions, manage
+durable memory, and recover deleted items.
 
 ## Runtime Modes
 
-Browser development mode:
+Browser mode uses two processes. Start them in separate terminals:
 
 ```text
 pnpm dev:daemon
@@ -37,6 +37,16 @@ debugging.
 The browser UI cannot browse arbitrary local folders. In browser mode, path
 fields accept typed or pasted absolute paths. In the Tauri window, Setup,
 Repos, and Import can use OS folder picker buttons.
+
+| Behavior | Browser UI | Native Tauri app |
+| --- | --- | --- |
+| Pages and workflows | Full shared React UI | Full shared React UI |
+| Daemon | Start separately | Starts or reuses it in a source checkout |
+| Folder selection | Type or paste absolute paths | OS folder picker buttons |
+| Window | `http://localhost:5174/` | Native application window |
+
+For browser environment variables, token matching, first startup, and common
+errors, see the dedicated [Browser UI guide](WEB_UI.md).
 
 Setup also includes Agent MCP actions for automatic install, installing Codex,
 Claude Code, or Claude Desktop config, and checking the current MCP setup.
