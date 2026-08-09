@@ -16,6 +16,8 @@
     "dev:mcp": "node --env-file-if-exists=.env --import tsx apps/mcp-server/src/index.ts",
     "dev:web": "vite --config apps/desktop/vite.config.ts",
     "dev:desktop": "node scripts/tauri-dev.mjs",
+    "docs:site": "node scripts/build-public-docs.mjs",
+    "check:docs-site": "node scripts/check-public-docs.mjs",
     "build:desktop": "node scripts/tauri-build.mjs",
     "build:ts": "tsc -b",
     "build:web": "vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs",

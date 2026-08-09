@@ -9,3 +9,6 @@
 
 /memory/styles.css
   Cache-Control: public, max-age=0, must-revalidate
+
+/memory/docs/*
+  Cache-Control: public, max-age=0, must-revalidate

@@ -12,11 +12,12 @@ The product keeps project knowledge, AI session history, context bundles, diagra
 
 ![Zharwing Memory project dashboard](docs/assets/zharwing-memory-dashboard.png)
 
-The dependency-free [public documentation website](website/memory/README.md)
-is maintained in this repository and is designed for
-`https://zharwing.barbutsa.com/memory/`. It explains the downloadable local
-application; it is not a hosted version of Memory and cannot access a user's
-memory store.
+The dependency-free [public documentation website](https://zharwing.barbutsa.com/memory/)
+and its [structured documentation portal](https://zharwing.barbutsa.com/memory/docs/)
+are maintained in this repository. They explain the downloadable local
+application; they are not a hosted version of Memory and cannot access a user's
+memory store. The [website source and maintenance guide](website/memory/README.md)
+remain available in the repository.
 
 ## Current Implementation Status
 

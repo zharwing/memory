@@ -17,6 +17,8 @@ hosted copy of the product and does not connect to a memory store.
   font, CSS, or analytics dependency.
 - `script.js` — progressive enhancement for mobile navigation, screenshot
   tabs, copy buttons, and scroll-reveal behavior.
+- `docs/` — the searchable, categorized documentation portal generated from
+  the repository Markdown sources.
 - `assets/` — the public-safe fictional EchoDesk screenshots and the Zharwing
   feather/circuit brand system.
 - `BRAND.md` — logo variants, favicon inventory, and usage constraints.
@@ -48,5 +50,14 @@ session data into this directory.
 
 ## Maintenance rule
 
-Keep this page short and product-oriented. Detailed technical documentation
-belongs in the public GitHub repository and should be linked rather than copied.
+Keep the landing page short and product-oriented. Detailed documentation stays
+authoritative in the repository Markdown files and is rendered into the public
+portal with:
+
+```text
+corepack pnpm docs:site
+```
+
+Run the generator after changing files under `docs/`, `README.md`,
+`SECURITY.md`, or `CONTRIBUTING.md`. Commit the generated
+`website/memory/docs/index.html` with the source change.
