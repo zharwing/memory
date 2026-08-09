@@ -439,7 +439,7 @@ const html = `<!doctype html>
           <label class="docs-search"><span class="sr-only">Search documentation</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.4A7.75 7.75 0 1 1 3.5 11.25a7.75 7.75 0 0 1 15.5 0Z" /></svg><input type="search" placeholder="Search documentation" autocomplete="off" data-docs-search /></label>
           <p class="docs-search-status" data-search-status aria-live="polite"></p>
           <nav class="docs-nav" aria-label="Documentation navigation">${sidebar}</nav>
-          <div class="docs-sidebar-footer"><span>Open-source developer preview</span><a href="https://github.com/zharwing/memory">GitHub ↗</a><a class="docs-author" href="https://barbutsa.com/" target="_blank" rel="noreferrer">Made by Sviatoslav Barbutsa ↗</a></div>
+          <div class="docs-sidebar-footer"><span>Open-source developer preview</span><a href="https://github.com/zharwing/memory">GitHub ↗</a></div>
         </div>
       </aside>
       <main class="docs-main" id="docs-content">
@@ -448,6 +448,24 @@ const html = `<!doctype html>
       </main>
       <aside class="docs-toc" aria-label="On this page"><div><h2>On this page</h2><nav data-active-toc><span class="toc-empty">Choose a guide to see its sections.</span></nav><a class="toc-github" data-edit-link href="https://github.com/zharwing/memory" target="_blank" rel="noreferrer">View on GitHub ↗</a></div></aside>
     </div>
+    <footer class="site-footer docs-site-footer">
+      <div class="page-width footer-grid">
+        <div>
+          <a class="brand" href="/memory/"><span>Zharwing Memory</span></a>
+          <p>Local-first project memory for AI-assisted coding workflows.</p>
+        </div>
+        <div class="footer-links">
+          <a href="/memory/">Overview</a>
+          <a href="/memory/docs/">Documentation</a>
+          <a href="/memory/docs/#security">Security</a>
+          <a href="https://github.com/zharwing/memory">GitHub</a>
+        </div>
+        <div class="footer-meta">
+          <p class="footer-note">Documentation for the open-source developer preview. Private project memory remains local.</p>
+          <p class="footer-credit">Made by <a href="https://barbutsa.com/" target="_blank" rel="noreferrer">Sviatoslav Barbutsa ↗</a></p>
+        </div>
+      </div>
+    </footer>
     <div class="sidebar-backdrop" data-sidebar-backdrop></div>
     <script src="docs.js?v=1"></script>
   </body>

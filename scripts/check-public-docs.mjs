@@ -43,6 +43,10 @@ if (!html.includes('data-docs-search') || !html.includes('data-docs-sidebar')) {
   errors.push("The generated portal is missing its search or navigation structure.");
 }
 
+if (!html.includes('class="site-footer docs-site-footer"') || !html.includes('href="https://barbutsa.com/"')) {
+  errors.push("The generated portal is missing its shared page footer or author link.");
+}
+
 if (errors.length) {
   console.error(errors.join("\n"));
   process.exitCode = 1;

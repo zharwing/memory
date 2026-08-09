@@ -69,8 +69,8 @@
 .docs-nav-group a[hidden], .docs-nav-group[hidden] { display: none; }
 .docs-sidebar-footer { display: flex; flex-direction: column; gap: 5px; margin-top: auto; padding: 24px 10px 0; color: var(--muted); font-size: 11px; }
 .docs-sidebar-footer a { color: var(--text-soft); font-weight: 650; }
-.docs-sidebar-footer .docs-author { margin-top: 7px; color: var(--muted); font-weight: 550; }
-.docs-sidebar-footer .docs-author:hover { color: var(--copper-bright); }
+
+.docs-site-footer { position: relative; z-index: 1; }
 
 .docs-main { min-width: 0; padding: 62px clamp(40px, 5.5vw, 82px) 110px; }
 .doc-article[hidden] { display: none; }

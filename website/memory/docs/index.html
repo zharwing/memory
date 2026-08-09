@@ -41,7 +41,7 @@
 <section class="docs-nav-group"><h2>Connect AI agents</h2><a href="#mcp-setup" data-doc-link data-title="MCP setup" data-description="Connect Codex, Claude, or another MCP-compatible client."><span>MCP setup</span></a><a href="#agent-automation" data-doc-link data-title="Agent automation" data-description="Bootstrap repositories and make session memory part of agent work."><span>Agent automation</span></a><a href="#agent-protocol" data-doc-link data-title="Agent protocol" data-description="Follow the shared startup, checkpoint, and closeout contract."><span>Agent protocol</span></a><a href="#generic-mcp-adapter" data-doc-link data-title="Generic MCP adapter" data-description="Use the project-neutral MCP integration pattern."><span>Generic MCP adapter</span></a><a href="#cli-adapter" data-doc-link data-title="CLI adapter" data-description="Use Memory through command-line workflows."><span>CLI adapter</span></a><a href="#json-rpc-adapter" data-doc-link data-title="JSON-RPC adapter" data-description="Integrate directly with the local daemon API."><span>JSON-RPC adapter</span></a></section>
 <section class="docs-nav-group"><h2>Technical reference</h2><a href="#architecture" data-doc-link data-title="Architecture" data-description="See the local daemon, adapters, packages, and trust boundaries."><span>Architecture</span></a><a href="#data-model" data-doc-link data-title="Data model" data-description="Understand projects, sessions, documents, graph data, and storage."><span>Data model</span></a><a href="#api-reference" data-doc-link data-title="API reference" data-description="Reference the local HTTP, JSON-RPC, and MCP surfaces."><span>API reference</span></a><a href="#diagrams" data-doc-link data-title="System diagrams" data-description="Review the main component, data, and interaction diagrams."><span>System diagrams</span></a></section>
 <section class="docs-nav-group"><h2>Operate and contribute</h2><a href="#operations" data-doc-link data-title="Operations" data-description="Run, package, back up, restore, and troubleshoot Memory."><span>Operations</span></a><a href="#ai-testing" data-doc-link data-title="AI provider testing" data-description="Test local and external model-backed workflows safely."><span>AI provider testing</span></a><a href="#testing-plan" data-doc-link data-title="Testing plan" data-description="See the testing strategy and expected coverage."><span>Testing plan</span></a><a href="#security" data-doc-link data-title="Security" data-description="Understand the local trust model and report vulnerabilities."><span>Security</span></a><a href="#contributing" data-doc-link data-title="Contributing" data-description="Set up the repository and follow the contribution workflow."><span>Contributing</span></a></section></nav>
-          <div class="docs-sidebar-footer"><span>Open-source developer preview</span><a href="https://github.com/zharwing/memory">GitHub ↗</a><a class="docs-author" href="https://barbutsa.com/" target="_blank" rel="noreferrer">Made by Sviatoslav Barbutsa ↗</a></div>
+          <div class="docs-sidebar-footer"><span>Open-source developer preview</span><a href="https://github.com/zharwing/memory">GitHub ↗</a></div>
         </div>
       </aside>
       <main class="docs-main" id="docs-content">
@@ -2939,6 +2939,24 @@ corepack pnpm build:desktop           # packaged native desktop executable</code
       </main>
       <aside class="docs-toc" aria-label="On this page"><div><h2>On this page</h2><nav data-active-toc><span class="toc-empty">Choose a guide to see its sections.</span></nav><a class="toc-github" data-edit-link href="https://github.com/zharwing/memory" target="_blank" rel="noreferrer">View on GitHub ↗</a></div></aside>
     </div>
+    <footer class="site-footer docs-site-footer">
+      <div class="page-width footer-grid">
+        <div>
+          <a class="brand" href="/memory/"><span>Zharwing Memory</span></a>
+          <p>Local-first project memory for AI-assisted coding workflows.</p>
+        </div>
+        <div class="footer-links">
+          <a href="/memory/">Overview</a>
+          <a href="/memory/docs/">Documentation</a>
+          <a href="/memory/docs/#security">Security</a>
+          <a href="https://github.com/zharwing/memory">GitHub</a>
+        </div>
+        <div class="footer-meta">
+          <p class="footer-note">Documentation for the open-source developer preview. Private project memory remains local.</p>
+          <p class="footer-credit">Made by <a href="https://barbutsa.com/" target="_blank" rel="noreferrer">Sviatoslav Barbutsa ↗</a></p>
+        </div>
+      </div>
+    </footer>
     <div class="sidebar-backdrop" data-sidebar-backdrop></div>
     <script src="docs.js?v=1"></script>
   </body>
