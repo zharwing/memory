@@ -6,3 +6,6 @@
 
 /memory/assets/*
   Cache-Control: public, max-age=86400
+
+/memory/styles.css
+  Cache-Control: public, max-age=0, must-revalidate
