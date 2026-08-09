@@ -80,7 +80,7 @@ const CONTROL_PLANE_PARAMS: Record<string, readonly string[]> = {
   "memory.mcp_doctor": [],
   "memory.mcp_install": [],
   "memory.prepare_import": ["projectId", "sourceRoot"],
-  "memory.prepare_project_creation": ["workingDirectory"],
+  "memory.prepare_project_creation": [],
   "memory.prepare_return_summary": ["projectId"],
   "memory.preview_semantic_graph_analysis": ["projectId"],
   "memory.propose_graph_update": ["projectId", "proposedPatch", "reason"],

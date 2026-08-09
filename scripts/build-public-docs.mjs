@@ -52,7 +52,7 @@ const groups = [
     docs: [
       ["docs/OPERATIONS.md", "operations", "Operations", "Run, package, back up, restore, and troubleshoot Memory."],
       ["docs/AI_TESTING.md", "ai-testing", "AI provider testing", "Test local and external model-backed workflows safely."],
-      ["docs/TESTING_PLAN.md", "testing-plan", "Testing plan", "See the testing strategy and expected coverage."],
+      ["docs/TESTING.md", "testing-plan", "Testing plan", "See the testing strategy and expected coverage."],
       ["SECURITY.md", "security", "Security", "Understand the local trust model and report vulnerabilities."],
       ["CONTRIBUTING.md", "contributing", "Contributing", "Set up the repository and follow the contribution workflow."]
     ]

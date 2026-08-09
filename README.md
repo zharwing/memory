@@ -93,11 +93,12 @@ surface):
 - Installer generation and installer-level smoke testing; the packaged Windows
   `.exe` build itself has passed.
 
-Current Windows-checkout validation includes TypeScript typecheck, the complete
-test suite and coverage thresholds, desktop contract tests, the Vite production
-build with bundle budgets, a real Edge app-shell smoke, Rust tests, a packaged
-Windows executable, source-artifact checks, and a live eleven-tool MCP doctor
-check.
+Current CI validates TypeScript, the complete deterministic test suite, desktop
+contracts, the Vite production build with bundle budgets, a real Edge app-shell
+smoke, Rust tests, the packaged Windows executable, and source-artifact hygiene.
+The repository-wide coverage thresholds and live eleven-tool MCP doctor also
+pass as explicit release checks, but they are not currently enforced as CI
+workflow steps.
 
 ## Product Principles
 

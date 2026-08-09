@@ -36,13 +36,15 @@ project files and report that Zharwing Memory was unavailable.
 ### Day rollover
 
 Agents frequently exit without closing their session. `memory.start_session`
-and `memory.start_or_resume_session` therefore close any session still marked
-`active` from an earlier local day before they create or resume anything, so
-`start_or_resume` never hands back yesterday's log as today's session. The
-auto-close records `closed_reason`, keeps `updated` at the last real activity,
-and fills a missing TLDR deterministically. Closing a session explicitly is
-still preferred: only an explicit close records the real summary, next steps,
-and blockers.
+and the daemon-only administrative method `memory.start_or_resume_session`
+therefore close any session still marked `active` from an earlier local day
+before they create or resume anything, so yesterday's log is not reused as
+today's session. MCP agents use `memory.start_session`; they do not receive
+`memory.start_or_resume_session` as part of the eleven-tool daily-memory
+surface. The auto-close records `closed_reason`, keeps `updated` at the last
+real activity, and fills a missing TLDR deterministically. Closing a session
+explicitly is still preferred: only an explicit close records the real
+summary, next steps, and blockers.
 
 ## During Work
 
@@ -58,9 +60,11 @@ and blockers.
 - Link external task ids in `related_tasks` only when the project provides them.
 - Search before creating new durable docs to avoid duplicates.
 - When graph context looks noisy or missing useful hubs, inspect imported paths
-  and propose graph rules with `memory.propose_graph_update`. Do not silently
-  rewrite project graph rules unless the user explicitly asks for direct
-  settings changes.
+  and recommend a reviewed graph-rule change. `memory.propose_graph_update` is
+  an administrative daemon RPC, not one of the eleven MCP tools. Use it only
+  when the current client explicitly has administrative daemon access;
+  otherwise direct the user to the UI. Do not silently rewrite project graph
+  rules unless the user explicitly asks for direct settings changes.
 
 ## Closeout Flow
 

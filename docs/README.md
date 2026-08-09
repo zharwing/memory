@@ -46,7 +46,7 @@ This folder contains product and engineering documentation for the Zharwing Memo
 - [Operations](OPERATIONS.md)
   Runtime assumptions, configuration, startup, backup, validation, indexing, security, and known constraints.
 
-- [Testing Plan](TESTING_PLAN.md)
+- [Testing Plan](TESTING.md)
   Phased plan for unit and integration tests using node:test over compiled dist output, with privacy and storage first.
 
 - [Testing With AI Providers](AI_TESTING.md)

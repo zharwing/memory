@@ -8,15 +8,16 @@ hardened agent-management release.
 Preparing this preview does not publish the repository, create a release, or
 change any private memory store. Those are separate owner-approved actions.
 
-## Frozen Preview Baseline
+## Preview Baseline
 
 - Release branch and upstream: `main` on `origin`
-- Source baseline: `fff3de45e6d769774a0a85ca18d6a1c64a322bcd`
+- Source candidate: the exact `main` commit associated with the validation and
+  release evidence; do not infer it from an older hash in this document
 - Runtime/filesystem owner: Windows-native
 - Node.js: `22.21.0` (the repository also declares the supported Node 24 range)
 - pnpm: `9.0.0`
-- Canonical execution-plan fingerprint:
-  `sha256:f8ef7336ce593e4eba84511d547e460b2f9580a5fcce6ed3ce1b0afb7a11b74c`
+- Canonical execution-plan fingerprint: record the value returned by
+  `python EXECUTION/orchestrate.py validate` for the candidate being reviewed
 
 The source candidate starts from a clean baseline. Generated output,
 dependencies, private stores, credentials, and machine-specific evidence are
@@ -87,6 +88,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm check:source-artifacts
 corepack pnpm typecheck
 corepack pnpm test
+corepack pnpm test:coverage
 corepack pnpm build
 corepack pnpm test:desktop-browser
 cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
@@ -105,6 +107,10 @@ It must also include:
 
 Installer generation and installer-level smoke testing are explicitly outside
 this developer-preview source release and must not be reported as passed.
+
+The default GitHub Actions workflow runs the normal deterministic test suite,
+not `test:coverage`, and does not run `zharwing-memory mcp doctor`. Record those
+two explicit release checks separately when they are required for a candidate.
 
 Remote CI and repository visibility changes happen only after a separate
 owner approval. If preview validation fails, keep the repository private,

@@ -57,6 +57,20 @@ test("methods with no required params accept an empty object", () => {
   assert.doesNotThrow(() => requireParams({}, "memory.empty_trash"));
 });
 
+test("project-only creation does not require a working directory", () => {
+  const projectOnly = requireParams<{ projectName: string }>(
+    { projectName: "Multi Repo Product" },
+    "memory.prepare_project_creation"
+  );
+  const repositoryBacked = requireParams<{ projectName: string; workingDirectory: string }>(
+    { projectName: "Single Repo Product", workingDirectory: "C:\\repo" },
+    "memory.prepare_project_creation"
+  );
+
+  assert.equal(projectOnly.projectName, "Multi Repo Product");
+  assert.equal(repositoryBacked.workingDirectory, "C:\\repo");
+});
+
 test("agent tool methods enforce their full input schema, not just presence", () => {
   assert.throws(
     () => requireParams({ projectId: "p1", limit: "5" }, "memory.get_recent_sessions"),

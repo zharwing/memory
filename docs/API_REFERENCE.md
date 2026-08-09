@@ -134,6 +134,7 @@ See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 - `memory.list_project_sessions`
 - `memory.save_checkpoint`
 - `memory.close_session`
+- `memory.close_stale_sessions`
 - `memory.generate_session_summary`
 - `memory.generate_session_summaries`
 - `memory.update_session_graph_visibility`
@@ -144,6 +145,11 @@ See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 legacy sessions default to `false`. This method is intentionally not part of
 the MCP tool list, so an agent cannot opt its own routine sessions into the
 graph.
+
+`memory.close_stale_sessions` is an administrative daemon method for closing
+sessions left active before the current local day. It is not part of the MCP
+daily-memory surface; `memory.start_session` applies the same rollover rule for
+normal MCP session startup.
 
 `memory.get_startup_state`, `memory.get_latest_session`,
 `memory.get_recent_sessions`, and `memory.list_project_sessions` return compact
