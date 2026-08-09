@@ -1184,13 +1184,34 @@ pre {
   color: var(--copper-bright);
 }
 
-.footer-note {
+.footer-meta {
   grid-column: 1 / -1;
-  margin: 0;
   padding-top: 25px;
   border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px 32px;
+}
+
+.footer-note,
+.footer-credit {
+  margin: 0;
   color: #70675f;
   font-size: 10px;
+}
+
+.footer-credit {
+  flex: 0 0 auto;
+}
+
+.footer-credit a {
+  color: var(--text-soft);
+  font-weight: 650;
+}
+
+.footer-credit a:hover {
+  color: var(--copper-bright);
 }
 
 .reveal {
@@ -1479,5 +1500,10 @@ pre {
 
   .footer-links {
     justify-content: flex-start;
+  }
+
+  .footer-meta {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

@@ -439,7 +439,7 @@ const html = `<!doctype html>
           <label class="docs-search"><span class="sr-only">Search documentation</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.4A7.75 7.75 0 1 1 3.5 11.25a7.75 7.75 0 0 1 15.5 0Z" /></svg><input type="search" placeholder="Search documentation" autocomplete="off" data-docs-search /></label>
           <p class="docs-search-status" data-search-status aria-live="polite"></p>
           <nav class="docs-nav" aria-label="Documentation navigation">${sidebar}</nav>
-          <div class="docs-sidebar-footer"><span>Open-source developer preview</span><a href="https://github.com/zharwing/memory">GitHub ↗</a></div>
+          <div class="docs-sidebar-footer"><span>Open-source developer preview</span><a href="https://github.com/zharwing/memory">GitHub ↗</a><a class="docs-author" href="https://barbutsa.com/" target="_blank" rel="noreferrer">Made by Sviatoslav Barbutsa ↗</a></div>
         </div>
       </aside>
       <main class="docs-main" id="docs-content">
