@@ -163,7 +163,7 @@ zharwing-memory import-profiles
 
 ## Daemon JSON-RPC Workflow
 
-The UI or an authenticated control-plane client can call:
+The UI or an authenticated administration client can call:
 
 1. `memory.list_import_profiles`
 2. `memory.prepare_import`

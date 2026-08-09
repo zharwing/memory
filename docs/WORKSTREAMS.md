@@ -69,7 +69,7 @@ zharwing-memory workstream huddle --project <project-id>
 zharwing-memory start "Huddle service contract pass" --project <project-id> --workstream <workstream-id>
 ```
 
-## Daemon Control Plane
+## Daemon Administration API
 
 The UI and authenticated daemon JSON-RPC surface support:
 

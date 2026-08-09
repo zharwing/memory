@@ -126,7 +126,7 @@ Examples:
 ]
 ```
 
-## AI-Assisted Control-Plane Use
+## AI-Assisted Administration
 
 AI clients should not silently rewrite graph rules unless the user asked for a
 direct settings change. The safer workflow is:
@@ -168,7 +168,7 @@ Use:
 - `memory.update_graph_rules` for explicit manual or approved changes.
 - `memory.get_graph` to inspect the resulting projection.
 
-These are control-plane RPC methods, not focused daily-memory MCP tools. Use the
+These are administrative RPC methods, not focused daily-memory MCP tools. Use the
 UI or CLI for normal graph-rule administration.
 
 ## What Not To Use Graph Rules For

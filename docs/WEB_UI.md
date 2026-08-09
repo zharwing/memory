@@ -1,7 +1,7 @@
 # Browser UI
 
 Zharwing Memory includes a full local browser interface. It is the same React
-control plane used inside the Tauri desktop window, not a reduced demo and not
+interface used inside the Tauri desktop window, not a reduced demo and not
 the public documentation website.
 
 Use it for day-to-day project administration, sessions, workstreams, documents,
@@ -146,4 +146,3 @@ This is expected in a normal browser. Paste or type the absolute path, or use
 This is expected. The public website is documentation only. Your projects are
 available only through your local browser UI, desktop app, CLI, and connected
 agent tools.
-

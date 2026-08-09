@@ -100,7 +100,7 @@ corepack pnpm dev:cli projects
 
 ### Local Browser UI
 
-The browser UI is a full local control plane for daily use. It renders the same
+The browser UI is a full local interface for daily use. It renders the same
 React application as the Tauri window, but it does not manage the daemon
 process. Start the daemon first and keep it running:
 
@@ -199,7 +199,7 @@ Production packaging should additionally:
 - allow `ZHARWING_MEMORY_AUTH_MODE=none` only for loopback-only personal setups
 - keep remote access disabled by default
 - require confirmation for project creation, repo linking, and destructive
-  control-plane operations
+  administrative operations
 - serve selected-project memory to AI by default without per-request approval;
   keep explicit visibility exclusions, never-send patterns, and secret checks
 - route canonical memory writes through review only when the project enables

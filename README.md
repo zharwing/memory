@@ -67,7 +67,7 @@ the focused MCP surface as follows:
 
 Context preview/load and health checks complete the eleven-tool surface. Project
 creation, repository linking, imports, graph settings, backups, and destructive
-operations remain UI/CLI control-plane actions by design; they are not missing
+operations remain administrative UI/CLI actions by design; they are not missing
 daily-memory features.
 
 Validated in the current workspace:
@@ -130,7 +130,7 @@ check.
 
 ```text
 apps/
-  desktop/          Shared React browser UI and Tauri human control plane
+  desktop/          Shared React browser UI and Tauri human interface
   daemon/           Localhost JSON-RPC daemon
   cli/              zharwing-memory command-line helper
   mcp-server/       MCP-style stdio adapter
@@ -289,7 +289,7 @@ history and default to **Include in graph** off; enable it per session before
 session metadata or its imported path contributes to the graph.
 Use Graph for memory relationships; use Diagrams for runtime architecture and
 service dependencies. See [Graph Rules](docs/GRAPH_RULES.md) for the full manual
-and AI-assisted control-plane workflow.
+and AI-assisted administration workflow.
 
 For AI-assisted relationship cleanup, use the optional semantic graph workflow.
 Graph works without a model and shows trusted saved relationships. AI review
@@ -480,13 +480,13 @@ coding-memory loop:
 
 The full daemon API is intentionally broader. Use the desktop UI or CLI for
 project administration, repository links, workstreams, document editing,
-imports, graph settings, backups, Trash, and other control-plane operations.
+imports, graph settings, backups, Trash, and other administrative operations.
 See [API Reference](docs/API_REFERENCE.md) for both surfaces.
 
 ## Browser And Desktop UI
 
-The local browser UI and native desktop app share the same React human control
-plane. The browser UI is often the fastest way to use Memory from a source
+The local browser UI and native desktop app share the same React human
+interface. The browser UI is often the fastest way to use Memory from a source
 checkout: run the daemon, run `dev:web`, and open `http://localhost:5174/`.
 The sidebar stays intentionally small:
 

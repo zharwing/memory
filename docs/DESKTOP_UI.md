@@ -1,7 +1,7 @@
 # Browser And Desktop UI
 
 The local browser UI and native desktop app are two runtime modes for the same
-React human control plane. Neither is an agent. Both let a user create memory
+React human interface. Neither is an agent. Both let a user create memory
 projects, link repos, import old notes, review context, inspect sessions, manage
 durable memory, and recover deleted items.
 

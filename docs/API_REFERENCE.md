@@ -87,7 +87,7 @@ Error shape:
 
 ## Daemon Methods
 
-This is the full authenticated JSON-RPC control plane used by the UI and CLI.
+This is the full authenticated JSON-RPC administration API used by the UI and CLI.
 See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 
 ### Health
@@ -139,7 +139,7 @@ See [MCP Tools](#mcp-tools) for the smaller agent-facing surface.
 - `memory.update_session_graph_visibility`
 - `memory.delete_session`
 
-`memory.update_session_graph_visibility` is a UI/control-plane operation with
+`memory.update_session_graph_visibility` is an administrative UI operation with
 `projectId`, `sessionId`, and boolean `includeInGraph` parameters. New and
 legacy sessions default to `false`. This method is intentionally not part of
 the MCP tool list, so an agent cannot opt its own routine sessions into the
@@ -179,7 +179,7 @@ keeps aggregate file metadata for search and graph consumers.
 Workstreams group related sessions and documents for multi-day topics or epics.
 Repo roles/categories used by workstreams are free-form metadata.
 
-Workstream creation and administration stay in the UI/CLI control plane, but
+Workstream creation and administration stay in the UI and CLI, but
 agents can still attach sessions to existing lanes:
 `memory.get_startup_state` returns the project's open (active or paused)
 workstreams, and `memory.start_session`, `memory.save_checkpoint`, and
@@ -381,7 +381,7 @@ zharwing-memory semantic-graph edges --project <id> --status accepted,auto-accep
 The MCP adapter intentionally exposes only the daily AI-memory workflow over
 the daemon HTTP endpoint or stdio adapter. Daemon administration, project
 creation, deletion, imports, backups, graph settings, and Trash remain UI/CLI
-control-plane operations.
+administrative operations.
 
 Supported MCP tools:
 
@@ -401,7 +401,7 @@ Supported MCP tools:
 workstreams so an agent can attach its session to an existing lane;
 `memory.start_session`,
 `memory.save_checkpoint`, and `memory.close_session` accept `workstreamIds`.
-Workstream creation remains a control-plane operation.
+Workstream creation remains an administrative operation.
 
 Memory in the selected project is AI-visible by default. Normal session data,
 file paths, and search metadata are returned to the coding agent. Explicit

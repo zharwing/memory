@@ -77,7 +77,7 @@ Use `--config <path>` when a client stores config somewhere else.
 
 Tokens are not required by MCP itself. Zharwing Memory uses token auth by default
 because the MCP surface can create sessions and write checkpoints/closeouts, and
-because the same daemon also hosts the broader authenticated control plane.
+because the same daemon also hosts the broader authenticated administration API.
 
 Default mode:
 

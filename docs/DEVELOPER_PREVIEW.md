@@ -3,7 +3,7 @@
 Zharwing Memory is being prepared as a **standalone personal developer
 preview**. This preview is useful for developers who want a local, inspectable
 memory layer for AI-assisted coding, but it is not a production, multi-user, or
-hardened agent-control-plane release.
+hardened agent-management release.
 
 Preparing this preview does not publish the repository, create a release, or
 change any private memory store. Those are separate owner-approved actions.
@@ -37,8 +37,8 @@ The preview preserves the current personal workflow:
 - **Durable writes:** routine agent writes are allowed when project review mode
   is off. Review mode and Memory Inbox proposals remain available when the user
   wants approval or when a change is risky or uncertain.
-- **Browser authority:** the browser and desktop UI are the human control
-  plane. The browser uses the authenticated daemon and does not gain arbitrary
+- **Browser authority:** the browser and desktop UI are the human interface.
+  The browser uses the authenticated daemon and does not gain arbitrary
   local filesystem access. Destructive and administrative operations are not
   part of the eleven-tool MCP daily-memory surface.
 - **Compatibility:** the current CLI, daemon, browser/desktop UI, pointer-file

@@ -33,7 +33,7 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph Apps["Apps"]
-    Desktop["apps/desktop\nHuman control plane"]
+    Desktop["apps/desktop\nHuman interface"]
     Daemon["apps/daemon\nMemory orchestration API"]
     CLI["apps/cli\nTerminal workflows"]
     MCPServer["apps/mcp-server\nStdio MCP adapter"]

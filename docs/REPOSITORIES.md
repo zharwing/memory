@@ -81,7 +81,7 @@ Keep the pointer file when unlinking:
 zharwing-memory unlink-repo <repo-root> --project <project-id> --keep-pointer
 ```
 
-## Daemon Control Plane
+## Daemon Administration API
 
 The UI and authenticated daemon JSON-RPC surface support:
 

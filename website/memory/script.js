@@ -40,7 +40,7 @@ if ("IntersectionObserver" in window) {
 
 const tourContent = {
   graph: {
-    src: "assets/context-graph.png",
+    src: "assets/context-graph-v2.jpg",
     alt: "Zharwing Memory context graph focused on the fictional EchoDesk transcription service",
     caption:
       "Focus a graph on one service to inspect the decisions, specifications, diagrams, and repository evidence connected to it."

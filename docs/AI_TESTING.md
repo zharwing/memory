@@ -380,7 +380,7 @@ use preview and dry-run modes before review or auto mode.
   increase `--timeout-ms`.
 - Invalid JSON: choose a model with stronger instruction following or lower the
   scope size. If the provider rejects OpenAI JSON mode, add `--no-json-mode` or
-  pass `jsonMode: false` through the control-plane RPC.
+  pass `jsonMode: false` through the administrative RPC.
 - Remote endpoint rejected: local endpoints are allowed by default; remote
   endpoints require `remoteProvidersEnabled`.
 - Vite or build reports a missing or wrong-platform Rollup/esbuild optional

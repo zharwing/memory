@@ -107,7 +107,7 @@ adding project-specific policy.
 An MCP adapter is complete enough for routine coding work when it can resolve
 startup state, read latest/recent sessions, start sessions, search project
 memory, preview/load context, save checkpoints, and close sessions. Project
-administration, imports, backups, graph settings, and Trash are control-plane
+administration, imports, backups, graph settings, and Trash are administrative
 operations handled by the UI or CLI.
 
 ## Project Profiles

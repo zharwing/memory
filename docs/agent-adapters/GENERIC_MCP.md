@@ -4,7 +4,7 @@ Use this adapter when an agent has Zharwing Memory MCP tools.
 
 The daily-memory surface is complete and intentionally limited to eleven tools.
 Administrative daemon methods are not missing MCP capabilities; they belong to
-the UI and CLI control plane.
+the UI and CLI administration interfaces.
 
 ## Startup
 

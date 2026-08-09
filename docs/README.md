@@ -24,7 +24,7 @@ This folder contains product and engineering documentation for the Zharwing Memo
   and troubleshooting.
 
 - [Repositories](REPOSITORIES.md)
-  Flexible multi-repo project links, names, descriptions, pointer files, CLI commands, and daemon control-plane methods.
+  Flexible multi-repo project links, names, descriptions, pointer files, CLI commands, and daemon administration methods.
 
 - [Workstreams](WORKSTREAMS.md)
   Multi-day topic/epic grouping for related sessions, docs, and imported memory.
@@ -53,10 +53,10 @@ This folder contains product and engineering documentation for the Zharwing Memo
   Manual LM Studio/Ollama/llama.cpp-style provider checks, session TLDR tests, and semantic graph smoke tests.
 
 - [Importing](IMPORTING.md)
-  Generic Markdown import profiles, preview/commit workflow, CLI examples, and daemon control-plane usage.
+  Generic Markdown import profiles, preview/commit workflow, CLI examples, and daemon administration usage.
 
 - [Graph Rules](GRAPH_RULES.md)
-  Manual and AI-assisted control-plane workflows for mapping imported folder
+  Manual and AI-assisted administration workflows for mapping imported folder
   layouts into useful context graph nodes, including the opt-in rule for
   session nodes.
 

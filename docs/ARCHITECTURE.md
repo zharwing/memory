@@ -22,7 +22,7 @@ Zharwing Memory is responsible for:
 - enforcing privacy, redaction, visibility, and never-send rules
 - exposing MCP and CLI integrations
 - maintaining rebuildable indexes and graph projections
-- providing a desktop control plane
+- providing a desktop interface
 - running optional local assistant jobs
 
 External AI agents are responsible for:
@@ -44,7 +44,7 @@ Location: `apps/desktop`
 
 Role:
 
-- human control plane
+- human interface
 - project switcher and project management
 - dashboard
 - repo linking
@@ -104,7 +104,7 @@ Role:
 
 The adapter is intentionally thin and focused. Project administration,
 document editing, imports, graph settings, backups, and Trash remain in the UI,
-CLI, and authenticated daemon control plane.
+CLI, and authenticated daemon administration API.
 
 ## Shared Packages
 
@@ -235,7 +235,7 @@ All-project search should remain an explicit advanced mode.
 
 Session history and graph projection are intentionally separate concerns. All
 sessions remain stored and searchable, while the deterministic graph builder
-projects only sessions with `include_in_graph: true`. The desktop control plane
+projects only sessions with `include_in_graph: true`. The desktop UI
 owns that opt-in; the focused MCP tool surface does not expose it.
 
 ## Current Validation Boundary

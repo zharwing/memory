@@ -27,7 +27,7 @@ pnpm dev:web
 
 Run this in a second terminal while `pnpm dev:daemon` remains active, then open
 `http://localhost:5174/`. The local browser UI contains the complete React
-control plane. See [Browser UI](WEB_UI.md) for environment setup and
+interface. See [Browser UI](WEB_UI.md) for environment setup and
 troubleshooting.
 
 Native Tauri window:
