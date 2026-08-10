@@ -4,6 +4,24 @@ export interface ParsedArgs {
   flags: Record<string, string | boolean>;
 }
 
+const BOOLEAN_FLAGS = new Set([
+  "all",
+  "auto",
+  "changed",
+  "commit",
+  "dry-run",
+  "json",
+  "json-mode",
+  "keep-pointer",
+  "no-auto-summary",
+  "no-json-mode",
+  "no-pointer",
+  "preview",
+  "project-only",
+  "review",
+  "skip-existing"
+]);
+
 export function parseArgs(argv: string[]): ParsedArgs {
   const [command = "help", ...rest] = argv;
   const positional: string[] = [];
@@ -14,7 +32,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (arg.startsWith("--")) {
       const key = arg.slice(2);
       const next = rest[index + 1];
-      if (next && !next.startsWith("--")) {
+      if (BOOLEAN_FLAGS.has(key)) {
+        flags[key] = true;
+      } else if (next && !next.startsWith("--")) {
         flags[key] = next;
         index += 1;
       } else {

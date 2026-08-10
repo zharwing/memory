@@ -7,6 +7,7 @@ export class WorkstreamStore {
   list: Workstream[] = [];
   selectedWorkstreamId = "";
   detail: WorkstreamDetail | undefined = undefined;
+  private loadedProjectId = "";
   loading = false;
   error = "";
 
@@ -26,19 +27,31 @@ export class WorkstreamStore {
 
   clear() {
     this.list = [];
+    this.selectedWorkstreamId = "";
+    this.detail = undefined;
+    this.loadedProjectId = "";
   }
 
   async load() {
-    if (!this.projectId) return;
+    const projectId = this.projectId;
+    if (!projectId) {
+      this.clear();
+      return;
+    }
+    if (this.loadedProjectId !== projectId) {
+      this.clear();
+      this.loadedProjectId = projectId;
+    }
     await this.run(async () => {
       const workstreams = await this.client.call<Workstream[]>("memory.list_workstreams", {
-        projectId: this.projectId
+        projectId
       });
+      if (this.projectId !== projectId) return;
       runInAction(() => {
         this.list = workstreams;
         if (!this.selectedWorkstreamId && this.list[0]) this.selectedWorkstreamId = this.list[0].id;
       });
-    });
+    }, () => this.projectId === projectId);
   }
 
   async createWorkstream(args: {
@@ -70,16 +83,18 @@ export class WorkstreamStore {
   }
 
   async loadDetail(workstreamId = this.selectedWorkstreamId) {
-    if (!this.projectId || !workstreamId) return;
+    const projectId = this.projectId;
+    if (!projectId || !workstreamId) return;
     await this.run(async () => {
       const detail = await this.client.call<WorkstreamDetail>("memory.get_workstream_detail", {
-        projectId: this.projectId,
+        projectId,
         workstreamId
       });
+      if (this.projectId !== projectId) return;
       runInAction(() => {
         this.detail = detail;
       });
-    });
+    }, () => this.projectId === projectId);
   }
 
   async updateStatus(workstreamId: string, status: string) {
@@ -115,16 +130,18 @@ export class WorkstreamStore {
     });
   }
 
-  private async run(work: () => Promise<void>) {
+  private async run(work: () => Promise<void>, shouldApply = () => true) {
     this.loading = true;
     this.error = "";
     try {
       await work();
     } catch (error) {
+      if (!shouldApply()) return;
       runInAction(() => {
         this.error = error instanceof Error ? error.message : String(error);
       });
     } finally {
+      if (!shouldApply()) return;
       runInAction(() => {
         this.loading = false;
       });
