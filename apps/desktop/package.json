@@ -21,13 +21,13 @@
     "@tauri-apps/plugin-dialog": "^2.2.0",
     "d3": "^7.9.0",
     "lucide-react": "^0.468.0",
-    "mermaid": "^11.4.1",
+    "mermaid": "^11.16.1",
     "lexical": "^0.35.0",
     "mobx": "^6.13.5",
     "mobx-react-lite": "^4.0.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.0.0"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.2.0",

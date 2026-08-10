@@ -8,11 +8,9 @@ Only the latest release and the current `main` branch receive security fixes.
 
 Please do not open public issues for security vulnerabilities.
 
-Report them privately via GitHub Security Advisories
-([Report a vulnerability](https://github.com/zharwing/memory/security/advisories/new))
-or by email to sviatoslavbarbutsa@gmail.com. You should receive a response
-within a few days. Please include reproduction steps and the affected
-component (daemon, CLI, desktop, MCP server).
+Report them privately by email to `sviatoslavbarbutsa@gmail.com`. You should
+receive a response within a few days. Please include reproduction steps and
+the affected component (daemon, CLI, desktop, MCP server).
 
 ## Threat Model Notes
 
