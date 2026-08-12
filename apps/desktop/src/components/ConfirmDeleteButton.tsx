@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Modal } from "./Modal.js";
-import { readString, writeString } from "../utils/storage.js";
+import { Dialog } from "./Modal.js";
+import { StatusNotice } from "./AccessibleStatus.js";
 
 export function ConfirmDeleteButton({
   itemType,
@@ -20,8 +20,8 @@ export function ConfirmDeleteButton({
   onConfirm: () => Promise<unknown> | unknown;
 }) {
   const [open, setOpen] = useState(false);
-  const [dontAskAgain, setDontAskAgain] = useState(false);
-  const preferenceKey = `aimem.delete.confirm.skip.${itemType}`;
+  const [busy, setBusy] = useState(false);
+  const [operationFailed, setOperationFailed] = useState(false);
   const actionText = permanent ? "permanently delete" : "move to trash";
 
   async function runDelete() {
@@ -30,49 +30,47 @@ export function ConfirmDeleteButton({
 
   async function handleClick() {
     if (disabled) return;
-    if (readString(preferenceKey) === "true") {
-      await runDelete();
-      return;
-    }
+    setOperationFailed(false);
     setOpen(true);
   }
 
   async function confirm() {
-    if (dontAskAgain) writeString(preferenceKey, "true");
-    setOpen(false);
-    setDontAskAgain(false);
-    await runDelete();
+    if (busy) return;
+    setBusy(true);
+    setOperationFailed(false);
+    try {
+      await runDelete();
+      setOpen(false);
+    } catch {
+      setOperationFailed(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <>
-      <button type="button" className={permanent ? "danger-button" : undefined} disabled={disabled} onClick={() => void handleClick()}>
+      <button type="button" className={permanent ? "danger-button" : undefined} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => void handleClick()}>
         {label}
       </button>
       {open ? (
-        <Modal
-          ariaLabel={`Confirm ${label}`}
+        <Dialog
+          title={permanent ? "Delete permanently?" : critical ? "Move critical item to Trash?" : "Move to Trash?"}
+          description={<p>This will {actionText} <strong>{title}</strong>.{permanent ? " This cannot be undone." : " You can restore it later from Trash."}</p>}
           backdropClassName="dialog-backdrop"
           className="confirm-dialog"
-          onClose={() => setOpen(false)}
+          onClose={() => { if (!busy) setOpen(false); }}
           closeOnBackdropClick={false}
+          initialFocus="least-destructive"
         >
-          <h3>{permanent ? "Delete Permanently?" : critical ? "Move Critical Item to Trash?" : "Move to Trash?"}</h3>
-          <p>
-            This will {actionText} <strong>{title}</strong>.
-            {permanent ? " This cannot be undone." : " You can restore it later from Trash."}
-          </p>
-          <label className="checkbox-row">
-            <input type="checkbox" checked={dontAskAgain} onChange={(event) => setDontAskAgain(event.target.checked)} />
-            <span>Do not ask again for this type of item</span>
-          </label>
+          {operationFailed ? <StatusNotice tone="danger" assertive title="Action not completed">The item was not changed. Review its latest state and try again.</StatusNotice> : null}
           <div className="button-row">
-            <button type="button" onClick={() => setOpen(false)}>Cancel</button>
-            <button type="button" className={permanent ? "danger-button" : undefined} onClick={() => void confirm()}>
-              {label}
+            <button type="button" data-dialog-cancel disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+            <button type="button" className={permanent ? "danger-button" : undefined} disabled={busy} aria-busy={busy} onClick={() => void confirm()}>
+              {busy ? "Working…" : label}
             </button>
           </div>
-        </Modal>
+        </Dialog>
       ) : null}
     </>
   );

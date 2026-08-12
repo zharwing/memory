@@ -24,7 +24,23 @@ test("installs codex HTTP MCP config without auth token in none mode", async () 
   assert.doesNotMatch(config, /bearer_token_env_var/);
 });
 
-test("installs canonical Zharwing token configuration for Codex HTTP", async () => {
+test("normalizes a long trailing slash run in the daemon URL", async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
+  const configPath = path.join(temp, "config.toml");
+
+  await installMcpClient({
+    client: "codex",
+    transport: "http",
+    authMode: "none",
+    daemonUrl: `http://127.0.0.1:37841${"/".repeat(32_768)}`,
+    configPath
+  });
+
+  const config = await fs.readFile(configPath, "utf8");
+  assert.match(config, /url = "http:\/\/127\.0\.0\.1:37841\/mcp"/);
+});
+
+test("installs the dedicated Zharwing agent credential for Codex HTTP", async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
   const configPath = path.join(temp, "config.toml");
 
@@ -37,11 +53,12 @@ test("installs canonical Zharwing token configuration for Codex HTTP", async () 
   });
 
   const config = await fs.readFile(configPath, "utf8");
-  assert.match(config, /bearer_token_env_var = "ZHARWING_MEMORY_AUTH_TOKEN"/);
+  assert.match(config, /bearer_token_env_var = "ZHARWING_MEMORY_AGENT_CREDENTIAL"/);
+  assert.doesNotMatch(config, /ZHARWING_MEMORY_AUTH_TOKEN/);
   assert.doesNotMatch(config, /AIMEM_AUTH_TOKEN/);
 });
 
-test("installs canonical Zharwing environment for Codex stdio", async () => {
+test("installs the dedicated Zharwing agent environment for Codex stdio", async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
   const configPath = path.join(temp, "config.toml");
 
@@ -57,7 +74,9 @@ test("installs canonical Zharwing environment for Codex stdio", async () => {
 
   const config = await fs.readFile(configPath, "utf8");
   assert.match(config, /ZHARWING_MEMORY_DAEMON_URL/);
-  assert.match(config, /ZHARWING_MEMORY_AUTH_TOKEN/);
+  assert.match(config, /ZHARWING_MEMORY_AGENT_CREDENTIAL/);
+  assert.match(config, /ZHARWING_MEMORY_AGENT_SURFACE/);
+  assert.doesNotMatch(config, /ZHARWING_MEMORY_AUTH_TOKEN/);
   assert.doesNotMatch(config, /AIMEM_/);
 });
 
@@ -74,7 +93,7 @@ test("stdio install from the development CLI resolves the compiled entry", async
   const result = await installMcpClient({
     client: "codex",
     transport: "stdio",
-    authMode: "none",
+    authMode: "token",
     configPath,
     cliEntryPath: sourceEntry,
     nodePath: "node"

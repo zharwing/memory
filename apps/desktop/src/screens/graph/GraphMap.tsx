@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   drag,
   forceCollide,
@@ -20,26 +20,24 @@ import { Maximize2, Minus, Plus } from "lucide-react";
 import { graphDocumentIdForGraphNode, isGraphFocusableNodeId, safeGraphClassName } from "./graph-display.js";
 import { graphNodeVisualKind, type GraphMapEdge, type GraphMapNode } from "./graph-flow.js";
 import { formatConfidence, hashString } from "../../utils/format.js";
-import { readJson, remove as removeStoredValue, writeJson } from "../../utils/storage.js";
+import {
+  createGraphLayoutPlan,
+  deterministicGraphPosition,
+  fallbackGraphPosition,
+  nextGraphKeyboardNodeId
+} from "../../features/graph/layout/graph-layout-adapter.js";
+import { localGraphPositionStore } from "../../features/graph/persistence/graph-position-store.js";
+import { graphRenderCapability } from "../../features/graph/visual/graph-render-capability.js";
+import { graphKeyboardCommandForKey } from "../../features/graph/application/graph-interaction-state.js";
 
 const GRAPH_MIN_ZOOM = 0.06;
 const GRAPH_MAX_ZOOM = 22;
 const GRAPH_ZOOM_IN_FACTOR = 1.7;
 const GRAPH_ZOOM_OUT_FACTOR = 1 / 1.7;
-const GRAPH_POSITION_FORMAT_VERSION = 3;
 const GRAPH_FIT_PADDING = 96;
 const GRAPH_SIMULATION_TICKS = 220;
 const GRAPH_WORLD_LIMIT = 8000;
 const GRAPH_DRAG_CLICK_DISTANCE = 6;
-
-type GraphNodePosition = { x: number; y: number };
-type StoredGraphNodePositionMap = Record<string, GraphNodePosition>;
-
-interface StoredGraphNodePositionsPayload {
-  version: number;
-  nodeIds: string[];
-  positions: StoredGraphNodePositionMap;
-}
 
 interface D3GraphNode extends SimulationNodeDatum {
   id: string;
@@ -47,7 +45,7 @@ interface D3GraphNode extends SimulationNodeDatum {
   typeLabel: string;
   label: string;
   metadata: string;
-  graphNode: any;
+  graphNode: unknown;
   radius: number;
   degree: number;
   fillColor: string;
@@ -86,9 +84,11 @@ interface GraphMapProps {
   nodes: GraphMapNode[];
   edges: GraphMapEdge[];
   focusedNodeId: string;
+  selectedNodeId?: string;
   storageKey: string;
   layoutVersion: number;
   onOpenDocument: (documentId: string) => void;
+  onSelectNode?: (nodeId: string) => void;
   onFocusNode: (nodeId: string) => void;
   onSelectEdge: (edge: GraphMapEdge) => void;
 }
@@ -102,21 +102,30 @@ export function GraphMap({
   nodes,
   edges,
   focusedNodeId,
+  selectedNodeId,
   storageKey,
   layoutVersion,
   onOpenDocument,
+  onSelectNode,
   onFocusNode,
   onSelectEdge
 }: GraphMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphApiRef = useRef<GraphApi | null>(null);
+  const [activeNodeId, setActiveNodeId] = useState(selectedNodeId || focusedNodeId || nodes[0]?.id || "");
   const onOpenDocumentRef = useRef(onOpenDocument);
+  const onSelectNodeRef = useRef(onSelectNode);
   const onFocusNodeRef = useRef(onFocusNode);
   const onSelectEdgeRef = useRef(onSelectEdge);
+  const capability = graphRenderCapability();
 
   useEffect(() => {
     onOpenDocumentRef.current = onOpenDocument;
   }, [onOpenDocument]);
+
+  useEffect(() => {
+    onSelectNodeRef.current = onSelectNode;
+  }, [onSelectNode]);
 
   useEffect(() => {
     onFocusNodeRef.current = onFocusNode;
@@ -126,6 +135,14 @@ export function GraphMap({
     onSelectEdgeRef.current = onSelectEdge;
   }, [onSelectEdge]);
 
+  useEffect(() => {
+    setActiveNodeId((currentNodeId) => {
+      if (selectedNodeId && nodes.some((node) => node.id === selectedNodeId)) return selectedNodeId;
+      if (focusedNodeId && nodes.some((node) => node.id === focusedNodeId)) return focusedNodeId;
+      return nodes.some((node) => node.id === currentNodeId) ? currentNodeId : nodes[0]?.id || "";
+    });
+  }, [focusedNodeId, nodes, selectedNodeId]);
+
   const graphModel = useMemo(
     () => buildD3GraphModel(nodes, edges, focusedNodeId, storageKey),
     [edges, focusedNodeId, layoutVersion, nodes, storageKey]
@@ -133,7 +150,7 @@ export function GraphMap({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !capability.available) return;
     const containerElement: HTMLDivElement = container;
 
     select(container).selectAll("*").remove();
@@ -141,8 +158,8 @@ export function GraphMap({
     const svg = select(container)
       .append("svg")
       .attr("class", "graph-map-svg")
-      .attr("role", "img")
-      .attr("aria-label", "Interactive context graph");
+      .attr("aria-hidden", "true")
+      .attr("focusable", "false");
 
     const defs = svg.append("defs");
     for (const [color, markerId] of graphModel.markerIdByColor.entries()) {
@@ -185,9 +202,7 @@ export function GraphMap({
       .enter()
       .append("path")
       .attr("class", (link) => `graph-map-link graph-map-link-${safeGraphClassName(link.type)}`)
-      .attr("tabindex", 0)
-      .attr("role", "button")
-      .attr("aria-label", (link) => graphLinkAccessibleLabel(link).replace(/\n/g, ", "))
+      .attr("tabindex", -1)
       .attr("fill", "none")
       .attr("stroke", (link) => link.color || "#b87333")
       .attr("stroke-width", (link) => link.sourceKind.includes("semantic") ? 3.1 : link.type === "contains" ? 3 : 2.1)
@@ -224,9 +239,7 @@ export function GraphMap({
         node.isAnchor ? "is-anchor" : "",
         node.documentId || node.focusable ? "is-actionable" : ""
       ].filter(Boolean).join(" "))
-      .attr("tabindex", (node) => node.documentId || node.focusable ? 0 : -1)
-      .attr("role", (node) => node.documentId || node.focusable ? "button" : "group")
-      .attr("aria-label", (node) => graphNodeAccessibleLabel(node));
+      .attr("tabindex", -1);
 
     nodeSelection.append("circle")
       .attr("class", "graph-map-node-hitbox")
@@ -298,7 +311,7 @@ export function GraphMap({
         node.fy = undefined;
         if (dragState?.moved) {
           suppressClickNodeId = node.id;
-          saveGraphNodePositions(storageKey, graphModel.nodes);
+          localGraphPositionStore.write(storageKey, graphModel.nodes);
           window.setTimeout(() => {
             if (suppressClickNodeId === node.id) suppressClickNodeId = "";
           }, 120);
@@ -335,16 +348,13 @@ export function GraphMap({
         const shouldOpen = !pointerClickState.moved && movedDistance < GRAPH_DRAG_CLICK_DISTANCE && suppressClickNodeId !== node.id;
         pointerClickState = null;
         if (shouldOpen) {
+          setActiveNodeId(node.id);
+          onSelectNodeRef.current?.(node.id);
           openGraphNode(node, onOpenDocumentRef.current, onFocusNodeRef.current);
         }
       })
-      .on("click", (event, node) => {
+      .on("click", (event) => {
         event.stopPropagation();
-      })
-      .on("keydown", (event, node) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        openGraphNode(node, onOpenDocumentRef.current, onFocusNodeRef.current);
       });
 
     renderGraphPositions(nodeSelection, linkSelection);
@@ -375,9 +385,56 @@ export function GraphMap({
     };
   }, [graphModel, storageKey]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    select(container)
+      .selectAll<SVGGElement, D3GraphNode>(".graph-map-node")
+      .classed("is-keyboard-active", (node) => node.id === activeNodeId);
+  }, [activeNodeId, graphModel]);
+
+  function handleCanvasKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const command = graphKeyboardCommandForKey(event.key);
+
+    if (command) {
+      event.preventDefault();
+      const nextNodeId = nextGraphKeyboardNodeId(nodes, activeNodeId, command);
+      if (nextNodeId) {
+        setActiveNodeId(nextNodeId);
+        onSelectNodeRef.current?.(nextNodeId);
+      }
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      const activeNode = graphModel.nodes.find((node) => node.id === activeNodeId);
+      if (!activeNode) return;
+      event.preventDefault();
+      openGraphNode(activeNode, onOpenDocumentRef.current, onFocusNodeRef.current);
+    }
+  }
+
+  const activeNode = nodes.find((node) => node.id === activeNodeId);
+
+  if (!capability.available) return null;
+
   return (
     <div className="graph-map-shell">
-      <div className="graph-map" ref={containerRef} />
+      <p className="sr-only" id="graph-canvas-instructions">
+        Use arrow keys to move through graph nodes. Press Enter or Space to open or focus the current node. Use the structured graph after the canvas for complete relationship actions.
+      </p>
+      <div
+        aria-describedby="graph-canvas-instructions"
+        aria-label={`Visual graph canvas${activeNode ? `. Current node: ${activeNode.label}, ${activeNode.typeLabel}` : ""}`}
+        className="graph-map"
+        onKeyDown={handleCanvasKeyDown}
+        ref={containerRef}
+        role="application"
+        tabIndex={0}
+      />
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {activeNode ? `${activeNode.label}, ${activeNode.typeLabel}` : "No graph node selected"}
+      </p>
       <div className="graph-map-controls" aria-label="Graph controls">
         <button type="button" onClick={() => graphApiRef.current?.zoomBy(GRAPH_ZOOM_IN_FACTOR)} title="Zoom in" aria-label="Zoom in">
           <Plus size={17} aria-hidden="true" />
@@ -394,7 +451,7 @@ export function GraphMap({
 }
 
 export function removeStoredGraphNodePositions(storageKey: string): void {
-  removeStoredValue(storageKey);
+  localGraphPositionStore.remove(storageKey);
 }
 
 function buildD3GraphModel(
@@ -403,9 +460,10 @@ function buildD3GraphModel(
   focusedNodeId: string,
   storageKey: string
 ): D3GraphModel {
-  const degreeByNodeId = getGraphDegreeByNodeId(nodes, edges);
-  const targetPositions = buildGraphTargetPositions(nodes, edges, focusedNodeId, degreeByNodeId);
-  const storedPositions = readStoredGraphNodePositions(storageKey, nodes);
+  const layout = createGraphLayoutPlan(nodes, edges, focusedNodeId);
+  const degreeByNodeId = layout.degreeByNodeId;
+  const targetPositions = layout.positions;
+  const storedPositions = localGraphPositionStore.read(storageKey, nodes.map((node) => node.id));
 
   const graphNodes = nodes.map((node, index): D3GraphNode => {
     const type = String(node.type || "node");
@@ -415,7 +473,7 @@ function buildD3GraphModel(
     const colors = graphNodeVisualStyle(visualType, node);
     const target = targetPositions.get(node.id) || fallbackGraphPosition(index, nodes.length);
     const storedPosition = storedPositions?.[node.id];
-    const position = storedPosition || deterministicJitteredPosition(target, node.id);
+    const position = storedPosition || deterministicGraphPosition(target, node.id);
 
     return {
       id: node.id,
@@ -501,159 +559,6 @@ function graphLinkDistance(link: D3GraphLink): number {
   if (link.type === "contains") return 185;
   if (link.type === "implements" || link.type === "depends-on") return 230;
   return 205;
-}
-
-function buildGraphTargetPositions(
-  nodes: GraphMapNode[],
-  edges: GraphMapEdge[],
-  focusedNodeId: string,
-  degreeByNodeId: Map<string, number>
-): Map<string, GraphNodePosition> {
-  if (!focusedNodeId) return buildOverviewTargetPositions(nodes, degreeByNodeId);
-
-  const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  if (!nodeById.has(focusedNodeId)) return buildOverviewTargetPositions(nodes, degreeByNodeId);
-
-  const directIncoming = new Set(edges.filter((edge) => edge.target === focusedNodeId).map((edge) => edge.source));
-  const directOutgoing = new Set(edges.filter((edge) => edge.source === focusedNodeId).map((edge) => edge.target));
-  const assigned = new Set<string>([focusedNodeId]);
-  const positions = new Map<string, GraphNodePosition>([[focusedNodeId, { x: 0, y: 0 }]]);
-
-  const directNodes = sortLayoutNodes(
-    nodes.filter((node) => node.id !== focusedNodeId && (directIncoming.has(node.id) || directOutgoing.has(node.id))),
-    degreeByNodeId
-  );
-  placeCompactFocusedRing(directNodes.map((node) => node.id), 280, 170, -Math.PI / 2, positions);
-  markAssigned(assigned, directNodes);
-
-  const secondaryNodeIds = collectUndirectedNeighborNodeIds(directNodes.map((node) => node.id), focusedNodeId, edges);
-  const secondaryNodes = sortLayoutNodes(
-    nodes.filter((node) => !assigned.has(node.id) && secondaryNodeIds.has(node.id)),
-    degreeByNodeId
-  );
-  placeCompactFocusedRing(secondaryNodes.map((node) => node.id), 470, 180, -Math.PI * 0.2, positions);
-  markAssigned(assigned, secondaryNodes);
-
-  const orbitNodes = sortLayoutNodes(nodes.filter((node) => !assigned.has(node.id)), degreeByNodeId);
-  placeCompactFocusedRing(orbitNodes.map((node) => node.id), 660, 190, Math.PI * 0.16, positions);
-
-  return positions;
-}
-
-function buildOverviewTargetPositions(
-  nodes: GraphMapNode[],
-  degreeByNodeId: Map<string, number>
-): Map<string, GraphNodePosition> {
-  const positions = new Map<string, GraphNodePosition>();
-  const sortedNodes = sortLayoutNodes(nodes, degreeByNodeId);
-  const projectNodes = sortedNodes.filter((node) => node.type === "project");
-  const rootNodes = sortedNodes.filter((node) => node.type !== "project" && isRootLikeNode(node));
-  const hubNodes = sortedNodes.filter((node) => !isRootLikeNode(node) && isHubLikeNode(node));
-  const leafNodes = sortedNodes.filter((node) => !isRootLikeNode(node) && !isHubLikeNode(node));
-
-  placeRingCluster(projectNodes.map((node) => node.id), 0, 240, -Math.PI / 2, positions);
-  placeRingCluster(rootNodes.map((node) => node.id), 340, 260, -Math.PI * 0.82, positions);
-  placeRingCluster(hubNodes.map((node) => node.id), 660, 260, -Math.PI * 0.95, positions);
-  placeRingCluster(leafNodes.map((node) => node.id), 980, 260, -Math.PI * 0.08, positions);
-
-  return positions;
-}
-
-function collectUndirectedNeighborNodeIds(
-  startNodeIds: string[],
-  excludedNodeId: string,
-  edges: GraphMapEdge[]
-): Set<string> {
-  const startSet = new Set(startNodeIds);
-  const related = new Set<string>();
-  for (const edge of edges) {
-    if (startSet.has(edge.source) && edge.target !== excludedNodeId) related.add(edge.target);
-    if (startSet.has(edge.target) && edge.source !== excludedNodeId) related.add(edge.source);
-  }
-  return related;
-}
-
-function placeCompactFocusedRing(
-  nodeIds: string[],
-  baseRadius: number,
-  ringGap: number,
-  startAngle: number,
-  positions: Map<string, GraphNodePosition>
-): void {
-  if (!nodeIds.length) return;
-  const minimumArcSpace = 150;
-  let consumed = 0;
-  let ringIndex = 0;
-
-  while (consumed < nodeIds.length) {
-    const radius = baseRadius + ringIndex * ringGap;
-    const remaining = nodeIds.length - consumed;
-    const ringCapacity = Math.max(5, Math.floor((Math.PI * 2 * radius) / minimumArcSpace));
-    const ringCount = Math.min(remaining, ringCapacity);
-    const angleStep = (Math.PI * 2) / ringCount;
-    const ringStartAngle = startAngle + ringIndex * 0.31 + (ringCount === 1 ? 0.38 : 0);
-
-    for (let index = 0; index < ringCount; index += 1) {
-      const nodeId = nodeIds[consumed + index];
-      const angle = ringStartAngle + index * angleStep;
-      positions.set(nodeId, {
-        x: Math.round(Math.cos(angle) * radius),
-        y: Math.round(Math.sin(angle) * radius)
-      });
-    }
-
-    consumed += ringCount;
-    ringIndex += 1;
-  }
-}
-
-function placeRingCluster(
-  nodeIds: string[],
-  radius: number,
-  ringGap: number,
-  startAngle: number,
-  positions: Map<string, GraphNodePosition>
-): void {
-  if (!nodeIds.length) return;
-  if (radius === 0) {
-    nodeIds.forEach((nodeId, index) => {
-      positions.set(nodeId, index === 0 ? { x: 0, y: 0 } : fallbackGraphPosition(index, nodeIds.length));
-    });
-    return;
-  }
-
-  const maxPerRing = Math.max(7, Math.floor((Math.PI * 2 * radius) / 190));
-  nodeIds.forEach((nodeId, index) => {
-    const ringIndex = Math.floor(index / maxPerRing);
-    const ringItemIndex = index % maxPerRing;
-    const ringItems = Math.min(maxPerRing, nodeIds.length - ringIndex * maxPerRing);
-    const ringRadius = radius + ringIndex * ringGap;
-    const angle = startAngle + (Math.PI * 2 * ringItemIndex) / ringItems + ringIndex * 0.19;
-    positions.set(nodeId, {
-      x: Math.round(Math.cos(angle) * ringRadius),
-      y: Math.round(Math.sin(angle) * ringRadius)
-    });
-  });
-}
-
-function markAssigned(assigned: Set<string>, nodes: GraphMapNode[]): void {
-  for (const node of nodes) assigned.add(node.id);
-}
-
-function sortLayoutNodes(nodes: GraphMapNode[], degreeByNodeId: Map<string, number>): GraphMapNode[] {
-  return [...nodes].sort((left, right) => {
-    const leftWeight = graphLayoutWeight(left.type, degreeByNodeId.get(left.id) || 0, false);
-    const rightWeight = graphLayoutWeight(right.type, degreeByNodeId.get(right.id) || 0, false);
-    return rightWeight - leftWeight || left.label.localeCompare(right.label);
-  });
-}
-
-function isRootLikeNode(node: GraphMapNode): boolean {
-  return ["project", "repo", "workstream"].includes(String(node.type || ""));
-}
-
-function isHubLikeNode(node: GraphMapNode): boolean {
-  return ["topic", "service", "package", "diagram-group", "code-area", "task", "session"].includes(String(node.type || ""));
 }
 
 function renderGraphPositions(
@@ -841,38 +746,6 @@ function graphLinkAccessibleLabel(link: D3GraphLink): string {
   ].filter(Boolean).join("\n");
 }
 
-function getGraphDegreeByNodeId(nodes: GraphMapNode[], edges: GraphMapEdge[]): Map<string, number> {
-  const degree = new Map<string, number>(nodes.map((node) => [node.id, 0]));
-  for (const edge of edges) {
-    degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
-    degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
-  }
-  return degree;
-}
-
-function graphLayoutWeight(type: string, degree: number, isRoot: boolean): number {
-  const ranks: Record<string, number> = {
-    project: 900,
-    repo: 760,
-    workstream: 740,
-    topic: 620,
-    service: 540,
-    package: 530,
-    "diagram-group": 520,
-    "code-area": 500,
-    task: 450,
-    session: 340,
-    diagram: 320,
-    decision: 300,
-    doc: 280,
-    command: 260,
-    gotcha: 250,
-    file: 220,
-    "external-reference": 210
-  };
-  return (isRoot ? 1000 : ranks[type] || 240) + Math.min(degree * 8, 120);
-}
-
 function graphNodeRadius(type: string, degree: number, isRoot: boolean): number {
   if (isRoot) return 72;
   if (type === "project") return 62;
@@ -950,73 +823,6 @@ function truncateGraphLabel(label: string, maxLength: number): string {
     .trim();
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, Math.max(3, maxLength - 3)).trim()}...`;
-}
-
-function fallbackGraphPosition(index: number, total: number): GraphNodePosition {
-  if (total <= 1) return { x: 0, y: 0 };
-  const angle = -Math.PI / 2 + (Math.PI * 2 * index) / total;
-  const radius = 340 + Math.floor(index / 20) * 220;
-  return {
-    x: Math.round(Math.cos(angle) * radius),
-    y: Math.round(Math.sin(angle) * radius)
-  };
-}
-
-function deterministicJitteredPosition(position: GraphNodePosition, nodeId: string): GraphNodePosition {
-  const hash = stableHash(nodeId);
-  return {
-    x: position.x + ((hash % 23) - 11),
-    y: position.y + (((hash >> 5) % 23) - 11)
-  };
-}
-
-function readStoredGraphNodePositions(storageKey: string, nodes: GraphMapNode[]): StoredGraphNodePositionMap | undefined {
-  const parsed = readJson<Partial<StoredGraphNodePositionsPayload>>(storageKey);
-  if (!parsed || !isStoredGraphNodePositionsPayload(parsed)) return undefined;
-
-  const expectedNodeIds = nodes.map((node) => node.id).sort();
-  if (!sameStringArray(parsed.nodeIds, expectedNodeIds)) return undefined;
-  if (!expectedNodeIds.every((nodeId) => isGraphNodePosition(parsed.positions[nodeId]))) return undefined;
-
-  return parsed.positions;
-}
-
-function saveGraphNodePositions(storageKey: string, nodes: D3GraphNode[]): void {
-  const positions: StoredGraphNodePositionMap = {};
-  const nodeIds: string[] = [];
-
-  for (const node of nodes) {
-    nodeIds.push(node.id);
-    positions[node.id] = {
-      x: Math.round(Number(node.x || 0)),
-      y: Math.round(Number(node.y || 0))
-    };
-  }
-
-  writeJson(storageKey, {
-    version: GRAPH_POSITION_FORMAT_VERSION,
-    nodeIds: nodeIds.sort(),
-    positions
-  });
-}
-
-function isStoredGraphNodePositionsPayload(input: unknown): input is StoredGraphNodePositionsPayload {
-  if (!input || typeof input !== "object") return false;
-  const candidate = input as Partial<StoredGraphNodePositionsPayload>;
-  return candidate.version === GRAPH_POSITION_FORMAT_VERSION &&
-    Array.isArray(candidate.nodeIds) &&
-    Boolean(candidate.positions) &&
-    typeof candidate.positions === "object";
-}
-
-function isGraphNodePosition(input: unknown): input is GraphNodePosition {
-  if (!input || typeof input !== "object") return false;
-  const candidate = input as Partial<GraphNodePosition>;
-  return Number.isFinite(candidate.x) && Number.isFinite(candidate.y);
-}
-
-function sameStringArray(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 /**

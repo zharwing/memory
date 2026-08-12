@@ -7,7 +7,7 @@ import { SettingsTabs } from "../components/SectionTabs.js";
 import { DirectoryField } from "../components/DirectoryField.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { splitList } from "../utils/format.js";
-import { projectPath } from "../utils/routes.js";
+import { routePath } from "../utils/routes.js";
 
 export const SetupScreen = observer(function SetupScreen() {
   const store = useStore();
@@ -196,7 +196,7 @@ export const SetupScreen = observer(function SetupScreen() {
               type="button"
               onClick={async () => {
                 const created = await store.projects.createProjectFromPreview();
-                if (created) navigate(projectPath(store.projects.selectedProjectId, "/repositories"));
+                if (created) navigate(routePath("repositories", { projectId: store.projects.selectedProjectId }));
               }}
             >
               Create Project and Add Repos

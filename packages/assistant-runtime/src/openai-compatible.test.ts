@@ -1,6 +1,42 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callAiProviderJson, callOpenAiCompatibleJson, checkAiProvider } from "./openai-compatible.js";
+import {
+  callAiProviderJson,
+  callOpenAiCompatibleJson,
+  checkAiProvider,
+  openAiChatCompletionsUrl,
+  openAiModelsUrl,
+  parseJsonObjectFromText,
+  runWithAuthorizedProviderRequestForTesting
+} from "./openai-compatible.js";
+
+test("provider URL normalization handles long slash runs without regex backtracking", () => {
+  const slashes = "/".repeat(100_000);
+  assert.equal(
+    openAiChatCompletionsUrl(`http://127.0.0.1:1234/v1${slashes}`),
+    "http://127.0.0.1:1234/v1/chat/completions"
+  );
+  assert.equal(
+    openAiModelsUrl(`http://127.0.0.1:1234/v1/chat/completions${slashes}`),
+    "http://127.0.0.1:1234/v1/models"
+  );
+});
+
+test("provider JSON parser extracts fenced objects with a linear delimiter scan", () => {
+  assert.deepEqual(
+    parseJsonObjectFromText('preface\n```JSON \n {"ok":true,"ticks":"``"} \n```\nafter'),
+    { ok: true, value: { ok: true, ticks: "``" } }
+  );
+  assert.deepEqual(
+    parseJsonObjectFromText(`preface\n\`\`\`json\n${" ".repeat(100_000)}{"ok":true}\n\`\`\`\nafter`),
+    { ok: true, value: { ok: true } }
+  );
+  assert.deepEqual(
+    parseJsonObjectFromText("```json\n{\"ok\":true}"),
+    { ok: true, value: { ok: true } },
+    "an unterminated fence still falls back to balanced JSON extraction"
+  );
+});
 
 test("callOpenAiCompatibleJson accepts array-form message content", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -24,13 +60,15 @@ test("callOpenAiCompatibleJson accepts array-form message content", async (t) =>
     globalThis.fetch = originalFetch;
   });
 
-  const result = await callOpenAiCompatibleJson<{ ok: boolean; message: string }>(
-    {
-      endpoint: "http://127.0.0.1:1234/v1",
-      model: "array-content-model",
-      jsonMode: false
-    },
-    [{ role: "user", content: "Return JSON." }]
+  const result = await withTestFetch(() =>
+    callOpenAiCompatibleJson<{ ok: boolean; message: string }>(
+      {
+        endpoint: "http://127.0.0.1:1234/v1",
+        model: "array-content-model",
+        jsonMode: false
+      },
+      [{ role: "user", content: "Return JSON." }]
+    )
   );
 
   assert.equal(result.value.ok, true);
@@ -56,13 +94,15 @@ test("callAiProviderJson uses LM Studio json_schema response format", async (t) 
     globalThis.fetch = originalFetch;
   });
 
-  const result = await callAiProviderJson<{ ok: boolean }>(
-    {
-      providerKind: "lm-studio",
-      endpoint: "http://127.0.0.1:1234/v1",
-      model: "local-json-model"
-    },
-    [{ role: "user", content: "Return JSON." }]
+  const result = await withTestFetch(() =>
+    callAiProviderJson<{ ok: boolean }>(
+      {
+        providerKind: "lm-studio",
+        endpoint: "http://127.0.0.1:1234/v1",
+        model: "local-json-model"
+      },
+      [{ role: "user", content: "Return JSON." }]
+    )
   );
 
   assert.equal(result.value.ok, true);
@@ -92,13 +132,15 @@ test("callOpenAiCompatibleJson reports the empty first choice when content is mi
   });
 
   await assert.rejects(
-    callOpenAiCompatibleJson(
-      {
-        endpoint: "http://127.0.0.1:1234/v1",
-        model: "empty-content-model",
-        jsonMode: false
-      },
-      [{ role: "user", content: "Return JSON." }]
+    withTestFetch(() =>
+      callOpenAiCompatibleJson(
+        {
+          endpoint: "http://127.0.0.1:1234/v1",
+          model: "empty-content-model",
+          jsonMode: false
+        },
+        [{ role: "user", content: "Return JSON." }]
+      )
     ),
     /finish_reason/
   );
@@ -147,11 +189,11 @@ test("checkAiProvider detects LM Studio models from the native REST API", async 
     globalThis.fetch = originalFetch;
   });
 
-  const result = await checkAiProvider({
+  const result = await withTestFetch(() => checkAiProvider({
     providerKind: "lm-studio",
     endpoint: "http://127.0.0.1:1234/v1",
     jsonMode: false
-  });
+  }));
 
   assert.equal(result.ok, true);
   assert.equal(result.model, "uncategorized");
@@ -211,11 +253,11 @@ test("checkAiProvider retries LM Studio reasoning-only responses", async (t) => 
     globalThis.fetch = originalFetch;
   });
 
-  const result = await checkAiProvider({
+  const result = await withTestFetch(() => checkAiProvider({
     providerKind: "lm-studio",
     endpoint: "http://127.0.0.1:1234/v1",
     jsonMode: false
-  });
+  }));
 
   assert.equal(result.ok, true);
   assert.equal(result.model, "llm");
@@ -248,10 +290,10 @@ test("checkAiProvider uses Ollama native tags and chat endpoints", async (t) => 
     globalThis.fetch = originalFetch;
   });
 
-  const result = await checkAiProvider({
+  const result = await withTestFetch(() => checkAiProvider({
     providerKind: "ollama",
     endpoint: "http://127.0.0.1:11434"
-  });
+  }));
 
   assert.equal(result.ok, true);
   assert.equal(result.endpoint, "http://127.0.0.1:11434/api/chat");
@@ -269,10 +311,10 @@ test("checkAiProvider uses Anthropic models and messages endpoints", async (t) =
     requests.push({ url, headers, body });
     assert.equal(headers.get("x-api-key"), "test-key");
     assert.equal(headers.get("anthropic-version"), "2023-06-01");
-    if (url === "https://api.anthropic.com/v1/models") {
+    if (url === "https://127.0.0.1/v1/models") {
       return jsonResponse({ data: [{ id: "claude-sonnet-test" }] });
     }
-    if (url === "https://api.anthropic.com/v1/messages") {
+    if (url === "https://127.0.0.1/v1/messages") {
       const messageBody = body as any;
       assert.equal(messageBody.model, "claude-sonnet-test");
       assert.equal(messageBody.system, "Connectivity test. Do not explain. Do not think step by step. Return only the exact JSON object requested.");
@@ -288,18 +330,18 @@ test("checkAiProvider uses Anthropic models and messages endpoints", async (t) =
     globalThis.fetch = originalFetch;
   });
 
-  const result = await checkAiProvider({
+  const result = await withTestFetch(() => checkAiProvider({
     providerKind: "anthropic",
-    endpoint: "https://api.anthropic.com",
+    endpoint: "https://127.0.0.1",
     apiKey: "test-key"
-  });
+  }));
 
   assert.equal(result.ok, true);
-  assert.equal(result.endpoint, "https://api.anthropic.com/v1/messages");
+  assert.equal(result.endpoint, "https://127.0.0.1/v1/messages");
   assert.equal(result.model, "claude-sonnet-test");
   assert.deepEqual(requests.map((request) => request.url), [
-    "https://api.anthropic.com/v1/models",
-    "https://api.anthropic.com/v1/messages"
+    "https://127.0.0.1/v1/models",
+    "https://127.0.0.1/v1/messages"
   ]);
 });
 
@@ -318,6 +360,14 @@ function requestUrl(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.href;
   return input.url;
+}
+
+function withTestFetch<T>(invoke: () => T): T {
+  const fetch = globalThis.fetch;
+  return runWithAuthorizedProviderRequestForTesting(
+    (target, init) => fetch(target.url, init),
+    invoke
+  );
 }
 
 function requestJsonBody(init: RequestInit | undefined): unknown {

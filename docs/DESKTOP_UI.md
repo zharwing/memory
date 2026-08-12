@@ -27,12 +27,14 @@ pnpm dev:desktop
 ```
 
 `dev:web` starts only the browser UI and expects a separately running daemon.
-`dev:desktop` starts the Tauri desktop window, runs the same React app inside
-it, and starts or reuses the local daemon automatically from the source
-checkout. A copied release executable needs an already-running daemon or an
-explicit `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND`. Set
-`ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=false` to disable desktop daemon autostart for
-debugging.
+`dev:desktop` starts the Tauri desktop window and the same React app. The Rust
+host starts and owns an exact-loopback `hardened-local` daemon and establishes
+a one-shot native credential outside the webview. It refuses to attach to an
+already-running unrelated daemon. A packaged build needs its daemon sidecar or
+an explicit trusted `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND`; it does not fall
+back to browser transport. Setting
+`ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=false` deliberately leaves native
+authority unavailable and is only a debugging aid.
 
 The browser UI cannot browse arbitrary local folders. In browser mode, path
 fields accept typed or pasted absolute paths. In the Tauri window, Setup,
@@ -41,7 +43,7 @@ Repos, and Import can use OS folder picker buttons.
 | Behavior | Browser UI | Native Tauri app |
 | --- | --- | --- |
 | Pages and workflows | Full shared React UI | Full shared React UI |
-| Daemon | Start separately | Starts or reuses it in a source checkout |
+| Daemon | Start separately | Rust starts, owns, and rotates it per project |
 | Folder selection | Type or paste absolute paths | OS folder picker buttons |
 | Window | `http://localhost:5174/` | Native application window |
 
@@ -180,6 +182,13 @@ viewer with zoom controls for dense architecture diagrams. In the larger
 viewer, `Ctrl`/`Cmd` + mouse wheel zooms and `Shift` + mouse wheel pans the
 diagram horizontally when horizontal overflow exists.
 
+The offline preview intentionally supports the common diagram families exposed
+by the product: flowchart/graph, sequence, class, state, entity-relationship,
+Gantt, journey, mind map, and timeline. A fenced
+Mermaid block using another upstream beta or experimental family fails closed
+with an accessible, deterministic explanation; its Markdown source remains
+available for editing and is never sent to a CDN or remote rendering service.
+
 ## Memory Write Mode
 
 Projects default to direct memory writes. Connected agents can save session
@@ -207,9 +216,10 @@ Deleting active items moves them to Trash first:
 - Memory Inbox proposals
 - backup snapshots
 
-Critical delete actions show a confirmation dialog. The dialog includes a
-`Do not ask again for this type of item` option. That preference is local to
-the browser/desktop UI storage.
+Every recoverable delete shows a confirmation dialog. Permanent/global actions
+also require their prepared, expiring, target-bound destructive intent. There
+is no persisted "do not ask again" bypass. An old
+`aimem.delete.confirm.skip.*` browser-storage value is inert and may be removed.
 
 Trash supports:
 
@@ -227,7 +237,13 @@ Graph, Search, and Context are derived from active project data. They are not
 deleted directly. Delete or edit the underlying projects, sessions, docs,
 workstreams, inbox proposals, or backups instead.
 
-Graph renders the derived project knowledge map as an interactive node canvas.
+Graph renders the derived project knowledge map through synchronized visual and
+structured projections. The structured view exposes node, relationship,
+document, focus, and inspection actions without interpreting SVG position or
+color. The canvas has one tab stop and a bounded one-active-node keyboard model;
+the projection enforces stable node/edge budgets. Missing measurement, SVG, or
+animation capabilities leave the structured view available.
+
 It is not a service architecture diagram. Nodes are project metadata records
 such as repos, workstreams, sessions, docs, diagrams, and files. Edges are
 metadata relationships such as `works-on`, `touched`, `referenced`, `supports`,
@@ -254,11 +270,11 @@ Repo links are created in two ways:
 - inferred document metadata, such as document topics or import paths that
   match linked repo names, repo descriptions, or repo roles
 
-The default `Knowledge map` mode shows repo/workstream anchors plus useful
+The default `Context map` mode shows repo/workstream anchors plus useful
 relationships. It intentionally hides plain document-to-project `belongs-to`
 membership links because those only mean an item is stored under the project.
 
-`Raw storage audit` mode shows those membership links for import debugging. It
+`Import audit` mode shows those membership links for import debugging. It
 is expected to be noisy: every imported doc and diagram belongs to the project,
 so raw mode can produce a large project-to-document fanout. Service architecture
 belongs in the Diagrams tab, where imported Mermaid diagrams are rendered

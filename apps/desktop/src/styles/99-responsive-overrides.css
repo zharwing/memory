@@ -188,7 +188,7 @@
   }
 }
 
-/* ===== .notice.danger — kept between the media blocks to preserve source order ===== */
+/* ===== .notice.danger - kept between the media blocks to preserve source order ===== */
 
 .notice.danger {
   border-color: var(--danger);
@@ -231,5 +231,198 @@
 
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Browser/reflow floors used by the 390/820 capability matrix ===== */
+
+@media (max-width: 820px) {
+  .workspace {
+    padding: var(--space-4);
+  }
+
+  .sidebar {
+    padding: var(--space-3);
+  }
+
+  .screen,
+  .panel,
+  .screen-heading,
+  .table-toolbar,
+  .docs-filter-row,
+  .button-row,
+  .row-actions,
+  .inline-form {
+    min-width: 0;
+  }
+
+  .settings-columns,
+  .settings-columns.checkbox-grid,
+  .semantic-run-form,
+  .assistant-connect-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .status-notice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .status-notice-action {
+    align-self: start;
+  }
+}
+
+@media (max-width: 600px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .inline-form,
+  .path-input-row,
+  .screen-heading,
+  .topbar,
+  .repo-row,
+  .link-discovery-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inline-form > button,
+  .path-input-row > button,
+  .screen-heading > button,
+  .screen-heading > .button-link {
+    width: 100%;
+  }
+
+  .key-value,
+  .document-modal-meta .key-value {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: var(--space-2);
+  }
+
+  .button-row > button,
+  .button-row > .button-link {
+    flex: 1 1 10rem;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topbar-meta {
+    justify-content: flex-start;
+  }
+
+  .topbar-meta-pill,
+  .topbar-meta-pill.repo-count,
+  .topbar-meta-pill.app-ready {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .dialog-backdrop,
+  .modal-backdrop,
+  .diagram-viewer-backdrop {
+    padding: var(--space-2);
+  }
+
+  .confirm-dialog,
+  .link-discovery-dialog,
+  .session-closeout-dialog {
+    max-height: calc(100dvh - var(--space-4));
+    max-width: calc(100vw - var(--space-4));
+    overflow: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .workspace {
+    padding: var(--space-3);
+  }
+
+  .sidebar-nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quick-presets,
+  .segmented-control {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .table-wrap,
+  .graph-map-shell,
+  .diagram-preview-canvas {
+    max-width: calc(100vw - 2 * var(--space-3));
+    overflow: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  .nav-item.active,
+  .section-tab.active,
+  .option-chips button.selected,
+  .quick-presets button.selected,
+  .segmented-control button.selected {
+    border: 2px solid Highlight;
+    forced-color-adjust: auto;
+  }
+
+  .status.clean,
+  .status.blocked,
+  .status.needs-review,
+  .status.index-stale {
+    color: CanvasText;
+  }
+
+  .graph-map-link {
+    stroke: CanvasText !important;
+  }
+
+  .graph-map-node circle:not(.graph-map-node-hitbox) {
+    fill: Canvas !important;
+    stroke: CanvasText !important;
+  }
+
+  .graph-map-node-label {
+    fill: CanvasText !important;
+    stroke: Canvas !important;
+  }
+}
+
+@media (hover: none) {
+  .danger-button:hover {
+    background: var(--surface);
+    color: var(--danger);
+  }
+
+  .graph-map-controls button:hover {
+    background: var(--surface);
+  }
+
+  .graph-map-node:hover circle {
+    filter: drop-shadow(var(--shadow-node));
+    stroke-width: 4;
+  }
+
+  .graph-map-node:focus-visible circle {
+    filter: drop-shadow(var(--shadow-node-active));
+    stroke-width: 7;
+  }
+}
+
+@media (pointer: coarse) {
+  .graph-map-controls button,
+  .icon-button,
+  .icon-only {
+    height: 2.75rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    width: 2.75rem;
   }
 }

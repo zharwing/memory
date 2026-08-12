@@ -2,13 +2,14 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Link } from "react-router-dom";
 import { Activity, AlertCircle, CircleHelp, Play, Settings2, Sparkles, X } from "lucide-react";
-import type { AssistantPolicy } from "@zharwing/memory-core";
+import type { AssistantPolicy, SemanticGraphRunCounts } from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { DocumentEditorHost } from "../components/DocumentEditorHost.js";
 import { Modal } from "../components/Modal.js";
+import { IconButton } from "../components/IconButton.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
 import {
@@ -21,7 +22,7 @@ import {
 import { filterDocuments, isStarterDraftDoc } from "../utils/documents.js";
 import { timestampRenderers } from "../utils/format.js";
 import { providerLabel } from "../utils/labels.js";
-import { projectPath } from "../utils/routes.js";
+import { routePath } from "../utils/routes.js";
 import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
 import { pendingInboxItems } from "../utils/inbox.js";
 
@@ -42,6 +43,14 @@ export const DocsScreen = observer(function DocsScreen() {
   const [page, setPage] = useState(0);
   const pageSize = 25;
   const docs = store.docs.list.filter((doc) => doc.type !== "diagram");
+  const docsState = store.docs.listState;
+  const docsCompleteness = store.docs.listResource.completeness;
+  const docsObservationComplete =
+    (docsState.status === "success" || docsState.status === "empty") &&
+    docsCompleteness?.kind === "complete";
+  const docsObservationPartial =
+    (docsState.status === "success" || docsState.status === "refreshing") &&
+    docsCompleteness?.kind === "partial";
   // Mirrors the daemon-side semantic analysis eligibility: only ai-eligible
   // and ai-pinned documents are ever sent to the provider.
   const aiEligibleDocs = docs.filter((doc) => doc.visibility === "ai-eligible" || doc.visibility === "ai-pinned");
@@ -81,14 +90,15 @@ export const DocsScreen = observer(function DocsScreen() {
   const semanticResult = store.semantic.analysisResult;
   const savedLinkCount = (semanticEdgeCounts.accepted || 0) + (semanticEdgeCounts["auto-accepted"] || 0);
   const semanticDisplayRun = store.semantic.analysisProgressRun || semanticResult?.run || semanticLatestRun;
-  const semanticRunCounts = semanticDisplayRun?.counts || {};
+  const semanticRunCounts: Partial<SemanticGraphRunCounts> = semanticDisplayRun?.counts ?? {};
   const runProgress = semanticRunStatus(semanticDisplayRun, store.semantic.analysisRunning);
   const semanticRunRunning = runProgress.running;
   const semanticRunFinished = runProgress.finished;
   const semanticProposalId = semanticResult?.proposal?.id || pendingRelationshipApprovals[0]?.id;
-  const semanticInboxPath = semanticProposalId
-    ? projectPath(store.projects.selectedProjectId, `/inbox?proposal=${encodeURIComponent(semanticProposalId)}`)
-    : projectPath(store.projects.selectedProjectId, "/inbox");
+  const semanticInboxPath = routePath("inbox", {
+    projectId: store.projects.selectedProjectId,
+    search: { proposal: semanticProposalId }
+  });
   const showSemanticRunBanner = Boolean(semanticDisplayRun && !showLinkDiscoveryDialog && (semanticRunRunning || semanticRunFinished));
 
   useCloseWhenMissing(
@@ -237,7 +247,11 @@ export const DocsScreen = observer(function DocsScreen() {
           {paginationControls("top")}
         </div>
       </div>
-      {pagedDocs.length ? (
+      {docsState.status === "idle" || docsState.status === "loading" ? (
+        <p className="panel-help" role="status">Loading documents...</p>
+      ) : docsState.status === "failure" ? (
+        <p className="panel-help" role="alert">Documents could not be loaded. Refresh to try again.</p>
+      ) : pagedDocs.length ? (
         <>
           <DataTable
             columns={["updated", "status", "visibility", "type", "title"]}
@@ -252,9 +266,22 @@ export const DocsScreen = observer(function DocsScreen() {
             )}
           />
           {paginationControls("bottom")}
+          {docsState.status === "refreshing" ? (
+            <p className="panel-help" role="status">Refreshing documents; showing the last accepted result.</p>
+          ) : docsObservationPartial ? (
+            <p className="panel-help" role="status">Showing a partial document result; more documents may exist.</p>
+          ) : null}
         </>
-      ) : (
+      ) : docsState.status === "refreshing" ? (
+        <p className="panel-help" role="status">Refreshing documents...</p>
+      ) : docsObservationPartial ? (
+        <p className="panel-help" role="status">
+          No documents match this filter in the partial result. More documents may exist.
+        </p>
+      ) : docsObservationComplete ? (
         <Empty text="No documents match this filter." />
+      ) : (
+        <p className="panel-help" role="status">Loading documents...</p>
       )}
       {editingDoc ? (
         <DocumentEditorHost
@@ -275,15 +302,13 @@ export const DocsScreen = observer(function DocsScreen() {
                 <span className="section-kicker">Graph link suggestions</span>
                 <h3>Suggest graph links</h3>
               </div>
-              <button
-                type="button"
-                className="icon-button icon-only"
+              <IconButton
+                className="icon-only"
                 onClick={closeLinkDiscoveryDialog}
-                title="Close"
-                aria-label="Close"
+                label="Close graph link suggestions"
               >
                 <X size={16} aria-hidden="true" />
-              </button>
+              </IconButton>
             </header>
             <p className="link-discovery-copy">
               AI will scan eligible documents and create link suggestions for review. Approved suggestions appear in Graph.
@@ -300,7 +325,7 @@ export const DocsScreen = observer(function DocsScreen() {
                   <strong>AI provider not connected</strong>
                   <p>Connect an AI provider before creating graph-link suggestions.</p>
                 </div>
-                <Link className="button-link primary" to={projectPath(store.projects.selectedProjectId, "/assistant")}>
+                <Link className="button-link primary" to={routePath("assistant", { projectId: store.projects.selectedProjectId })}>
                   Open AI Assistant settings
                 </Link>
               </div>
@@ -318,7 +343,7 @@ export const DocsScreen = observer(function DocsScreen() {
                 {pendingRelationshipSuggestions > 0 ? (
                   <div className="link-discovery-pending-note">
                     <strong>{pendingRelationshipSuggestions} suggestions already waiting in Inbox.</strong>
-                    <Link className="button-link" to={projectPath(store.projects.selectedProjectId, "/inbox")}>
+                    <Link className="button-link" to={routePath("inbox", { projectId: store.projects.selectedProjectId })}>
                       Review Inbox
                     </Link>
                   </div>
@@ -437,9 +462,6 @@ export const DocsScreen = observer(function DocsScreen() {
                         disabled={store.semantic.loading}
                         onPatch={updateRelationshipRunDraft}
                         fields={[
-                          { key: "endpoint", label: "Endpoint for this run", wide: true, placeholder: "Use provider default" },
-                          { key: "model", label: "Model for this run", wide: true, placeholder: "Use provider default" },
-                          { key: "apiKey", label: "API key for this run", placeholder: "Optional" },
                           { key: "maxOutputTokens", label: "Max response size" },
                           { key: "timeoutSeconds", label: "Request timeout (sec)" }
                         ]}

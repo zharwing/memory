@@ -1,9 +1,27 @@
 #!/usr/bin/env node
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { ZharwingMemoryClient } from "@zharwing/memory-api-client";
-import { splitList } from "@zharwing/memory-core";
-import { doctorMcpSetup, installMcpAuto, installMcpClient, serveMcpStdio, type McpClientTarget, type McpInstallTarget, type McpInstallTransport } from "@zharwing/memory-mcp";
+import { AgentMemoryClient, ZharwingMemoryClient, type OperationOptions } from "@zharwing/memory-api-client";
+import {
+  getOperationDefinition,
+  isAgentOperationName,
+  splitList,
+  type AgentOperationName,
+  type AgentResult
+} from "@zharwing/memory-core";
+import {
+  deriveMcpCorrelationId,
+  deriveMcpMutationIdempotencyKey,
+  doctorMcpSetup,
+  installMcpAuto,
+  installMcpClient,
+  parseJsonRpcRequestId,
+  serveMcpStdio,
+  type JsonRpcRequestId,
+  type McpClientTarget,
+  type McpInstallTarget,
+  type McpInstallTransport
+} from "@zharwing/memory-mcp";
 import {
   defaultInstructionFile,
   normalizeAgentTarget,
@@ -14,11 +32,12 @@ import { printHelp, printJson, printTable } from "./format.js";
 
 const args = parseArgs(process.argv.slice(2));
 const client = new ZharwingMemoryClient();
+let agentClient: AgentMemoryClient | undefined;
 
 try {
   await run();
 } catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.stderr.write(`${safeCliError(error)}\n`);
   process.exitCode = 1;
 }
 
@@ -52,7 +71,7 @@ async function run(): Promise<void> {
     case "start":
       return start();
     case "resume":
-      return printJson(await client.call("memory.get_startup_state", { projectId: requireProjectId() }));
+      return printJson(await callDailyCompatible("memory.get_startup_state", { projectId: requireProjectId() }));
     case "sessions":
       return sessions();
     case "session":
@@ -64,7 +83,10 @@ async function run(): Promise<void> {
     case "close":
       return close();
     case "search":
-      return printJson(await client.call("memory.search", { projectId: requireProjectId(), query: args.positional.join(" ") }));
+      return printJson(await callDailyCompatible("memory.search", {
+        projectId: requireProjectId(),
+        query: args.positional.join(" ")
+      }));
     case "inbox":
       return printJson(await client.call("memory.list_inbox", { projectId: requireProjectId() }));
     case "graph":
@@ -102,6 +124,7 @@ async function mcp(): Promise<void> {
   const subcommand = args.positional[0] || "doctor";
   switch (subcommand) {
     case "serve":
+      requireAgentCredentialBoundary();
       serveMcpStdio();
       return;
     case "doctor":
@@ -383,7 +406,7 @@ async function init(): Promise<void> {
 
 async function start(): Promise<void> {
   const taskTitle = args.positional.join(" ").trim();
-  const session = await client.call("memory.start_session", {
+  const session = await callDailyCompatible("memory.start_session", {
     projectId: requireProjectId(),
     taskTitle: taskTitle || undefined,
     workingDirectory: process.cwd(),
@@ -397,10 +420,14 @@ async function start(): Promise<void> {
 }
 
 async function sessions(): Promise<void> {
-  const result = (await client.call("memory.list_project_sessions", {
+  const input = {
     projectId: requireProjectId(),
     limit: Number(flagString(args.flags, "limit") || "20")
-  })) as Array<Record<string, unknown>>;
+  };
+  const projected = hasDedicatedAgentCredential()
+    ? unwrapAgentProjection(await callDailyAgent("memory.get_recent_sessions", input))
+    : await client.call("memory.list_project_sessions", input);
+  const result = projected as Array<Record<string, unknown>>;
   if (flagBool(args.flags, "json")) return printJson(result);
   printTable(
     result.map((session) => ({
@@ -417,7 +444,7 @@ async function sessionDetail(): Promise<void> {
   const sessionId = args.positional[0] || flagString(args.flags, "session");
   if (!sessionId) throw new Error("Missing session id.");
   const sections = optionalListFlag("section") || ["body"];
-  const result = await client.call("memory.get_session_detail", {
+  const result = await callDailyCompatible("memory.get_session_detail", {
     projectId: requireProjectId(),
     sessionId,
     sections,
@@ -428,21 +455,23 @@ async function sessionDetail(): Promise<void> {
 }
 
 async function context(): Promise<void> {
-  const method = flagBool(args.flags, "preview") ? "memory.preview_context_bundle" : "memory.get_context_bundle";
-  const bundle = (await client.call(method, {
+  const method: AgentOperationName = flagBool(args.flags, "preview")
+    ? "memory.preview_context_bundle"
+    : "memory.get_context_bundle";
+  const bundle = await callDailyCompatible(method, {
     projectId: requireProjectId(),
     sessionId: flagString(args.flags, "session"),
     taskText: flagString(args.flags, "task"),
     requestedBy: "zharwing-memory-cli"
-  })) as { markdown: string };
+  });
   if (flagBool(args.flags, "json")) return printJson(bundle);
-  process.stdout.write(`${bundle.markdown}\n`);
+  process.stdout.write(renderCompatibleBundle(bundle));
 }
 
 async function checkpoint(): Promise<void> {
   const summary = args.positional.join(" ");
   if (!summary) throw new Error("Missing checkpoint summary.");
-  const result = await client.call("memory.save_checkpoint", {
+  const result = await callDailyCompatible("memory.save_checkpoint", {
     projectId: requireProjectId(),
     sessionId: requireSessionId(),
     summary,
@@ -455,7 +484,7 @@ async function checkpoint(): Promise<void> {
 }
 
 async function close(): Promise<void> {
-  const result = await client.call("memory.close_session", {
+  const result = await callDailyCompatible("memory.close_session", {
     projectId: requireProjectId(),
     sessionId: requireSessionId(),
     summary: args.positional.join(" ") || undefined,
@@ -537,6 +566,124 @@ async function agentInstructions(): Promise<void> {
   }
 
   process.stdout.write(markdown);
+}
+
+async function callDailyAgent(
+  operation: AgentOperationName,
+  input: Record<string, unknown>
+): Promise<AgentResult> {
+  if (!isAgentOperationName(operation)) {
+    throw new Error("The requested command is not part of the agent daily loop.");
+  }
+  const definition = getOperationDefinition(operation);
+  const requestId = cliRequestIdentity();
+  if (definition.idempotency === "required" && requestId === undefined) {
+    throw new Error(
+      "This consequential agent command requires --request-id <string:value|number:value>; reuse the same value only when retrying the same logical call."
+    );
+  }
+  const options: OperationOptions = {};
+  if (requestId !== undefined) {
+    options.correlationId = deriveMcpCorrelationId(requestId, operation);
+    if (definition.idempotency === "required") {
+      options.idempotencyKey = deriveMcpMutationIdempotencyKey(requestId, operation);
+    }
+  }
+  requireAgentCredentialBoundary();
+  agentClient ??= new AgentMemoryClient();
+  return agentClient.callAgent(operation, input, options);
+}
+
+async function callDailyCompatible(
+  operation: AgentOperationName,
+  input: Record<string, unknown>
+): Promise<unknown> {
+  if (hasDedicatedAgentCredential()) {
+    return unwrapAgentProjection(await callDailyAgent(operation, input));
+  }
+  // This is the versionless personal-preview compatibility path. The daemon
+  // rejects it in hardened-local; do not invent retry identities for a
+  // consequential call whose logical identity only the caller can know.
+  return client.call(operation, input);
+}
+
+function hasDedicatedAgentCredential(): boolean {
+  return Boolean(process.env.ZHARWING_MEMORY_AGENT_CREDENTIAL?.trim());
+}
+
+function cliRequestIdentity(): JsonRpcRequestId | undefined {
+  if (args.flags["request-id"] === true) {
+    throw new Error("--request-id requires a value.");
+  }
+  const encoded = flagString(args.flags, "request-id") ?? process.env.ZHARWING_MEMORY_REQUEST_ID;
+  if (encoded === undefined) return undefined;
+  if (encoded.startsWith("number:")) {
+    const numeric = Number(encoded.slice("number:".length));
+    return parseJsonRpcRequestId(numeric, "--request-id");
+  }
+  const value = encoded.startsWith("string:")
+    ? encoded.slice("string:".length)
+    : encoded;
+  return parseJsonRpcRequestId(value, "--request-id");
+}
+
+function requireAgentCredentialBoundary(): void {
+  if (!process.env.ZHARWING_MEMORY_AGENT_CREDENTIAL?.trim()) {
+    throw new Error(
+      "A dedicated project-bound ZHARWING_MEMORY_AGENT_CREDENTIAL is required for agent commands."
+    );
+  }
+}
+
+function unwrapAgentProjection(result: AgentResult): unknown {
+  if (
+    "schema" in result &&
+    result.schema === "zharwing.agent-projection.v1" &&
+    result.status === "ok" &&
+    "data" in result
+  ) {
+    return result.data;
+  }
+  return result;
+}
+
+function renderAgentBundle(result: AgentResult): string {
+  if (!("schema" in result) || result.schema !== "zharwing.memory.bundle.v1" || !Array.isArray(result.sections)) {
+    return `${JSON.stringify(result, null, 2)}\n`;
+  }
+  const sections = result.sections
+    .filter(isRecord)
+    .map((section) => typeof section.content === "string" ? section.content : "")
+    .filter(Boolean);
+  return sections.length > 0 ? `${sections.join("\n\n")}\n` : `${JSON.stringify(result, null, 2)}\n`;
+}
+
+function renderCompatibleBundle(result: unknown): string {
+  if (
+    result !== null &&
+    typeof result === "object" &&
+    !Array.isArray(result) &&
+    typeof (result as { markdown?: unknown }).markdown === "string"
+  ) {
+    return `${(result as { markdown: string }).markdown}\n`;
+  }
+  return renderAgentBundle(result as AgentResult);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeCliError(error: unknown): string {
+  let message = error instanceof Error ? error.message : "Command failed.";
+  message = message.replace(/Bearer\s+\S+/gi, "Bearer [redacted]");
+  for (const credential of [
+    process.env.ZHARWING_MEMORY_AGENT_CREDENTIAL,
+    process.env.ZHARWING_MEMORY_AUTH_TOKEN
+  ]) {
+    if (credential) message = message.split(credential).join("[redacted]");
+  }
+  return message || "Command failed.";
 }
 
 function requireProjectId(): string {

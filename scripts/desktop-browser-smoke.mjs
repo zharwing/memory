@@ -1,10 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const port = Number(process.env.ZHARWING_MEMORY_DESKTOP_SMOKE_PORT || 4174);
+if (!Number.isSafeInteger(port) || port < 1024 || port > 65_535) {
+  throw new Error("Desktop browser smoke port must be an unprivileged TCP port.");
+}
 const url = `http://127.0.0.1:${port}/projects`;
 const browser = findBrowser();
 
@@ -25,9 +28,10 @@ const server = spawn(process.execPath, [viteCli, "preview", "--config", "apps/de
   stdio: ["ignore", "pipe", "pipe"]
 });
 
+let profile;
 try {
   await waitForServer(url, server);
-  const profile = path.join(os.tmpdir(), `zharwing-browser-smoke-${process.pid}`);
+  profile = path.join(os.tmpdir(), `zharwing-browser-smoke-${process.pid}`);
   const result = spawnSync(browser, [
     "--headless=new",
     "--disable-gpu",
@@ -45,13 +49,29 @@ try {
 
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Browser exited ${result.status}: ${(result.stderr || "").slice(0, 1000)}`);
-  if (!result.stdout.includes('class="app-shell"')) throw new Error("React app shell did not render.");
+  const renderedShell = result.stdout.includes('class="app-shell"');
+  const renderedRecovery = result.stdout.includes("startup-recovery") && (
+    result.stdout.includes("Session locked") ||
+    result.stdout.includes("Local service unavailable") ||
+    result.stdout.includes("Projects could not be loaded")
+  );
+  if (!renderedShell && !renderedRecovery) {
+    throw new Error("Neither the application shell nor the truthful startup recovery surface rendered.");
+  }
   if (!result.stdout.includes("Zharwing Memory")) throw new Error("Zharwing Memory branding was not rendered.");
-  if (!result.stdout.includes("Project")) throw new Error("Projects route did not render its navigation/content contract.");
+  if (renderedShell && !result.stdout.includes("Project")) {
+    throw new Error("Projects route did not render its navigation/content contract.");
+  }
 
-  console.log(`Desktop browser smoke passed in ${path.basename(browser)} at ${url}.`);
+  console.log(
+    `Desktop browser smoke passed in ${path.basename(browser)} at ${url} ` +
+    `(${renderedShell ? "application-shell" : "startup-recovery"}).`
+  );
 } finally {
   server.kill();
+  if (profile && path.resolve(path.dirname(profile)) === path.resolve(os.tmpdir())) {
+    rmSync(profile, { recursive: true, force: true });
+  }
 }
 
 function findBrowser() {

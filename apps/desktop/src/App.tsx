@@ -1,9 +1,20 @@
-import { lazy, Suspense, type ComponentType, useEffect } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { lazy, type ComponentType, type ReactNode, useEffect } from "react";
 import { observer } from "mobx-react-lite";
+import { useLocation } from "react-router-dom";
 import { Shell } from "./components/Shell.js";
+import {
+  RecoveryPanel,
+  RouteRecoveryBoundary
+} from "./app/recovery/index.js";
+import {
+  MalformedRouteScreen,
+  MissingProjectRouteScreen,
+  RegisteredRouteOutlet,
+  type RegisteredScreens
+} from "./app/routing/route-elements.js";
+import { decodeRouteLocation } from "./app/routing/route-registry.js";
 import { useStore } from "./stores/store-context.js";
-import { projectIdFromPathname } from "./utils/routes.js";
+
 const AssistantScreen = lazyScreen(() => import("./screens/AssistantScreen.js"), "AssistantScreen");
 const BackupsScreen = lazyScreen(() => import("./screens/BackupsScreen.js"), "BackupsScreen");
 const ContextScreen = lazyScreen(() => import("./screens/ContextScreen.js"), "ContextScreen");
@@ -23,70 +34,156 @@ const SettingsScreen = lazyScreen(() => import("./screens/SettingsScreen.js"), "
 const TrashScreen = lazyScreen(() => import("./screens/TrashScreen.js"), "TrashScreen");
 const WorkstreamsScreen = lazyScreen(() => import("./screens/WorkstreamsScreen.js"), "WorkstreamsScreen");
 
+const REGISTERED_SCREENS = {
+  assistant: AssistantScreen,
+  backups: BackupsScreen,
+  context: ContextScreen,
+  currentWork: CurrentWorkScreen,
+  dashboard: DashboardScreen,
+  diagrams: DiagramsScreen,
+  docs: DocsScreen,
+  graph: GraphScreen,
+  import: ImportScreen,
+  inbox: InboxScreen,
+  projects: ProjectsScreen,
+  repositories: RepositoriesScreen,
+  search: SearchScreen,
+  sessions: SessionsScreen,
+  setup: SetupScreen,
+  settings: SettingsScreen,
+  trash: TrashScreen,
+  workstreams: WorkstreamsScreen
+} satisfies RegisteredScreens;
+
 export const App = observer(function App() {
   const store = useStore();
   const location = useLocation();
-  const routeProjectId = projectIdFromPathname(location.pathname);
+  const decodedRoute = decodeRouteLocation(location.pathname);
+  const routeProjectId = decodedRoute.status === "matched" ? decodedRoute.projectId : undefined;
 
   useEffect(() => {
-    void store.projects.load(routeProjectId).then(() => store.refreshAll());
+    // initialize() also owns subsequent URL-driven project activation. Its
+    // project scope generation prevents an older back/forward transition from
+    // committing after a newer one.
+    if (decodedRoute.status !== "malformed") void store.initialize(routeProjectId);
+  }, [decodedRoute.status, store, routeProjectId]);
+
+  useEffect(() => {
+    const updateForeground = () => {
+      store.setForeground(document.visibilityState !== "hidden" && document.hasFocus());
+    };
+    const markBackground = () => store.setForeground(false);
+    updateForeground();
+    window.addEventListener("focus", updateForeground);
+    window.addEventListener("blur", markBackground);
+    document.addEventListener("visibilitychange", updateForeground);
+    return () => {
+      window.removeEventListener("focus", updateForeground);
+      window.removeEventListener("blur", markBackground);
+      document.removeEventListener("visibilitychange", updateForeground);
+    };
   }, [store]);
 
-  useEffect(() => {
-    if (!routeProjectId || routeProjectId === store.projects.selectedProjectId) return;
-    if (!store.projects.list.some((project) => project.id === routeProjectId)) return;
-    void store.projects.selectProject(routeProjectId);
-  }, [routeProjectId, store, store.projects.list.length, store.projects.selectedProjectId]);
+  const projectListSettled =
+    store.projects.projectsState.status === "success" ||
+    store.projects.projectsState.status === "empty";
+  const routeProjectExists = routeProjectId
+    ? store.projects.list.some((project) => project.id === routeProjectId)
+    : true;
+  const routeScopeAccepted =
+    !routeProjectId || routeProjectId === store.projectScope.currentProjectId();
+
+  if (decodedRoute.status === "malformed") {
+    return <Shell><MalformedRouteScreen /></Shell>;
+  }
+
+  if (decodedRoute.status === "not_found") {
+    return (
+      <Shell>
+        <RouteRecoveryBoundary resetKey={location.key} onReset={() => store.recover()}>
+          <RegisteredRouteOutlet screens={REGISTERED_SCREENS} />
+        </RouteRecoveryBoundary>
+      </Shell>
+    );
+  }
+
+  const projectState = store.projects.projectsState;
+  if ((projectState.status === "idle" || projectState.status === "loading") && store.projects.list.length === 0) {
+    return <div className="route-loading" role="status" aria-live="polite">Loading projects...</div>;
+  }
+  if (projectState.status === "failure" && !projectState.previous) {
+    const recovery = store.recoveryState;
+    if (recovery.status === "locked") {
+      return (
+        <StartupRecoverySurface>
+          <RecoveryPanel
+            surface="session"
+            error={recovery.error}
+            title="Session locked"
+            detail="Reload from the trusted launcher to establish a new local session."
+          />
+        </StartupRecoverySurface>
+      );
+    }
+    if (recovery.status === "offline") {
+      return (
+        <StartupRecoverySurface>
+          <RecoveryPanel
+            surface="resource"
+            error={recovery.error}
+            title="Local service unavailable"
+            detail="No current project observation is available. Start the local service and try again."
+            onRecover={() => store.recover()}
+          />
+        </StartupRecoverySurface>
+      );
+    }
+    return (
+      <StartupRecoverySurface>
+        <RecoveryPanel
+          surface="resource"
+          error={projectState.error}
+          title="Projects could not be loaded"
+          onRecover={() => store.projects.load(routeProjectId)}
+        />
+      </StartupRecoverySurface>
+    );
+  }
+
+  if (routeProjectId && projectListSettled && !routeProjectExists) {
+    return <Shell><MissingProjectRouteScreen /></Shell>;
+  }
+
+  // The shell itself reads project names, counts, links, and status. Do not
+  // mount a project screen until its exact URL scope generation is accepted.
+  if (!routeScopeAccepted) {
+    return (
+      <div className="route-loading" role="status" aria-live="polite" aria-busy="true">
+        Switching project...
+      </div>
+    );
+  }
 
   return (
     <Shell>
-      <Suspense fallback={<div className="route-loading" role="status">Loading…</div>}>
-        <Routes>
-        <Route path="/" element={<Navigate to="/projects" replace />} />
-        <Route path="/setup" element={<SetupScreen />} />
-        <Route path="/projects" element={<ProjectsScreen />} />
-        <Route path="/repositories" element={<RepositoriesScreen />} />
-        <Route path="/work" element={<Navigate to="/current-work" replace />} />
-        <Route path="/workstreams" element={<WorkstreamsScreen />} />
-        <Route path="/dashboard" element={<DashboardScreen />} />
-        <Route path="/current-work" element={<CurrentWorkScreen />} />
-        <Route path="/sessions" element={<SessionsScreen />} />
-        <Route path="/library" element={<Navigate to="/docs" replace />} />
-        <Route path="/docs" element={<DocsScreen />} />
-        <Route path="/import" element={<ImportScreen />} />
-        <Route path="/diagrams" element={<DiagramsScreen />} />
-        <Route path="/graph" element={<GraphScreen />} />
-        <Route path="/search" element={<SearchScreen />} />
-        <Route path="/inbox" element={<InboxScreen />} />
-        <Route path="/context" element={<ContextScreen />} />
-        <Route path="/assistant" element={<AssistantScreen />} />
-        <Route path="/backups" element={<BackupsScreen />} />
-        <Route path="/trash" element={<TrashScreen />} />
-        <Route path="/settings" element={<SettingsScreen />} />
-        <Route path="/p/:projectId/dashboard" element={<DashboardScreen />} />
-        <Route path="/p/:projectId/repositories" element={<RepositoriesScreen />} />
-        <Route path="/p/:projectId/work" element={<Navigate to="current-work" replace />} />
-        <Route path="/p/:projectId/work/current-work" element={<CurrentWorkScreen />} />
-        <Route path="/p/:projectId/work/sessions" element={<SessionsScreen />} />
-        <Route path="/p/:projectId/work/workstreams" element={<WorkstreamsScreen />} />
-        <Route path="/p/:projectId/library" element={<Navigate to="docs" replace />} />
-        <Route path="/p/:projectId/library/docs" element={<DocsScreen />} />
-        <Route path="/p/:projectId/library/diagrams" element={<DiagramsScreen />} />
-        <Route path="/p/:projectId/library/inbox" element={<InboxScreen />} />
-        <Route path="/p/:projectId/library/graph" element={<GraphScreen />} />
-        <Route path="/p/:projectId/library/context" element={<ContextScreen />} />
-        <Route path="/p/:projectId/import" element={<ImportScreen />} />
-        <Route path="/p/:projectId/search" element={<SearchScreen />} />
-        <Route path="/p/:projectId/settings" element={<Navigate to="project" replace />} />
-        <Route path="/p/:projectId/settings/project" element={<SettingsScreen />} />
-        <Route path="/p/:projectId/settings/assistant" element={<AssistantScreen />} />
-        <Route path="/p/:projectId/settings/backups" element={<BackupsScreen />} />
-        <Route path="/p/:projectId/trash" element={<TrashScreen />} />
-        </Routes>
-      </Suspense>
+      <RouteRecoveryBoundary
+        resetKey={`${location.key}:${routeProjectId ?? "application"}`}
+        onReset={() => store.recover()}
+      >
+        <RegisteredRouteOutlet screens={REGISTERED_SCREENS} />
+      </RouteRecoveryBoundary>
     </Shell>
   );
 });
+
+function StartupRecoverySurface({ children }: { children: ReactNode }) {
+  return (
+    <main className="route-screen-frame startup-recovery">
+      <h1>Zharwing Memory</h1>
+      {children}
+    </main>
+  );
+}
 
 function lazyScreen<T extends Record<K, ComponentType>, K extends keyof T>(
   loader: () => Promise<T>,

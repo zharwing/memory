@@ -1,5 +1,8 @@
-import type { ProjectRegistry } from "@zharwing/memory-store";
+import type { DurableDomainEffect, ProjectRegistry } from "@zharwing/memory-store";
 import {
+  DomainEffectOutcomeUnknownError,
+  assertDurableDomainEffect,
+  assertSessionDomainEffect,
   closeSession as storageCloseSession,
   getActiveSession,
   getSession,
@@ -7,6 +10,8 @@ import {
   listProjectSessions,
   movePathToTrash,
   saveCheckpoint,
+  sessionDomainRevision,
+  sessionDomainEffectStatus,
   startSession,
   updateSessionGraphVisibility as storageUpdateSessionGraphVisibility,
   updateSessionSummary
@@ -27,11 +32,19 @@ import {
   nowIso,
   type Project,
   type Session,
+  type SessionCheckpoint,
   type SessionDetail,
   type SessionDetailSection,
   type SessionSummary
 } from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
+import type { ProviderSecretService } from "./provider-secret-service.js";
+import {
+  checkpointAuthorityRevision,
+  sessionAuthorityRevision,
+  SessionAuthorityStore,
+  type SessionAuthorityProvenance
+} from "./session-visibility.js";
 
 /** Recorded on sessions the daemon closes at day rollover. */
 export const STALE_SESSION_CLOSE_REASON =
@@ -47,14 +60,34 @@ interface StartSessionParams {
   taskTitle?: string;
   goal?: string;
   workstreamIds?: string[];
+  effect?: DurableDomainEffect;
+}
+
+export interface AgentSessionWriteGuard {
+  readonly projectId: string;
+  readonly sessionId: string;
+  readonly owner: string;
+  readonly baseSession: Session;
+  readonly baseRevision: string;
+  readonly reconciledEffectId?: string;
 }
 
 export class SessionService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(
+    private readonly registry: ProjectRegistry,
+    private readonly sessionAuthority: SessionAuthorityStore,
+    private readonly providerSecrets?: ProviderSecretService
+  ) {}
 
   async startSession(params: StartSessionParams) {
     const project = await resolveProject(this.registry, params.projectId);
     await this.autoCloseStaleSessions(project);
+    return this.createSession(project, params);
+  }
+
+  /** Agent creation never performs implicit housekeeping on human sessions. */
+  async startAgentSession(params: StartSessionParams) {
+    const project = await resolveProject(this.registry, params.projectId);
     return this.createSession(project, params);
   }
 
@@ -154,24 +187,30 @@ export class SessionService {
       client: params.client,
       taskTitle: params.taskTitle?.trim() || undefined,
       goal: params.goal,
-      workstreamIds: params.workstreamIds
+      workstreamIds: params.workstreamIds,
+      effect: params.effect
     });
   }
 
   async listSessions(params: { projectId: string; limit?: number }) {
     const project = await resolveProject(this.registry, params.projectId);
     const sessions = await listProjectSessionSummaries(project);
-    return sessions.slice(0, normalizeLimit(params.limit, sessions.length, 200));
+    return this.sessionAuthority.applyVisibilities(
+      project,
+      sessions.slice(0, normalizeLimit(params.limit, sessions.length, 200))
+    );
   }
 
   async getActiveSession(params: { projectId: string }) {
-    return getActiveSession(await resolveProject(this.registry, params.projectId));
+    const project = await resolveProject(this.registry, params.projectId);
+    const session = await getActiveSession(project);
+    return session ? this.sessionAuthority.applyVisibility(project, session) : session;
   }
 
   async getLatestSession(params: { projectId: string }) {
-    return (await listProjectSessionSummaries(
-      await resolveProject(this.registry, params.projectId)
-    ))[0];
+    const project = await resolveProject(this.registry, params.projectId);
+    const session = (await listProjectSessionSummaries(project))[0];
+    return session ? this.sessionAuthority.applyVisibility(project, session) : session;
   }
 
   async getSessionDetail(params: {
@@ -190,10 +229,11 @@ export class SessionService {
       schema: "zharwing.memory.session-detail.v1",
       session: summary
     };
-    const fullSession = requested.size > 0
-      ? await getSession(project, params.sessionId)
-      : undefined;
-    if (requested.size > 0 && !fullSession) {
+    // Authority is bound to the complete immutable classified revision, not
+    // the summary timestamp. Always load the full record before attaching
+    // visibility so a later body-only/control-plane write fails closed.
+    const fullSession = await getSession(project, params.sessionId);
+    if (!fullSession) {
       throw new Error(`Session not found: ${params.sessionId}`);
     }
     if (requested.has("body")) {
@@ -208,7 +248,26 @@ export class SessionService {
         detail.nextCursor = encodeCheckpointCursor(offset + limit, summary);
       }
     }
-    return detail;
+    const classifiedFullSession = await this.sessionAuthority.applyVisibility(project, fullSession);
+    const visibleSession = classifiedFullSession.visibility
+      ? { ...detail.session, visibility: classifiedFullSession.visibility }
+      : detail.session;
+    const classifiedCheckpoints = detail.checkpoints
+      ? await this.sessionAuthority.applyCheckpointVisibilities(
+          project,
+          fullSession.id,
+          detail.checkpoints
+        )
+      : undefined;
+    return {
+      ...detail,
+      session: visibleSession,
+      ...(classifiedCheckpoints ? {
+        // Checkpoint authority is independent. Never inherit a session-level
+        // grant onto a later human/control-plane checkpoint.
+        checkpoints: classifiedCheckpoints
+      } : {})
+    };
   }
 
   async saveCheckpoint(params: {
@@ -220,9 +279,145 @@ export class SessionService {
     touchedFiles?: string[];
     proposedUpdateIds?: string[];
     workstreamIds?: string[];
+    effect?: DurableDomainEffect;
+    effectBaseRevision?: string;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
-    return saveCheckpoint({ project, ...params });
+    const { effectBaseRevision, ...input } = params;
+    return saveCheckpoint({
+      project,
+      ...input,
+      ...(effectBaseRevision ? { expectedRevision: effectBaseRevision } : {})
+    });
+  }
+
+  /**
+   * Classifies only the record just created by an admitted agent operation.
+   * Existing human/legacy sessions remain unclassified and therefore hidden
+   * from hardened agent projection until an explicit migration/review.
+   */
+  async classifyAgentWrittenSession(params: {
+    projectId: string;
+    sessionId: string;
+    owner: string;
+    provenance: SessionAuthorityProvenance;
+    writtenSession: Session;
+    writeGuard?: AgentSessionWriteGuard;
+    admittedInput?: Readonly<Record<string, unknown>>;
+    effect?: DurableDomainEffect;
+  }): Promise<Session> {
+    const project = await resolveProject(this.registry, params.projectId);
+    const session = await getSession(project, params.sessionId);
+    if (!session) throw new Error(`Session not found: ${params.sessionId}`);
+    if (
+      params.writtenSession.id !== params.sessionId ||
+      params.writtenSession.projectId !== params.projectId ||
+      sessionAuthorityRevision(session) !== sessionAuthorityRevision(params.writtenSession)
+    ) {
+      throw new Error("Session changed before authority classification.");
+    }
+    if (params.effect) {
+      const expectedOperation = params.provenance === "agent-start-session"
+        ? "memory.start_session"
+        : params.provenance === "agent-save-checkpoint"
+          ? "memory.save_checkpoint"
+          : "memory.close_session";
+      assertDurableDomainEffect(params.effect, project, expectedOperation);
+      assertSessionDomainEffect(session, params.effect);
+    }
+    if (params.provenance === "agent-start-session") {
+      if (params.writeGuard) throw new Error("Agent start classification cannot use an existing-session guard.");
+    } else {
+      const guard = params.writeGuard;
+      if (
+        !guard ||
+        guard.projectId !== params.projectId ||
+        guard.sessionId !== params.sessionId ||
+        guard.owner !== params.owner
+      ) {
+        throw new Error("Agent session transition guard is missing or mismatched.");
+      }
+      if (guard.reconciledEffectId) {
+        if (!params.effect || guard.reconciledEffectId !== params.effect.effectId) {
+          throw new Error("Reconciled session effect guard is mismatched.");
+        }
+      } else if (params.provenance === "agent-save-checkpoint") {
+        assertAgentCheckpointTransition(
+          guard.baseSession,
+          params.writtenSession,
+          params.admittedInput
+        );
+      } else {
+        assertAgentCloseTransition(
+          guard.baseSession,
+          params.writtenSession,
+          params.admittedInput
+        );
+      }
+    }
+    const summary = (await listProjectSessionSummaries(project))
+      .find((candidate) => candidate.id === session.id);
+    if (!summary) throw new Error(`Session summary not found: ${params.sessionId}`);
+    await this.sessionAuthority.recordAgentOwnedRevision(
+      project,
+      session,
+      summary,
+      params.owner,
+      params.provenance,
+      () => getSession(project, session.id)
+    );
+    const classified = await this.sessionAuthority.applyVisibility(project, session);
+    return {
+      ...classified,
+      checkpoints: await this.sessionAuthority.applyCheckpointVisibilities(
+        project,
+        session.id,
+        session.checkpoints
+      )
+    };
+  }
+
+  async assertAgentOwnsSession(params: {
+    projectId: string;
+    sessionId: string;
+    owner: string;
+    effect?: DurableDomainEffect;
+  }): Promise<AgentSessionWriteGuard> {
+    const project = await resolveProject(this.registry, params.projectId);
+    const session = await getSession(project, params.sessionId);
+    if (session && params.effect?.mode === "reconcile") {
+      if (
+        params.effect.operation !== "memory.save_checkpoint" &&
+        params.effect.operation !== "memory.close_session"
+      ) {
+        throw new Error("Agent session reconciliation operation is invalid.");
+      }
+      assertDurableDomainEffect(params.effect, project, params.effect.operation);
+      if (sessionDomainEffectStatus(session, params.effect) === "committed") {
+        return Object.freeze({
+          projectId: project.id,
+          sessionId: session.id,
+          owner: params.owner,
+          baseSession: session,
+          baseRevision: sessionDomainRevision(session),
+          reconciledEffectId: params.effect.effectId
+        });
+      }
+      throw new DomainEffectOutcomeUnknownError();
+    }
+    if (
+      !session ||
+      !await this.sessionAuthority.isAgentOwnedRevision(project, session, params.owner)
+    ) {
+      throw new Error("Agent session authority refused.");
+    }
+    return Object.freeze({
+      projectId: project.id,
+      sessionId: session.id,
+      owner: params.owner,
+      baseSession: session,
+      baseRevision: sessionDomainRevision(session)
+    });
   }
 
   async updateSessionGraphVisibility(params: {
@@ -245,25 +440,34 @@ export class SessionService {
     blockers?: string[];
     workstreamIds?: string[];
     autoSummarize?: boolean;
+    effect?: DurableDomainEffect;
+    effectBaseRevision?: string;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const closed = await storageCloseSession({ project, ...params });
-    if (params.autoSummarize === false) return closed;
+    if (params.effect && params.autoSummarize !== false) {
+      throw new Error("Durable agent close cannot include a follow-up summary mutation.");
+    }
+    const { effectBaseRevision, ...input } = params;
+    const closed = await storageCloseSession({
+      project,
+      ...input,
+      ...(effectBaseRevision ? { expectedRevision: effectBaseRevision } : {})
+    });
+    if (params.autoSummarize === false) {
+      return this.sessionAuthority.applyVisibility(project, closed);
+    }
     const generated = await this.generateSessionSummary({
       projectId: params.projectId,
       sessionId: closed.id,
       force: true
     });
-    return generated.session;
+    return this.sessionAuthority.applyVisibility(project, generated.session);
   }
 
   async generateSessionSummary(params: {
     projectId: string;
     sessionId: string;
     force?: boolean;
-    endpoint?: string;
-    model?: string;
-    apiKey?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
@@ -275,7 +479,12 @@ export class SessionService {
       return { session, generated: false, source: session.summarySource || "manual" };
     }
 
-    const { draft, source, model } = await summarizeSessionForStorage(project, session, params);
+    const { draft, source, model } = await summarizeSessionForStorage(
+      project,
+      session,
+      params,
+      this.providerSecrets
+    );
     const updated = await updateSessionSummary({
       project,
       sessionId: session.id,
@@ -301,9 +510,6 @@ export class SessionService {
     projectId: string;
     mode?: "missing" | "all";
     limit?: number;
-    endpoint?: string;
-    model?: string;
-    apiKey?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
@@ -354,25 +560,26 @@ async function summarizeSessionForStorage(
   project: Project,
   session: Session,
   params: {
-    endpoint?: string;
-    model?: string;
-    apiKey?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
-  }
+  },
+  providerSecrets?: ProviderSecretService
 ): Promise<{
   draft: SessionSummaryDraft;
   source: NonNullable<Session["summarySource"]>;
   model?: string;
 }> {
-  const provider = assistantProviderConfig(project, params);
+  const provider = assistantProviderConfig(project, params, providerSecrets);
   const privacy = applyPrivacyGate(
     {
       id: `session:${session.id}`,
       type: "session",
       title: session.taskTitle,
-      visibility: "ai-eligible",
+      // Provider preparation is a restricted surface too. Missing legacy
+      // classification stays review-required rather than being upgraded by
+      // this adapter immediately before the privacy gate.
+      visibility: session.visibility ?? "review-required",
       sourcePath: session.filePath,
       content: session.body || ""
     },
@@ -406,23 +613,26 @@ async function summarizeSessionForStorage(
 function assistantProviderConfig(
   project: Project,
   params: {
-    endpoint?: string;
-    model?: string;
-    apiKey?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
-  }
+  },
+  providerSecrets?: ProviderSecretService
 ): AiProviderConfig | undefined {
-  const endpoint = params.endpoint || project.assistantPolicy.endpoint;
-  const model = params.model || project.assistantPolicy.modelName;
+  const endpoint = project.assistantPolicy.endpoint;
+  const model = project.assistantPolicy.modelName;
   if (!project.assistantPolicy.enabled || project.assistantPolicy.runtimeType === "disabled") return undefined;
   if (!endpoint || !model || !isLocalProviderEndpoint(endpoint)) return undefined;
+  const providerKind = providerKindFromAssistantRuntime(project.assistantPolicy.runtimeType);
+  if (!providerKind) return undefined;
   return {
-    providerKind: providerKindFromAssistantRuntime(project.assistantPolicy.runtimeType),
+    providerKind,
     endpoint,
     model,
-    apiKey: params.apiKey,
+    apiKey: providerSecrets?.read(
+      project.id,
+      providerKind
+    ),
     timeoutMs: params.timeoutMs || 60000,
     maxOutputTokens: params.maxOutputTokens || 700,
     temperature: 0,
@@ -477,4 +687,166 @@ function decodeCheckpointCursor(cursor: string | undefined, session: SessionSumm
     }
     throw new Error("Invalid checkpoint cursor.");
   }
+}
+
+function assertAgentCheckpointTransition(
+  base: Session,
+  written: Session,
+  input: Readonly<Record<string, unknown>> | undefined
+): void {
+  if (!input || typeof input.summary !== "string" || typeof base.body !== "string") {
+    throw new Error("Agent checkpoint transition input is incomplete.");
+  }
+  if (written.checkpoints.length !== base.checkpoints.length + 1) {
+    throw new Error("Agent checkpoint transition must append exactly one checkpoint.");
+  }
+  for (let index = 0; index < base.checkpoints.length; index += 1) {
+    if (
+      checkpointAuthorityRevision(base.checkpoints[index]!) !==
+      checkpointAuthorityRevision(written.checkpoints[index]!)
+    ) {
+      throw new Error("Agent checkpoint transition changed the checkpoint prefix.");
+    }
+  }
+  const checkpoint = written.checkpoints.at(-1)!;
+  const expectedCheckpoint: SessionCheckpoint = {
+    id: checkpoint.id,
+    created: checkpoint.created,
+    summary: input.summary,
+    nextSteps: stringArray(input.nextSteps),
+    blockers: stringArray(input.blockers),
+    touchedFiles: stringArray(input.touchedFiles),
+    proposedUpdateIds: stringArray(input.proposedUpdateIds),
+    stateFields: [
+      ...(Object.prototype.hasOwnProperty.call(input, "nextSteps")
+        ? ["nextSteps" as const]
+        : []),
+      ...(Object.prototype.hasOwnProperty.call(input, "blockers")
+        ? ["blockers" as const]
+        : [])
+    ]
+  };
+  if (
+    checkpointAuthorityRevision(checkpoint) !==
+    checkpointAuthorityRevision(expectedCheckpoint)
+  ) {
+    throw new Error("Agent checkpoint transition does not match admitted input.");
+  }
+  const expected: Session = {
+    ...base,
+    updated: checkpoint.created,
+    summary: input.summary,
+    nextSteps: Object.prototype.hasOwnProperty.call(input, "nextSteps")
+      ? mergeUniqueStrings([], expectedCheckpoint.nextSteps)
+      : base.nextSteps,
+    blockers: Object.prototype.hasOwnProperty.call(input, "blockers")
+      ? mergeUniqueStrings([], expectedCheckpoint.blockers)
+      : base.blockers,
+    touchedFiles: mergeUniqueStrings(base.touchedFiles, expectedCheckpoint.touchedFiles),
+    workstreamIds: mergeUniqueStrings(base.workstreamIds, stringArray(input.workstreamIds)),
+    checkpoints: [...base.checkpoints, expectedCheckpoint],
+    body: appendAdmittedCheckpoint(base.body, expectedCheckpoint),
+    stateSemanticsVersion: 2
+  };
+  if (sessionAuthorityRevision(expected) !== sessionAuthorityRevision(written)) {
+    throw new Error("Agent checkpoint transition contains an unadmitted session change.");
+  }
+}
+
+function assertAgentCloseTransition(
+  base: Session,
+  written: Session,
+  input: Readonly<Record<string, unknown>> | undefined
+): void {
+  if (!input || typeof base.body !== "string" || !written.closed) {
+    throw new Error("Agent close transition input is incomplete.");
+  }
+  if (
+    written.checkpoints.length !== base.checkpoints.length ||
+    written.checkpoints.some((checkpoint, index) =>
+      checkpointAuthorityRevision(checkpoint) !==
+      checkpointAuthorityRevision(base.checkpoints[index]!)
+    )
+  ) {
+    throw new Error("Agent close transition changed checkpoint history.");
+  }
+  const summary = typeof input.summary === "string" ? input.summary : undefined;
+  const nextSteps = Object.prototype.hasOwnProperty.call(input, "nextSteps")
+    ? stringArray(input.nextSteps)
+    : undefined;
+  const blockers = Object.prototype.hasOwnProperty.call(input, "blockers")
+    ? stringArray(input.blockers)
+    : undefined;
+  const expected: Session = {
+    ...base,
+    status: "closed",
+    summary: summary || base.summary,
+    summarySource: summary ? "manual" : base.summarySource,
+    nextSteps: nextSteps === undefined ? base.nextSteps : mergeUniqueStrings([], nextSteps),
+    blockers: blockers === undefined ? base.blockers : mergeUniqueStrings([], blockers),
+    workstreamIds: mergeUniqueStrings(base.workstreamIds, stringArray(input.workstreamIds)),
+    updated: written.closed,
+    closed: written.closed,
+    closedReason: base.closedReason,
+    body: appendAdmittedClose(base.body, {
+      closed: written.closed,
+      summary,
+      nextSteps,
+      blockers
+    }),
+    stateSemanticsVersion: 2
+  };
+  if (
+    written.updated !== written.closed ||
+    sessionAuthorityRevision(expected) !== sessionAuthorityRevision(written)
+  ) {
+    throw new Error("Agent close transition contains an unadmitted session change.");
+  }
+}
+
+function appendAdmittedCheckpoint(body: string, checkpoint: SessionCheckpoint): string {
+  const nextSteps = checkpoint.stateFields?.includes("nextSteps")
+    ? `\n\nNext steps:\n${checkpoint.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}`
+    : "";
+  const blockers = checkpoint.stateFields?.includes("blockers")
+    ? `\n\nBlockers:\n${checkpoint.blockers.map((blocker) => `- ${blocker}`).join("\n") || "- None recorded"}`
+    : "";
+  const section = `## Checkpoint - ${checkpoint.created}
+
+${checkpoint.summary}${nextSteps}${blockers}
+
+Touched files:
+${checkpoint.touchedFiles.map((file) => `- ${file}`).join("\n") || "- None recorded"}
+`;
+  return `${body.trim()}\n\n${section.trim()}\n`;
+}
+
+function appendAdmittedClose(
+  body: string,
+  close: {
+    closed: string;
+    summary?: string;
+    nextSteps?: string[];
+    blockers?: string[];
+  }
+): string {
+  const nextSteps = close.nextSteps !== undefined
+    ? `\n\nNext steps:\n${close.nextSteps.map((step) => `- ${step}`).join("\n") || "- None recorded"}`
+    : "";
+  const blockers = close.blockers !== undefined
+    ? `\n\nBlockers:\n${close.blockers.map((blocker) => `- ${blocker}`).join("\n") || "- None recorded"}`
+    : "";
+  const section = `## Session Closed - ${close.closed}
+
+${close.summary || "No final summary recorded."}${nextSteps}${blockers}
+`;
+  return `${body.trim()}\n\n${section.trim()}\n`;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function mergeUniqueStrings(left: readonly string[], right: readonly string[]): string[] {
+  return [...new Set([...left, ...right])];
 }

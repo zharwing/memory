@@ -16,6 +16,7 @@ type SemanticProposalEdge = SemanticGraphProposalPatch["edges"][number];
 
 export const InboxScreen = observer(function InboxScreen() {
   const store = useStore();
+  const inboxState = store.inbox.inboxResource.state;
   const [selectedProposalId, setProposalSearchParam] = useSearchParamState("proposal");
   const visibleInbox = useMemo(() => currentInboxItems(store.inbox.items), [store.inbox.items]);
   const selectedProposal = visibleInbox.find((item) => item.id === selectedProposalId) || visibleInbox[0];
@@ -82,6 +83,11 @@ export const InboxScreen = observer(function InboxScreen() {
   return (
     <Screen title="Memory Inbox">
       <LibraryTabs />
+      {inboxState.status === "idle" || inboxState.status === "loading" ? (
+        <p className="panel-help" role="status">Loading review items...</p>
+      ) : inboxState.status === "empty" ? (
+        <p className="panel-help">No review items are waiting.</p>
+      ) : null}
       <DataTable
         columns={["created", "status", "type", "confidence", "reason"]}
         rows={inboxRows}
@@ -92,7 +98,8 @@ export const InboxScreen = observer(function InboxScreen() {
       {selectedProposal ? (
         <Panel title={semanticProposalPatch ? "AI Relationship Approval" : "Selected Proposal"}>
           <div className="inline-form compact">
-            <select value={selectedProposal.id} onChange={(event) => openInboxProposal(event.target.value)}>
+            <label className="sr-only" htmlFor="inbox-proposal-select">Review item</label>
+            <select id="inbox-proposal-select" value={selectedProposal.id} onChange={(event) => openInboxProposal(event.target.value)}>
               {visibleInbox.map((item, index) => (
                 <option key={item.id} value={item.id}>
                   {proposalOptionLabel(item, index)}

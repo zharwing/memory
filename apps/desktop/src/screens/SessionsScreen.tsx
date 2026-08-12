@@ -14,6 +14,11 @@ export const SessionsScreen = observer(function SessionsScreen() {
   const [selectedSessionId, setSessionSearchParam] = useSearchParamState("session");
   const selectedSession = store.sessions.list.find((session) => session.id === selectedSessionId);
   const staleSessions = store.sessions.list.filter(isStaleActiveSession);
+  const listState = store.sessions.listState;
+  const completeness = store.sessions.listCompleteness;
+  const initialLoading = listState.status === "idle" || listState.status === "loading";
+  const canShowMore = completeness?.kind === "partial" && store.sessions.requestedLimit < 200;
+  const cappedPartial = completeness?.kind === "partial" && store.sessions.requestedLimit >= 200;
 
   useCloseWhenMissing(
     selectedSessionId,
@@ -86,7 +91,9 @@ export const SessionsScreen = observer(function SessionsScreen() {
           </details>
         </div>
       </div>
-      {store.sessions.list.length ? (
+      {initialLoading ? (
+        <p className="panel-help" role="status">Loading sessions...</p>
+      ) : store.sessions.list.length ? (
         <DataTable
           columns={["updated", "status", "agent", "branch", "taskTitle"]}
           columnLabels={{ updated: "Updated", status: "Status", agent: "Agent", branch: "Branch", taskTitle: "Task" }}
@@ -111,9 +118,22 @@ export const SessionsScreen = observer(function SessionsScreen() {
             </>
           )}
         />
-      ) : (
+      ) : listState.status === "empty" ? (
         <Empty text="No sessions recorded yet." />
-      )}
+      ) : null}
+      {canShowMore ? (
+        <div className="table-toolbar">
+          <span className="panel-help">This is a partial session history.</span>
+          <button type="button" disabled={store.sessions.loading} onClick={() => void store.sessions.loadMore()}>
+            Show more
+          </button>
+        </div>
+      ) : null}
+      {cappedPartial ? (
+        <p className="panel-help" role="status">
+          Showing the first 200 sessions. More sessions may exist.
+        </p>
+      ) : null}
       {selectedSession ? (
         <SessionDetailModal
           session={selectedSession}

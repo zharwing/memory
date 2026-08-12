@@ -2,17 +2,8 @@
 
 Zharwing Memory exposes `memory.*` tools to external agents through two MCP transports:
 
-1. HTTP MCP on the daemon:
-
-   ```text
-   POST http://127.0.0.1:37841/mcp
-   ```
-
-2. Stdio MCP from the CLI:
-
-   ```text
-   zharwing-memory mcp serve
-   ```
+1. HTTP MCP on the daemon: `POST http://127.0.0.1:37841/mcp`.
+2. Stdio MCP from the CLI: `zharwing-memory mcp serve`.
 
 Use HTTP when the AI client and daemon run in the same OS or network namespace.
 Use stdio when a client needs to launch a child process, when HTTP MCP is not
@@ -39,10 +30,12 @@ The installer updates client MCP config and creates a timestamped backup when
 replacing an existing file. Stdio configs use the running CLI entrypoint instead
 of a hardcoded checkout path.
 
-Generated token-auth configuration uses the canonical
-`ZHARWING_MEMORY_AUTH_TOKEN` and `ZHARWING_MEMORY_DAEMON_URL` names. Existing
-configs that reference legacy `AIMEM_*` names continue to work during the
-compatibility window, but rerunning the installer migrates generated entries.
+Generated token-auth configuration uses the dedicated
+`ZHARWING_MEMORY_AGENT_CREDENTIAL` and canonical
+`ZHARWING_MEMORY_DAEMON_URL` names. It never places the compatibility
+administrator token or a browser value in agent configuration. Existing
+legacy configuration should be regenerated instead of extending credential
+reuse.
 
 Specific client installs remain available:
 
@@ -75,15 +68,19 @@ Use `--config <path>` when a client stores config somewhere else.
 
 ## Auth Modes
 
-Tokens are not required by MCP itself. Zharwing Memory uses token auth by default
-because the MCP surface can create sessions and write checkpoints/closeouts, and
-because the same daemon also hosts the broader authenticated administration API.
+Tokens are not required by MCP itself. Zharwing Memory requires explicit agent
+authority because the MCP surface can create sessions and write
+checkpoints/closeouts. Agent authority is separate from browser, desktop, and
+administrator authority.
 
-Default mode:
+Hardened agent mode:
 
 ```text
 ZHARWING_MEMORY_AUTH_MODE=token
-ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
+ZHARWING_MEMORY_PROFILE=hardened-local
+ZHARWING_MEMORY_AGENT_SURFACE=enabled
+ZHARWING_MEMORY_AGENT_CREDENTIAL=<dedicated-opaque-agent-credential>
+ZHARWING_MEMORY_AGENT_PROJECT_ID=<exact-project-id>
 ```
 
 Local personal mode:
@@ -92,13 +89,16 @@ Local personal mode:
 ZHARWING_MEMORY_AUTH_MODE=none
 ```
 
-No-auth mode is accepted only when the daemon binds to a loopback host such as
-`127.0.0.1`, `localhost`, or `::1`. The daemon refuses to start with
-`ZHARWING_MEMORY_AUTH_MODE=none` on non-loopback hosts.
+No-auth mode is a `personal-preview` compatibility option accepted only when
+the daemon binds to a loopback host such as `127.0.0.1`, `localhost`, or `::1`.
+The daemon refuses it on non-loopback hosts and under `hardened-local`.
 
-For token mode, make the AI client process inherit `ZHARWING_MEMORY_AUTH_TOKEN` or use the
-installer's generated environment-variable reference. Do not write real tokens
-into repo files.
+For hardened token mode, make the AI client process inherit only
+`ZHARWING_MEMORY_AGENT_CREDENTIAL`, or use the installer's generated
+environment-variable reference. The daemon receives the same credential and
+the exact `ZHARWING_MEMORY_AGENT_PROJECT_ID` at its trusted host boundary. Do
+not substitute `ZHARWING_MEMORY_AUTH_TOKEN`; it is the compatibility
+administrator credential. Do not write any real credential into repo files.
 
 ## Agent Surface
 
@@ -157,14 +157,14 @@ Token-auth localhost HTTP config:
 ```toml
 [mcp_servers.zharwing-memory]
 url = "http://127.0.0.1:37841/mcp"
-bearer_token_env_var = "ZHARWING_MEMORY_AUTH_TOKEN"
+bearer_token_env_var = "ZHARWING_MEMORY_AGENT_CREDENTIAL"
 ```
 
 Equivalent Codex CLI commands, when supported by the installed Codex version:
 
 ```text
 codex mcp add zharwing-memory --url http://127.0.0.1:37841/mcp
-codex mcp add zharwing-memory --url http://127.0.0.1:37841/mcp --bearer-token-env-var ZHARWING_MEMORY_AUTH_TOKEN
+codex mcp add zharwing-memory --url http://127.0.0.1:37841/mcp --bearer-token-env-var ZHARWING_MEMORY_AGENT_CREDENTIAL
 ```
 
 After changing MCP config, restart the AI client.
@@ -193,7 +193,7 @@ Token-auth localhost HTTP config:
       "type": "http",
       "url": "http://127.0.0.1:37841/mcp",
       "headers": {
-        "Authorization": "Bearer ${ZHARWING_MEMORY_AUTH_TOKEN}"
+        "Authorization": "Bearer ${ZHARWING_MEMORY_AGENT_CREDENTIAL}"
       }
     }
   }
@@ -256,7 +256,8 @@ Typical results:
 - `Tools: (none)` in an AI client: the client started but MCP initialization or
   `tools/list` failed. Check the client config and run the doctor command from
   the same shell or OS environment.
-- Auth failure: use `ZHARWING_MEMORY_AUTH_MODE=none` for loopback-only local personal use,
-  or make the client inherit `ZHARWING_MEMORY_AUTH_TOKEN`.
+- Auth failure: use `ZHARWING_MEMORY_AUTH_MODE=none` only for an explicit
+  loopback personal preview, or confirm that the client inherits the dedicated
+  `ZHARWING_MEMORY_AGENT_CREDENTIAL` registered for its exact project.
 - Windows/WSL native dependency errors: reinstall dependencies in the OS where
   the command is being run.

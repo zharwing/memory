@@ -361,8 +361,8 @@
 }
 
 .semantic-run-banner.completed {
-  background: rgba(15, 118, 110, 0.07);
-  border-color: rgba(15, 118, 110, 0.2);
+  background: var(--success-subtle);
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
 }
 
 .semantic-run-banner.failed,
@@ -450,8 +450,8 @@
 }
 
 .semantic-run-result.completed {
-  background: rgba(15, 118, 110, 0.07);
-  border: 1px solid rgba(15, 118, 110, 0.2);
+  background: var(--success-subtle);
+  border: 1px solid color-mix(in srgb, var(--success) 28%, var(--border));
   border-radius: 8px;
   padding: 10px;
 }
@@ -516,5 +516,5 @@
   display: block;
   height: 100%;
   min-width: 2px;
-  transition: width 180ms ease;
+  transition: width var(--motion-normal) var(--ease-standard);
 }

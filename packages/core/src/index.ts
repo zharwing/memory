@@ -8,3 +8,4 @@ export * from "./glob.js";
 export * from "./net.js";
 export * from "./env.js";
 export * from "./rpc.js";
+export * from "./contracts/index.js";

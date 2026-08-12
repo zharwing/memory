@@ -15,9 +15,28 @@ import {
   type SessionId,
   type WorkstreamId
 } from "@zharwing/memory-core";
-import { listFiles, pathExists, readText, writeText } from "./fs.js";
+import {
+  atomicWriteText,
+  listFiles,
+  pathExists,
+  withStorageMutationLease
+} from "./fs.js";
 import { formatMarkdown, parseMarkdown } from "./markdown.js";
 import { sessionBodyTemplate } from "./templates.js";
+import {
+  DomainEffectConflictError,
+  DomainEffectOutcomeUnknownError,
+  appendDomainEffectMarker,
+  assertDurableDomainEffect,
+  assertMatchingDomainEffectMarker,
+  attachDomainEffectMarkers,
+  createDomainEffectMarker,
+  decodeDomainEffectMarkers,
+  domainValueRevision,
+  encodeDomainEffectMarkers,
+  getDomainEffectMarkers,
+  type DurableDomainEffect
+} from "./domain-effects.js";
 
 const MAX_SESSION_TITLE_CHARS = 240;
 const MAX_SESSION_GOAL_CHARS = 800;
@@ -42,7 +61,32 @@ export async function startSession(args: {
   taskTitle?: string;
   goal?: string;
   workstreamIds?: WorkstreamId[];
+  effect?: DurableDomainEffect;
 }): Promise<Session> {
+  const effect = args.effect;
+  if (effect) {
+    assertDurableDomainEffect(effect, args.project, "memory.start_session");
+    return withProjectSessionEffectLease(args.project, async () => {
+      const reconciled = await reconcileSessionEffect(args.project, effect);
+      if (reconciled) return reconciled;
+      if (effect.mode === "reconcile") throw new DomainEffectOutcomeUnknownError();
+      return createAndWriteSession(args, effect);
+    });
+  }
+  return withProjectSessionEffectLease(args.project, () => createAndWriteSession(args));
+}
+
+async function createAndWriteSession(args: {
+  project: Project;
+  repoPath: string;
+  workingDirectory: string;
+  branch?: string;
+  agent?: string;
+  client?: string;
+  taskTitle?: string;
+  goal?: string;
+  workstreamIds?: WorkstreamId[];
+}, effect?: DurableDomainEffect): Promise<Session> {
   const now = nowIso();
   const started = new Date(now);
   const taskTitle = args.taskTitle?.trim() || defaultSessionTitle(started);
@@ -56,7 +100,7 @@ export async function startSession(args: {
   const filePath = await uniqueSessionFilePath(path.join(args.project.memoryRoot, "sessions", year, month, fileName));
 
   const body = sessionBodyTemplate({ taskTitle, goal: args.goal, created: now });
-  const session: Session = {
+  let session: Session = {
     id,
     projectId: args.project.id,
     repoPath: args.repoPath,
@@ -83,7 +127,16 @@ export async function startSession(args: {
     stateSemanticsVersion: 2
   };
 
-  await writeSession(session);
+  if (effect) {
+    session = appendDomainEffectMarker(session, createDomainEffectMarker({
+      effect,
+      resultKind: "session",
+      resultId: session.id,
+      resultRevision: sessionDomainRevision(session),
+      committedAt: now
+    }), effect);
+  }
+  await writeSession(session, undefined, args.project.memoryRoot);
   return session;
 }
 
@@ -99,67 +152,33 @@ async function uniqueSessionFilePath(filePath: string): Promise<string> {
   return `${base}-${index}${extension}`;
 }
 
-export async function writeSession(session: Session, body?: string): Promise<void> {
+export async function writeSession(session: Session, body?: string, ownerRoot?: string): Promise<void> {
   if (!session.filePath) {
     throw new Error(`Cannot write session ${session.id} without filePath`);
   }
-  const markdown = formatMarkdown(
-    {
-      id: session.id,
-      project_id: session.projectId,
-      repo_path: session.repoPath,
-      working_directory: session.workingDirectory,
-      branch: session.branch,
-      agent: session.agent,
-      client: session.client,
-      status: session.status,
-      started: session.started,
-      updated: session.updated,
-      closed: session.closed,
-      closed_reason: session.closedReason,
-      task_title: session.taskTitle,
-      include_in_graph: session.includeInGraph,
-      goal: session.goal,
-      summary: session.summary,
-      topics: session.topics,
-      summary_generated_at: session.summaryGeneratedAt,
-      summary_source: session.summarySource,
-      summary_model: session.summaryModel,
-      next_steps: session.nextSteps,
-      blockers: session.blockers,
-      touched_files: session.touchedFiles,
-      workstream_ids: session.workstreamIds,
-      related_docs: session.relatedDocs,
-      related_tasks: session.relatedTasks,
-      context_bundle_id: session.contextBundleId,
-      import_source_path: session.importSourcePath,
-      import_source_hash: session.importSourceHash,
-      imported_at: session.importedAt,
-      import_profile: session.importProfile,
-      checkpoint_count: session.checkpoints.length,
-      state_semantics_version: session.stateSemanticsVersion
-    },
-    body ?? session.body ?? sessionToBody(session)
-  );
-  await writeText(session.filePath, markdown);
+  const markdown = storedSessionMarkdown(session, body, true);
+  await atomicWriteText(session.filePath, markdown, {
+    root: ownerRoot ?? path.dirname(session.filePath),
+    maximumBytes: 32 * 1024 * 1024
+  });
   SESSION_SUMMARY_CACHE.delete(session.filePath);
 }
 
 export async function listProjectSessions(project: Project): Promise<Session[]> {
   const files = await listProjectSessionFiles(project);
-  const sessions = await Promise.all(files.map((file) => readSession(file)));
+  const sessions = await Promise.all(files.map((file) => readSession(file, project.memoryRoot)));
   return sessions.sort((a, b) => b.updated.localeCompare(a.updated));
 }
 
 export async function listProjectSessionSummaries(project: Project): Promise<SessionSummary[]> {
   const files = await listProjectSessionFiles(project);
-  const summaries = await Promise.all(files.map((file) => readSessionSummary(file)));
+  const summaries = await Promise.all(files.map((file) => readSessionSummary(file, project.memoryRoot)));
   return summaries.sort((a, b) => b.updated.localeCompare(a.updated));
 }
 
 export async function getSession(project: Project, sessionId: SessionId): Promise<Session | undefined> {
   const filePath = await findSessionFile(project, sessionId);
-  return filePath ? readSession(filePath) : undefined;
+  return filePath ? readSession(filePath, project.memoryRoot) : undefined;
 }
 
 export async function getActiveSession(project: Project): Promise<Session | undefined> {
@@ -182,10 +201,39 @@ export async function saveCheckpoint(args: {
   touchedFiles?: string[];
   proposedUpdateIds?: string[];
   workstreamIds?: WorkstreamId[];
+  effect?: DurableDomainEffect;
+  expectedRevision?: string;
 }): Promise<Session> {
-  const session = await getSession(args.project, args.sessionId);
-  if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+  if (args.effect) {
+    assertDurableDomainEffect(args.effect, args.project, "memory.save_checkpoint");
+    return mutateSessionEffect(
+      args.project,
+      args.sessionId,
+      args.effect,
+      args.expectedRevision,
+      (session) => checkpointResult(session, args)
+    );
+  }
+  return withProjectSessionEffectLease(args.project, async () => {
+    const session = await getSession(args.project, args.sessionId);
+    if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+    const next = checkpointResult(session, args);
+    await writeSession(next, undefined, args.project.memoryRoot);
+    return next;
+  });
+}
 
+function checkpointResult(
+  session: Session,
+  args: {
+    summary: string;
+    nextSteps?: string[];
+    blockers?: string[];
+    touchedFiles?: string[];
+    proposedUpdateIds?: string[];
+    workstreamIds?: WorkstreamId[];
+  }
+): Session {
   const checkpoint: SessionCheckpoint = {
     id: createId("checkpoint"),
     created: nowIso(),
@@ -212,8 +260,6 @@ export async function saveCheckpoint(args: {
     body: appendCheckpointToBody(session.body ?? sessionToBody(session), checkpoint),
     stateSemanticsVersion: 2
   };
-
-  await writeSession(next);
   return next;
 }
 
@@ -235,9 +281,43 @@ export async function closeSession(args: {
    * a stale session does not jump to the top of the recency-sorted list.
    */
   preserveUpdated?: boolean;
+  effect?: DurableDomainEffect;
+  expectedRevision?: string;
 }): Promise<Session> {
-  const session = await getSession(args.project, args.sessionId);
-  if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+  if (args.effect) {
+    assertDurableDomainEffect(args.effect, args.project, "memory.close_session");
+    return mutateSessionEffect(
+      args.project,
+      args.sessionId,
+      args.effect,
+      args.expectedRevision,
+      (session) => closeResult(session, args)
+    );
+  }
+  return withProjectSessionEffectLease(args.project, async () => {
+    const session = await getSession(args.project, args.sessionId);
+    if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+    const next = closeResult(session, args);
+    await writeSession(next, undefined, args.project.memoryRoot);
+    return next;
+  });
+}
+
+function closeResult(
+  session: Session,
+  args: {
+    summary?: string;
+    nextSteps?: string[];
+    blockers?: string[];
+    workstreamIds?: WorkstreamId[];
+    topics?: string[];
+    summaryGeneratedAt?: string;
+    summarySource?: Session["summarySource"];
+    summaryModel?: string;
+    closedReason?: string;
+    preserveUpdated?: boolean;
+  }
+): Session {
   const now = nowIso();
   const next: Session = {
     ...session,
@@ -262,7 +342,6 @@ export async function closeSession(args: {
     }),
     stateSemanticsVersion: 2
   };
-  await writeSession(next);
   return next;
 }
 
@@ -278,25 +357,27 @@ export async function updateSessionSummary(args: {
   summarySource?: Session["summarySource"];
   summaryModel?: string;
 }): Promise<Session> {
-  const session = await getSession(args.project, args.sessionId);
-  if (!session) throw new Error(`Session not found: ${args.sessionId}`);
-  const updated = args.summaryGeneratedAt || nowIso();
-  const next: Session = {
-    ...session,
-    summary: args.summary,
-    topics: mergeUnique(session.topics, args.topics || []),
-    nextSteps: args.nextSteps !== undefined ? mergeUnique([], args.nextSteps) : session.nextSteps,
-    blockers: args.blockers !== undefined ? mergeUnique([], args.blockers) : session.blockers,
-    touchedFiles: mergeUnique(session.touchedFiles, args.touchedFiles || []),
-    summaryGeneratedAt: updated,
-    summarySource: args.summarySource || "assistant",
-    summaryModel: args.summaryModel || session.summaryModel,
-    updated,
-    body: replaceSessionSummarySection(session.body ?? sessionToBody(session), args.summary),
-    stateSemanticsVersion: 2
-  };
-  await writeSession(next);
-  return next;
+  return withProjectSessionEffectLease(args.project, async () => {
+    const session = await getSession(args.project, args.sessionId);
+    if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+    const updated = args.summaryGeneratedAt || nowIso();
+    const next: Session = {
+      ...session,
+      summary: args.summary,
+      topics: mergeUnique(session.topics, args.topics || []),
+      nextSteps: args.nextSteps !== undefined ? mergeUnique([], args.nextSteps) : session.nextSteps,
+      blockers: args.blockers !== undefined ? mergeUnique([], args.blockers) : session.blockers,
+      touchedFiles: mergeUnique(session.touchedFiles, args.touchedFiles || []),
+      summaryGeneratedAt: updated,
+      summarySource: args.summarySource || "assistant",
+      summaryModel: args.summaryModel || session.summaryModel,
+      updated,
+      body: replaceSessionSummarySection(session.body ?? sessionToBody(session), args.summary),
+      stateSemanticsVersion: 2
+    };
+    await writeSession(next, undefined, args.project.memoryRoot);
+    return next;
+  });
 }
 
 export async function updateSessionGraphVisibility(args: {
@@ -304,19 +385,21 @@ export async function updateSessionGraphVisibility(args: {
   sessionId: SessionId;
   includeInGraph: boolean;
 }): Promise<Session> {
-  const session = await getSession(args.project, args.sessionId);
-  if (!session) throw new Error(`Session not found: ${args.sessionId}`);
+  return withProjectSessionEffectLease(args.project, async () => {
+    const session = await getSession(args.project, args.sessionId);
+    if (!session) throw new Error(`Session not found: ${args.sessionId}`);
 
-  const next: Session = {
-    ...session,
-    includeInGraph: args.includeInGraph
-  };
-  await writeSession(next);
-  return next;
+    const next: Session = {
+      ...session,
+      includeInGraph: args.includeInGraph
+    };
+    await writeSession(next, undefined, args.project.memoryRoot);
+    return next;
+  });
 }
 
-export async function readSession(filePath: string): Promise<Session> {
-  const raw = await readText(filePath);
+export async function readSession(filePath: string, ownerRoot?: string): Promise<Session> {
+  const raw = await readSafeSessionText(filePath, ownerRoot);
   const parsed = parseMarkdown(raw);
   const fm = parsed.frontmatter;
 
@@ -357,22 +440,25 @@ export async function readSession(filePath: string): Promise<Session> {
     importProfile: stringOrUndefined(fm.import_profile),
     stateSemanticsVersion: fm.state_semantics_version === 2 ? 2 : undefined
   };
-
-  return session;
+  return attachDomainEffectMarkers(session, decodeDomainEffectMarkers(fm.domain_effects));
 }
 
-export async function readSessionSummary(filePath: string): Promise<SessionSummary> {
-  const stat = await fs.stat(filePath);
+export async function readSessionSummary(filePath: string, ownerRoot?: string): Promise<SessionSummary> {
+  const stat = await fs.lstat(filePath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > 32 * 1024 * 1024) {
+    throw new Error("Session file is unsafe or oversized.");
+  }
+  await assertSafeSessionPath(filePath, ownerRoot);
   const cached = SESSION_SUMMARY_CACHE.get(filePath);
   if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
     return cached.summary;
   }
 
-  const raw = await readFrontmatterPrefix(filePath);
+  const raw = await readFrontmatterPrefix(filePath, ownerRoot);
   const fm = parseMarkdown(raw).frontmatter;
   const touchedFiles = arrayOfStrings(fm.touched_files);
   const checkpointCount = numericOrUndefined(fm.checkpoint_count)
-    ?? await countCheckpointSections(filePath);
+    ?? await countCheckpointSections(filePath, ownerRoot);
   const summary: SessionSummary = {
     id: String(fm.id),
     projectId: String(fm.project_id),
@@ -410,14 +496,154 @@ async function listProjectSessionFiles(project: Project): Promise<string[]> {
 async function findSessionFile(project: Project, sessionId: SessionId): Promise<string | undefined> {
   const files = await listProjectSessionFiles(project);
   for (const file of files) {
-    if ((await readSessionSummary(file)).id === sessionId) return file;
+    if ((await readSessionSummary(file, project.memoryRoot)).id === sessionId) return file;
   }
   return undefined;
 }
 
-async function readFrontmatterPrefix(filePath: string): Promise<string> {
+async function mutateSessionEffect(
+  project: Project,
+  sessionId: SessionId,
+  effect: DurableDomainEffect,
+  expectedRevision: string | undefined,
+  mutate: (session: Session) => Session
+): Promise<Session> {
+  return withProjectSessionEffectLease(project, async () => {
+    const session = await getSession(project, sessionId);
+    if (!session) throw new Error(`Session not found: ${sessionId}`);
+    const reconciled = reconcileEffectOnSession(session, effect);
+    if (reconciled) return reconciled;
+    if (effect.mode === "reconcile") throw new DomainEffectOutcomeUnknownError();
+    if (!expectedRevision || expectedRevision !== sessionDomainRevision(session)) {
+      throw new DomainEffectConflictError();
+    }
+
+    let next = mutate(session);
+    const marker = createDomainEffectMarker({
+      effect,
+      resultKind: "session",
+      resultId: next.id,
+      resultRevision: sessionDomainRevision(next),
+      committedAt: nowIso()
+    });
+    next = appendDomainEffectMarker(next, marker, effect);
+    await writeSession(next, undefined, project.memoryRoot);
+    return next;
+  });
+}
+
+async function reconcileSessionEffect(
+  project: Project,
+  effect: DurableDomainEffect
+): Promise<Session | undefined> {
+  const sessions = await listProjectSessions(project);
+  const matches = sessions.filter((session) =>
+    getDomainEffectMarkers(session).some((marker) => marker.effectId === effect.effectId)
+  );
+  if (matches.length > 1) throw new DomainEffectOutcomeUnknownError();
+  return matches.length === 1 ? reconcileEffectOnSession(matches[0]!, effect) : undefined;
+}
+
+function reconcileEffectOnSession(
+  session: Session,
+  effect: DurableDomainEffect
+): Session | undefined {
+  const matches = getDomainEffectMarkers(session)
+    .filter((marker) => marker.effectId === effect.effectId);
+  if (matches.length === 0) return undefined;
+  if (matches.length !== 1) throw new DomainEffectOutcomeUnknownError();
+  assertMatchingDomainEffectMarker(effect, matches[0]!, {
+    resultKind: "session",
+    resultId: session.id,
+    // A later session revision must not be reclassified as the result of this
+    // older effect. The caller receives outcome_unknown instead of acquiring
+    // authority over intervening human or control-plane edits.
+    resultRevision: sessionDomainRevision(session)
+  });
+  return session;
+}
+
+export function assertSessionDomainEffect(
+  session: Session,
+  effect: DurableDomainEffect
+): void {
+  if (!reconcileEffectOnSession(session, effect)) {
+    throw new DomainEffectOutcomeUnknownError();
+  }
+}
+
+export function sessionDomainEffectStatus(
+  session: Session,
+  effect: DurableDomainEffect
+): "committed" | "absent" {
+  return reconcileEffectOnSession(session, effect) ? "committed" : "absent";
+}
+
+function withProjectSessionEffectLease<T>(
+  project: Project,
+  work: () => Promise<T>
+): Promise<T> {
+  return withStorageMutationLease(
+    path.join(project.memoryRoot, "sessions"),
+    "domain-effects",
+    work
+  );
+}
+
+export function sessionDomainRevision(session: Session): string {
+  return domainValueRevision(storedSessionMarkdown(session, undefined, false));
+}
+
+function storedSessionMarkdown(
+  session: Session,
+  body: string | undefined,
+  includeDomainEffects: boolean
+): string {
+  return formatMarkdown(
+    {
+      id: session.id,
+      project_id: session.projectId,
+      repo_path: session.repoPath,
+      working_directory: session.workingDirectory,
+      branch: session.branch,
+      agent: session.agent,
+      client: session.client,
+      status: session.status,
+      started: session.started,
+      updated: session.updated,
+      closed: session.closed,
+      closed_reason: session.closedReason,
+      task_title: session.taskTitle,
+      include_in_graph: session.includeInGraph,
+      goal: session.goal,
+      summary: session.summary,
+      topics: session.topics,
+      summary_generated_at: session.summaryGeneratedAt,
+      summary_source: session.summarySource,
+      summary_model: session.summaryModel,
+      next_steps: session.nextSteps,
+      blockers: session.blockers,
+      touched_files: session.touchedFiles,
+      workstream_ids: session.workstreamIds,
+      related_docs: session.relatedDocs,
+      related_tasks: session.relatedTasks,
+      context_bundle_id: session.contextBundleId,
+      import_source_path: session.importSourcePath,
+      import_source_hash: session.importSourceHash,
+      imported_at: session.importedAt,
+      import_profile: session.importProfile,
+      checkpoint_count: session.checkpoints.length,
+      state_semantics_version: session.stateSemanticsVersion,
+      domain_effects: includeDomainEffects ? encodeDomainEffectMarkers(session) : undefined
+    },
+    body ?? session.body ?? sessionToBody(session)
+  );
+}
+
+async function readFrontmatterPrefix(filePath: string, ownerRoot?: string): Promise<string> {
   const handle = await fs.open(filePath, "r");
   try {
+    await assertSafeOpenedSessionFile(handle, filePath, ownerRoot);
     const chunks: Buffer[] = [];
     let bytesReadTotal = 0;
     const chunkSize = 16 * 1024;
@@ -433,12 +659,104 @@ async function readFrontmatterPrefix(filePath: string): Promise<string> {
   } finally {
     await handle.close();
   }
-  return readText(filePath);
+  return readSafeSessionText(filePath, ownerRoot);
 }
 
-async function countCheckpointSections(filePath: string): Promise<number> {
-  const raw = await readText(filePath);
+async function countCheckpointSections(filePath: string, ownerRoot?: string): Promise<number> {
+  const raw = await readSafeSessionText(filePath, ownerRoot);
   return [...raw.matchAll(/^#{2,3}\s+(?:Checkpoint\s+-\s+)?\d{4}-\d{2}-\d{2}T[^\n]+$/gm)].length;
+}
+
+async function readSafeSessionText(filePath: string, ownerRoot?: string): Promise<string> {
+  const handle = await fs.open(filePath, "r");
+  try {
+    await assertSafeOpenedSessionFile(handle, filePath, ownerRoot);
+    return await handle.readFile("utf8");
+  } finally {
+    await handle.close();
+  }
+}
+
+async function assertSafeOpenedSessionFile(
+  handle: Awaited<ReturnType<typeof fs.open>>,
+  filePath: string,
+  ownerRoot?: string
+): Promise<void> {
+  const stat = await handle.stat();
+  if (!stat.isFile() || stat.nlink !== 1 || stat.size > 32 * 1024 * 1024) {
+    throw new Error("Session file is unsafe or oversized.");
+  }
+  const current = await fs.lstat(filePath);
+  if (
+    !current.isFile() || current.isSymbolicLink() || current.nlink !== 1 ||
+    current.dev !== stat.dev || current.ino !== stat.ino
+  ) {
+    throw new Error("Session file changed during safe open.");
+  }
+  const resolvedRoot = path.resolve(ownerRoot ?? path.dirname(filePath));
+  const resolvedParent = path.resolve(path.dirname(filePath));
+  if (!isSessionPathContained(resolvedRoot, resolvedParent)) {
+    throw new Error("Session file escaped its owner root.");
+  }
+  await assertLinkFreeSessionDirectory(resolvedParent);
+  const [realRoot, realParent, realFile] = await Promise.all([
+    fs.realpath(resolvedRoot),
+    fs.realpath(resolvedParent),
+    fs.realpath(filePath)
+  ]);
+  if (!isSessionPathContained(realRoot, realFile) ||
+    comparableSessionPath(path.dirname(realFile)) !== comparableSessionPath(realParent) ||
+    comparableSessionPath(path.basename(realFile)) !== comparableSessionPath(path.basename(filePath))) {
+    throw new Error("Session file traverses a filesystem link.");
+  }
+}
+
+async function assertSafeSessionPath(filePath: string, ownerRoot?: string): Promise<void> {
+  const resolvedRoot = path.resolve(ownerRoot ?? path.dirname(filePath));
+  const resolvedFile = path.resolve(filePath);
+  const resolvedParent = path.dirname(resolvedFile);
+  if (!isSessionPathContained(resolvedRoot, resolvedFile)) {
+    throw new Error("Session file escaped its owner root.");
+  }
+  await assertLinkFreeSessionDirectory(resolvedParent);
+  const [realRoot, realParent, realFile] = await Promise.all([
+    fs.realpath(resolvedRoot),
+    fs.realpath(resolvedParent),
+    fs.realpath(resolvedFile)
+  ]);
+  if (!isSessionPathContained(realRoot, realFile) ||
+    comparableSessionPath(path.dirname(realFile)) !== comparableSessionPath(realParent) ||
+    comparableSessionPath(path.basename(realFile)) !== comparableSessionPath(path.basename(resolvedFile))) {
+    throw new Error("Session file traverses a filesystem link.");
+  }
+}
+
+async function assertLinkFreeSessionDirectory(target: string): Promise<void> {
+  const resolved = path.resolve(target);
+  const root = path.parse(resolved).root;
+  const relative = path.relative(root, resolved);
+  let current = root;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, component);
+    const stat = await fs.lstat(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error("Session file traverses a filesystem link.");
+    }
+  }
+}
+
+function comparableSessionPath(value: string): string {
+  const normalized = path.normalize(value);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isSessionPathContained(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }
 
 function sessionToBody(session: Session): string {

@@ -25,9 +25,10 @@
     "docs:site": "node scripts/build-public-docs.mjs",
     "check:docs-site": "node scripts/check-public-docs.mjs",
     "build:desktop": "node scripts/tauri-build.mjs",
+    "test:tauri": "node scripts/tauri-test.mjs",
     "build:ts": "tsc -b",
-    "build:web": "vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs",
-    "build": "tsc -b && vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs",
+    "build:web": "vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs && node scripts/check-secretless-build.mjs --scan-existing",
+    "build": "tsc -b && vite build --config apps/desktop/vite.config.ts && node scripts/check-bundle-size.mjs && node scripts/check-secretless-build.mjs --scan-existing",
     "typecheck": "tsc -b --pretty false",
     "test:compile": "tsc -b --clean && tsc -b --force --pretty false",
     "test": "tsc -b --clean && tsc -b --force --pretty false && node scripts/run-tests.mjs",
@@ -36,7 +37,12 @@
     "test:desktop-browser": "node scripts/desktop-browser-smoke.mjs",
     "test:live-provider": "tsc -b --pretty false && node scripts/live-provider-smoke.mjs",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
-    "check:source-artifacts": "node scripts/check-source-artifacts.mjs"
+    "check:source-artifacts": "node scripts/check-source-artifacts.mjs",
+    "check:frontend-accessibility": "node scripts/check-frontend-accessibility.mjs",
+    "check:secretless-build": "node scripts/check-secretless-build.mjs",
+    "evidence:frontend": "node scripts/generate-frontend-evidence.mjs",
+    "sbom:frontend": "node scripts/generate-sbom.mjs",
+    "release:frontend:candidate": "node scripts/generate-frontend-evidence.mjs"
   },
   "workspaces": [
     "apps/*",

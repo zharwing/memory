@@ -1,3 +1,5 @@
+import { Progress } from "../../components/AccessibleStatus.js";
+
 /**
  * Documents + link-candidates progress block for a running AI relationship
  * review. Rendered by DocsScreen in both the banner and the link-discovery
@@ -19,7 +21,7 @@ export function SemanticRunProgress({
   ariaLabel?: string;
 }) {
   return (
-    <div className={className} aria-label={ariaLabel}>
+    <div className={className} role="region" aria-label={ariaLabel ?? "Semantic review progress"} aria-live="polite">
       <ProgressMeter
         label="Documents"
         value={documentsProcessed}
@@ -46,24 +48,14 @@ export function ProgressMeter({ label, value, total }: { label: string; value: n
   const boundedValue = boundedTotal > 0
     ? Math.min(boundedTotal, Math.max(0, Number(value || 0)))
     : Math.max(0, Number(value || 0));
-  const percent = boundedTotal > 0 ? Math.round((boundedValue / boundedTotal) * 100) : 0;
-
   return (
     <div className="semantic-progress-row">
-      <div>
-        <span>{label}</span>
-        <strong>{boundedTotal > 0 ? `${boundedValue} of ${boundedTotal}` : `${boundedValue}`}</strong>
-      </div>
-      <div
-        className="semantic-progress-track"
-        role="progressbar"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={boundedTotal || undefined}
-        aria-valuenow={boundedTotal ? boundedValue : undefined}
-      >
-        <i style={{ width: `${percent}%` }} />
-      </div>
+      <Progress
+        label={label}
+        value={boundedTotal > 0 ? boundedValue : undefined}
+        max={boundedTotal > 0 ? boundedTotal : undefined}
+        detail={boundedTotal > 0 ? `${boundedValue} of ${boundedTotal}` : `${boundedValue}; total not yet known`}
+      />
     </div>
   );
 }

@@ -103,7 +103,7 @@
 .nav-item small {
   margin-left: auto;
   background: var(--accent);
-  color: #fffdf9;
+  color: var(--on-accent);
   min-width: 22px;
   height: 22px;
   border-radius: 999px;
@@ -131,13 +131,14 @@
 }
 
 .topbar h1,
-.screen h2,
+.screen h1,
+.panel h2,
 .panel h3 {
   margin: 0;
   letter-spacing: 0;
 }
 
-.screen h2 {
+.screen h1 {
   font-size: 24px;
 }
 
@@ -205,13 +206,13 @@
 }
 
 .topbar-meta-pill.app-ready.working {
-  border-color: rgba(37, 99, 235, 0.24);
+  border-color: color-mix(in srgb, var(--information) 24%, var(--border));
   color: var(--accent);
 }
 
 .topbar-meta-pill.semantic-run-topbar {
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.22);
+  background: var(--information-subtle);
+  border-color: color-mix(in srgb, var(--information) 32%, var(--border));
   color: var(--text);
 }
 
@@ -266,7 +267,7 @@
   align-items: center;
   background: var(--accent);
   border-radius: 999px;
-  color: #fffdf9;
+  color: var(--on-accent);
   display: inline-flex;
   font-size: 0.74rem;
   height: 19px;
@@ -289,4 +290,22 @@
 
 .dashboard-grid.tight {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.route-screen-frame {
+  min-width: 0;
+}
+
+.route-loading,
+.route-recovery {
+  align-items: center;
+  display: grid;
+  min-height: min(24rem, 70dvh);
+  place-content: center;
+  text-align: center;
+}
+
+.route-loading {
+  color: var(--muted);
+  padding: var(--space-8, 2rem);
 }

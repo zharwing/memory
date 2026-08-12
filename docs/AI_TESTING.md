@@ -92,8 +92,10 @@ with `ZHARWING_MEMORY_ENTRY_BUDGET_BYTES` or
 
 ## Start Zharwing Memory
 
-Copy `.env.example` to `.env`, then set a private memory root and local auth
-token. Do not use a committed or shared source directory as the memory root.
+Choose a private memory root and one explicit local profile. Do not use a
+committed or shared source directory as the memory root. For browser-driven
+manual checks, follow the cookie/CSRF preview or trusted-launcher flow in
+[Browser UI](WEB_UI.md); never expose an administrator or agent bearer to Vite.
 
 Start the daemon:
 
@@ -162,9 +164,13 @@ JSON prompting by default instead of forcing OpenAI `response_format`.
 
 From JSON-RPC:
 
+The direct `/rpc` examples below are administrator operations. Use the local
+administrator credential only in this trusted shell. It is not a browser or
+agent credential.
+
 ```bash
 curl -s http://127.0.0.1:37841/rpc \
-  -H "authorization: Bearer <local-ai-memory-token>" \
+  -H "authorization: Bearer <local-admin-credential>" \
   -H "content-type: application/json" \
   --data '{
     "id": 1,
@@ -268,7 +274,7 @@ scoped document and candidate plan without calling a model.
 
 ```bash
 curl -s http://127.0.0.1:37841/rpc \
-  -H "authorization: Bearer <local-ai-memory-token>" \
+  -H "authorization: Bearer <local-admin-credential>" \
   -H "content-type: application/json" \
   --data '{
     "id": 2,
@@ -374,8 +380,9 @@ use preview and dry-run modes before review or auto mode.
 ## Troubleshooting
 
 - `ECONNREFUSED` from Zharwing Memory: start `corepack pnpm dev:daemon`.
-- `401 Unauthorized`: the bearer token does not match `.env`, or the client did
-  not inherit `ZHARWING_MEMORY_AUTH_TOKEN`.
+- `401 Unauthorized` from a direct administrative example: the trusted shell
+  did not present the registered administrator credential. Do not solve this
+  by copying that credential into browser or agent configuration.
 - Provider timeout: lower `--max-docs`, `--max-candidates`, and `--per-doc`, or
   increase `--timeout-ms`.
 - Invalid JSON: choose a model with stronger instruction following or lower the

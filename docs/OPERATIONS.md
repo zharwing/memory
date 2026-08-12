@@ -7,31 +7,34 @@ CLI commands, MCP startup, sessions, docs, context preview, import, inbox,
 backup, trash, search, and the saved Graph context map do not require LM Studio,
 Ollama, llama.cpp, or a remote provider.
 
-Current automated validation covers workspace TypeScript build-mode validation,
-a deterministic test spine for privacy gates, Markdown storage round-trips,
-context privacy integration, daemon lifecycle, graph overlays, semantic graph
-policy, fake-provider semantic graph analysis, desktop route/workflow contracts,
-bundle budgets, and a real browser app-shell smoke. A live-provider smoke runner
-is opt-in because it requires an explicitly configured endpoint. Broad desktop
-end-to-end coverage is not yet present.
+The uncommitted 2026-08-12 working tree passed the workspace typecheck, 333
+automated tests with zero failures and two intentional Windows symlink-safety
+skips, the production web build and unchanged bundle budgets, isolated
+secret-canary, fixture, source-artifact, accessibility-source, and public-doc
+checks, plus a truthful headless Edge startup-recovery smoke. Those local
+results are not commit-bound release evidence. Six Rust unit tests and the
+Tauri compile/package mechanics passed with an inert sidecar fixture, but the
+production daemon/runtime, live-provider, assistive-device, installer/signing, and rollback
+gates also remain open for an exact candidate.
 
 The Vite production build uses native Rollup/esbuild optional packages. A
 checkout shared between Windows and WSL must install dependencies in the same
 operating system that will run the build; otherwise Vite can fail with a missing
 or wrong-platform native package.
 
-Native Tauri/Rust validation depends on a local Rust toolchain. Windows Rust
-tests and a release build have passed; the release executable is written to
-`apps/desktop/src-tauri/target/release/zharwing-memory-desktop.exe`.
+Native Tauri/Rust validation depends on a local Rust toolchain. A candidate
+release executable is written to
+`apps/desktop/src-tauri/target/release/zharwing-memory-desktop.exe`; its build,
+installer, signing, and device smoke must be proven for that exact candidate.
 
 ## Environment Variables
 
-Install dependencies, then copy `.env.example` to `.env` and choose a private
-local memory root:
+Install dependencies, then create a private, untracked `.env` and choose a
+private local memory root. Do not copy retired browser settings into a new
+configuration:
 
 ```text
 corepack pnpm install
-cp .env.example .env
 ```
 
 Daemon:
@@ -118,26 +121,30 @@ Open `http://localhost:5174/`. The React/Vite dev server is pinned to that port 
 not collide with other local product runtimes that commonly use Vite's default
 `5173`.
 
-In token mode, the daemon and browser bundle must use the same local token:
+For the explicit source-run compatibility preview, configure both sides of the
+public profile and keep the daemon loopback-only:
 
 ```text
-ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
-VITE_ZHARWING_MEMORY_AUTH_TOKEN=<same-local-random-token>
+ZHARWING_MEMORY_PROFILE=personal-preview
+ZHARWING_MEMORY_AUTH_MODE=none
+ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
+ZHARWING_PUBLIC_PROFILE=personal-preview
 ```
 
-Vite loads `.env` when the process starts. Restart `dev:web` after changing a
-`VITE_` value. See [Browser UI](WEB_UI.md) for complete setup and
-troubleshooting.
+Browser code never receives a daemon token. Authenticated preview and
+`hardened-local` require a trusted one-shot bootstrap and then use an HttpOnly
+cookie plus memory-only CSRF. Vite exposes only `ZHARWING_PUBLIC_*` hints;
+restart `dev:web` after changing them. See [Browser UI](WEB_UI.md).
 
 Desktop/web UI workflows currently include setup, project selection, project
 delete, repo links, import preview/commit, workstreams, sessions, docs, search,
 context preview, inbox, graph, backup management, and Trash restore/purge. The
 browser UI calls the daemon API, so the daemon must be running first in browser
-mode. The native Tauri desktop app reuses a healthy local daemon. In a source
-checkout it also starts the repository daemon automatically. A copied release
-executable needs either an already-running daemon or
-`ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND` set to a command that starts one; the
-daemon is not embedded in the desktop executable.
+mode. The native Tauri host refuses an unrelated healthy daemon. It starts and
+owns an exact-loopback hardened daemon, exchanges a one-shot desktop
+credential outside the webview, and rotates the daemon/principal when project
+binding changes. A packaged executable needs its sidecar or an explicit trusted
+`ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND`.
 
 When opened as a native Tauri window, the Setup, Repositories, and Import
 screens use OS folder pickers for path fields. Browser dev mode leaves those
@@ -147,7 +154,7 @@ browsers cannot expose arbitrary absolute folder paths to web apps.
 Use `corepack pnpm dev:web` for the browser app after
 `corepack pnpm dev:daemon`. Use `corepack pnpm dev:desktop` for the native
 Tauri window. The Tauri dev command starts or reuses the Vite app on port
-`5174`, and the desktop shell starts or reuses the daemon on `127.0.0.1:37841`.
+`5174`; the Rust desktop host owns its daemon on `127.0.0.1:37841`.
 
 Native Tauri dev window:
 
@@ -183,8 +190,8 @@ Use HTTP MCP when the client can reach the daemon at
 needs to launch a local subprocess or when Windows/WSL localhost routing makes
 the daemon URL unreachable. See [MCP Setup](MCP_SETUP.md).
 
-The daemon and browser UI Vite commands have been run during validation. The native
-Tauri command requires the local Rust/Tauri toolchain.
+The daemon and browser UI commands are source entry points, not validation
+evidence. The native Tauri command requires the local Rust/Tauri toolchain.
 
 ## Security
 
@@ -323,14 +330,13 @@ under Graph Details **Advanced**.
   optional scaling layer for very large stores.
 - MCP adapter is dependency-free and does not use the official SDK yet.
 - Desktop UI uses hand-authored components instead of shadcn scaffolding.
-- Runtime validation currently covers workspace TypeScript build-mode
-  validation, privacy gates, Markdown storage round-trips, context privacy,
-  daemon lifecycle, graph overlays, semantic graph policy, fake-provider
-  semantic graph analysis, desktop contracts, bundle budgets, and a real Edge
-  app-shell smoke.
-- The root test command runs a meaningful deterministic spine, but coverage
-  remains narrow relative to the full testing plan.
+- Source includes deterministic privacy, authority, storage, async,
+  destructive-intent, routing/graph, accessibility, browser, and release
+  controls. Re-run every required gate for the exact candidate; do not reuse a
+  historical pass.
 - The live AI-provider smoke runner is opt-in and is not part of the default
   automated test command.
-- Windows Rust tests and release packaging have passed. Installer generation
-  and broad native desktop workflow smoke testing remain future work.
+- Packaged Windows WebView/sidecar, installer/signing, assistive technology,
+  physical devices, and rollback remain qualification obligations until
+  artifact-bound evidence exists. See
+  [Frontend qualification](qualification/frontend-qualification-matrix.md).

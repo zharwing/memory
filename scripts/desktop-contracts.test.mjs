@@ -1,20 +1,36 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
+const compiledRoot = process.env.ZHARWING_TEST_BUILD_ROOT
+  ? path.resolve(process.env.ZHARWING_TEST_BUILD_ROOT)
+  : repoRoot;
 
-test("desktop project routes preserve project scope and URL suffixes", async () => {
-  const routes = await importTypeScriptModule("apps/desktop/src/utils/routes.ts");
+test("desktop typed routes preserve valid project scope and reject malformed links", async () => {
+  const routes = await importTypeScriptModule("apps/desktop/src/app/routing/route-registry.ts");
 
-  assert.equal(routes.projectIdFromPathname("/p/project%20one/dashboard"), "project one");
-  assert.equal(routes.projectIdFromPathname("/dashboard"), undefined);
-  assert.equal(routes.projectPath("project one", "/docs?filter=draft"), "/p/project%20one/library/docs?filter=draft");
-  assert.equal(routes.projectPath(undefined, "/docs"), "/docs");
-  assert.equal(routes.appPathFromPathname("/p/project-one/work/sessions"), "/sessions");
+  assert.equal(routes.projectIdFromRegisteredPath("/p/project-one/dashboard"), "project-one");
+  assert.equal(routes.projectIdFromRegisteredPath("/dashboard"), undefined);
+  assert.equal(
+    routes.routePath("docs", { projectId: "project-one", search: { filter: "draft" } }),
+    "/p/project-one/library/docs?filter=draft"
+  );
+  assert.deepEqual(routes.decodeRouteLocation("/p/project%20one/dashboard"), {
+    status: "malformed",
+    reason: "project"
+  });
+  assert.deepEqual(routes.decodeRouteLocation("/p/..%2Fother/dashboard"), {
+    status: "malformed",
+    reason: "encoding"
+  });
+
+  const routeFacade = readSource("apps/desktop/src/utils/routes.ts");
+  assert.match(routeFacade, /from "\.\.\/app\/routing\/route-registry\.js"/);
+  assert.doesNotMatch(routeFacade, /\b(?:projectPath|appPathFromPathname|projectIdFromPathname)\b/);
 });
 
 test("desktop document filters keep imported and starter-draft behavior stable", async () => {
@@ -31,9 +47,15 @@ test("desktop document filters keep imported and starter-draft behavior stable",
   assert.equal(documents.isStarterDraftDoc(docs[2]), false);
 });
 
-test("desktop route table covers critical workflows and loads screens lazily", () => {
+test("desktop route registry covers critical workflows and generates the route outlet", async () => {
   const app = readFileSync(path.join(repoRoot, "apps/desktop/src/App.tsx"), "utf8");
-  const routePaths = new Set([...app.matchAll(/<Route path="([^"]+)"/g)].map((match) => match[1]));
+  const registry = await importTypeScriptModule("apps/desktop/src/app/routing/route-registry.ts");
+  const entries = registry.registeredRouteEntries();
+  const routePaths = new Set(entries.flatMap((entry) => {
+    if (entry.kind === "wildcard") return [entry.path];
+    if (entry.kind === "screen" && entry.legacyPath) return [entry.path, entry.legacyPath];
+    return [entry.path];
+  }));
   const required = [
     "/setup",
     "/projects",
@@ -52,9 +74,724 @@ test("desktop route table covers critical workflows and loads screens lazily", (
   ];
 
   for (const route of required) assert.equal(routePaths.has(route), true, `missing desktop route: ${route}`);
+  assert.equal(entries.filter((entry) => entry.kind === "wildcard").length, 1);
+  assert.equal(entries.at(-1)?.kind, "wildcard");
   assert.match(app, /lazyScreen\(\(\) => import\(/);
+  assert.match(app, /<RegisteredRouteOutlet screens=\{REGISTERED_SCREENS\}/);
+  assert.doesNotMatch(app, /<Route\b|<Routes\b/);
   assert.doesNotMatch(app, /from "\.\/screens\/index\.js"/);
+  const scopeGuard = app.indexOf("if (!routeScopeAccepted)");
+  const registeredOutlet = app.lastIndexOf("<RegisteredRouteOutlet");
+  assert.ok(scopeGuard >= 0 && scopeGuard < registeredOutlet, "route scope must be accepted before a project screen mounts");
+  assert.match(app.slice(scopeGuard, registeredOutlet), /return \([\s\S]*Switching project/);
+
+  const routeElements = readSource("apps/desktop/src/app/routing/route-elements.tsx");
+  assert.match(routeElements, /for \(const route of registeredRouteEntries\(\)\)/);
+  assert.match(routeElements, /shouldMoveFocusToRouteHeading/);
+  assert.match(routeElements, /RouteNotFoundScreen/);
 });
+
+test("desktop navigation consumers use registered builders only", () => {
+  const consumers = [
+    "apps/desktop/src/components/Shell.tsx",
+    "apps/desktop/src/components/SectionTabs.tsx",
+    "apps/desktop/src/screens/DashboardScreen.tsx",
+    "apps/desktop/src/screens/DocsScreen.tsx",
+    "apps/desktop/src/screens/ProjectsScreen.tsx",
+    "apps/desktop/src/screens/SetupScreen.tsx",
+    "apps/desktop/src/screens/graph/GraphScreen.tsx"
+  ];
+  for (const file of consumers) {
+    const source = readSource(file);
+    assert.doesNotMatch(source, /\bprojectPath\(/, `${file} hand-builds a compatibility route`);
+    assert.doesNotMatch(source, /\bto="\/(?:projects|setup|dashboard|docs|graph|inbox|assistant|settings)/, `${file} contains a raw internal link`);
+  }
+});
+
+test("production navigation has no legacy path builder callers", () => {
+  const source = sourceFiles(path.join(repoRoot, "apps/desktop/src"))
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
+  assert.doesNotMatch(source, /\b(?:projectPath|appPathFromPathname|projectIdFromPathname)\b/);
+});
+
+test("graph adapters keep a synchronized structured fallback and bounded canvas", () => {
+  const graphMap = readSource("apps/desktop/src/screens/graph/GraphMap.tsx");
+  const graphScreen = readSource("apps/desktop/src/screens/graph/GraphScreen.tsx");
+  const graphFlow = readSource("apps/desktop/src/screens/graph/graph-flow.tsx");
+  const structured = readSource("apps/desktop/src/features/graph/accessible/StructuredGraphView.tsx");
+
+  assert.match(graphMap, /graph-layout-adapter\.js/);
+  assert.match(graphMap, /graph-position-store\.js/);
+  assert.match(graphMap, /graph-interaction-state\.js/);
+  assert.match(graphMap, /graph-render-capability\.js/);
+  assert.equal((graphMap.match(/tabIndex=\{0\}/g) || []).length, 1);
+  assert.doesNotMatch(graphMap, /\.attr\("tabindex",\s*0\)/);
+  assert.match(graphMap, /role="application"/);
+
+  assert.match(graphFlow, /virtualizeGraph\(nodes, edges, focusedNodeId\)/);
+  assert.match(graphScreen, /<GraphMap[\s\S]*<StructuredGraphView/);
+  assert.match(graphScreen, /selectedNodeId=\{selectedGraphNodeId\}/);
+  assert.match(graphScreen, /visualAvailable=\{visualGraphAvailable\}/);
+  assert.match(structured, /Nodes \(\{nodes\.length\}\)[\s\S]*<select/);
+  assert.match(structured, /Spatial position and color are not required/);
+});
+
+test("context preview distinguishes loading failure partial and authoritative empty states", () => {
+  const contextScreen = readSource("apps/desktop/src/screens/ContextScreen.tsx");
+  assert.match(contextScreen, /status === "refreshing" && !bundle/);
+  assert.match(contextScreen, /status === "failure"/);
+  assert.match(contextScreen, /status === "empty"/);
+  assert.match(contextScreen, /completeness\.kind === "partial"/);
+  assert.ok(
+    contextScreen.indexOf(") : bundle ? (") < contextScreen.indexOf('<Panel title="Bundle Summary">'),
+    "the bundle summary must remain inside the accepted-bundle branch"
+  );
+  assert.doesNotMatch(contextScreen, /fallback="No context bundle available\."/);
+});
+
+test("desktop feature code cannot reach raw RPC clients or carriers", () => {
+  const desktopRoot = path.join(repoRoot, "apps/desktop/src");
+  const carrierRoots = new Set([
+    path.normalize(path.join(desktopRoot, "app/composition/browser.ts")),
+    path.normalize(path.join(desktopRoot, "app/composition/tauri.ts")),
+    path.normalize(path.join(desktopRoot, "testing/fake-memory-transport.ts"))
+  ]);
+  const rawBoundary =
+    /\b(?:ZharwingMemoryClient|BrowserMemoryTransport|TauriMemoryTransport|MemoryTransport)\b|\b(?:globalThis\.)?fetch\s*\(|\b(?:this\.)?(?:client|memory|apiClient)\.call\s*\(/;
+
+  for (const file of sourceFiles(desktopRoot)) {
+    const source = readFileSync(file, "utf8");
+    if (!carrierRoots.has(path.normalize(file))) {
+      assert.doesNotMatch(
+        source,
+        rawBoundary,
+        `${path.relative(repoRoot, file)} bypasses the injected typed operation client`
+      );
+    }
+  }
+
+  for (const file of sourceFiles(path.join(desktopRoot, "stores"))) {
+    const source = readFileSync(file, "utf8");
+    for (const match of source.matchAll(/import[^;]+from "@zharwing\/memory-api-client";/g)) {
+      assert.match(
+        match[0],
+        /^import type \{ (?:MemoryClient|BrowserSessionLockReason) \} from "@zharwing\/memory-api-client";$/,
+        `${path.relative(repoRoot, file)} must depend only on the narrow MemoryClient port`
+      );
+    }
+    if (file.endsWith("-store.ts") && !file.endsWith(`${path.sep}root-store.ts`)) {
+      assert.doesNotMatch(
+        source,
+        /(?:root-store\.js|\bRootStore\b|Reflect\.get\([^)]*,\s*["']call["'])/,
+        `${path.relative(repoRoot, file)} must receive narrow scope/coordinator ports, never the root or a hidden raw call`
+      );
+    }
+  }
+
+  const rootStore = readSource("apps/desktop/src/stores/root-store.ts");
+  assert.doesNotMatch(rootStore, /readonly (?:client|scheduler):/);
+  assert.doesNotMatch(rootStore, /new \w+Store\(services\.memory,\s*this[,)]/);
+});
+
+test("StrictMode borrows one application runtime instead of constructing service graphs", () => {
+  const main = readSource("apps/desktop/src/main.tsx");
+  const provider = readSource("apps/desktop/src/stores/store-context.tsx");
+  const runtime = readSource("apps/desktop/src/app/composition/runtime.ts");
+  const rootStore = readSource("apps/desktop/src/stores/root-store.ts");
+  const semanticStore = readSource("apps/desktop/src/stores/semantic-store.ts");
+
+  assert.equal((main.match(/const runtime = await loadApplicationRuntime\(\);/g) || []).length, 1);
+  assert.ok(main.indexOf("const runtime = await loadApplicationRuntime()") < main.indexOf("<React.StrictMode>"));
+  assert.match(main, /if \(isTauri\(\)\)[\s\S]*await import\("\.\/app\/composition\/tauri\.js"\)/);
+  assert.match(main, /await import\("\.\/app\/composition\/browser\.js"\)/);
+  assert.match(main, /<StoreProvider runtime=\{runtime\}>/);
+  const pagehide = main.indexOf('"pagehide"');
+  assert.ok(pagehide >= 0 && main.indexOf("runtime.dispose()", pagehide) > pagehide);
+
+  assert.match(provider, /value=\{runtime\.store\}/);
+  assert.doesNotMatch(provider, /\b(?:useMemo|useState|useEffect|createAppRuntime|createBrowserRuntime|new RootStore)\b/);
+  assert.equal((runtime.match(/new RootStore\(/g) || []).length, 1);
+  assert.match(runtime, /if \(disposed\) return;/);
+  assert.match(rootStore, /if \(this\.disposed\) return;/);
+  assert.match(rootStore, /this\.semantic\.dispose\(\)/);
+  assert.match(semanticStore, /this\.scheduler\.setTimeout\(/);
+  assert.match(semanticStore, /this\.scheduler\.clearTimeout\(/);
+  assert.doesNotMatch(semanticStore, /this\.scheduler\.setInterval\(/);
+});
+
+test("Mermaid preview has an explicit offline support boundary", () => {
+  const preview = readSource("apps/desktop/src/components/markdown/MermaidDiagramPreview.tsx");
+  const viteConfig = readSource("apps/desktop/vite.config.ts");
+  const selectiveBuild = readSource("apps/desktop/build/selective-mermaid.ts");
+
+  assert.match(preview, /SUPPORTED_MERMAID_DIAGRAMS/);
+  assert.match(preview, /if \(!isSupported\)/);
+  assert.match(preview, /className="mermaid-error" role="alert"/);
+  assert.match(preview, /This source remains available in Markdown mode\./);
+  assert.match(viteConfig, /selectiveMermaidDiagrams\(\)/);
+  assert.match(selectiveBuild, /classDetector_V2_default/);
+  assert.match(selectiveBuild, /stateDetector_V2_default/);
+  assert.match(selectiveBuild, /DAGRE_LAYOUT_REGISTRATION/);
+  assert.doesNotMatch(selectiveBuild, /architectureDetector_default,/);
+  assert.doesNotMatch(selectiveBuild, /^\s*pie,\s*$/m);
+  assert.doesNotMatch(selectiveBuild, /^\s*detector_default2,\s*$/m);
+  assert.doesNotMatch(selectiveBuild, /cynefin\s*\n\s*\);/);
+  assert.match(selectiveBuild, /no longer matches the selective-loader boundary/);
+});
+
+test("application runtime creates and disposes one owned root graph", async () => {
+  const fakeRootStore = `
+    export class RootStore {
+      constructor(services) {
+        this.onDispose = () => { services.__lifecycle.rootDisposed += 1; };
+        services.__lifecycle.rootCreated += 1;
+      }
+      dispose() {
+        this.onDispose();
+      }
+    }
+  `;
+  const runtimeModule = await importTypeScriptModuleWithMocks("apps/desktop/src/app/composition/runtime.ts", {
+    "../../stores/root-store.js": fakeRootStore
+  });
+  const lifecycle = { rootCreated: 0, rootDisposed: 0 };
+  const events = [];
+  const scheduler = Object.freeze({
+    setTimeout: () => 1,
+    clearTimeout: () => undefined,
+    setInterval: () => 1,
+    clearInterval: () => undefined
+  });
+  const services = {
+    __lifecycle: lifecycle,
+    memory: {},
+    clock: { now: () => new Date(0) },
+    ids: { create: () => "test-id" },
+    preferences: { get: () => undefined, set: () => undefined },
+    diagnostics: { record: (event) => events.push(event.name) },
+    scheduler
+  };
+
+  const runtime = runtimeModule.createAppRuntime(services);
+  assert.equal(lifecycle.rootCreated, 1);
+  assert.equal(runtime.services, services);
+  assert.equal("scheduler" in runtime.store, false);
+  assert.equal("client" in runtime.store, false);
+  assert.equal(runtime.disposed, false);
+
+  runtime.dispose();
+  runtime.dispose();
+  assert.equal(runtime.disposed, true);
+  assert.equal(lifecycle.rootDisposed, 1);
+  assert.deepEqual(events, ["runtime.created", "runtime.disposed"]);
+});
+
+test("project scope generations synchronously abort and hide obsolete projects", async () => {
+  const scopeModule = await importTypeScriptModuleWithMocks(
+    "apps/desktop/src/application/project-scope/project-scope-coordinator.ts",
+    {
+      mobx: `export function makeAutoObservable() {}`
+    }
+  );
+  const scope = new scopeModule.ProjectScopeCoordinator();
+  const resets = [];
+  scope.onScopeReset((next, previous) => {
+    resets.push([next?.projectId, previous?.projectId]);
+  });
+
+  const firstA = scope.activate("project-a", "A:/first");
+  assert.equal(scope.currentProjectId(), "project-a");
+  assert.equal(scope.captureScope(), firstA);
+
+  const reusedA = scope.activate("project-a", "A:/updated");
+  assert.equal(reusedA, firstA);
+  assert.equal(reusedA.generation, 1);
+  assert.equal(scope.currentProjectWorkingDirectory(), "A:/updated");
+
+  const projectB = scope.activate("project-b", "B:/work");
+  assert.equal(firstA.signal.aborted, true);
+  assert.equal(scope.isScopeCurrent(firstA), false);
+  assert.equal(scope.isScopeCurrent(projectB), true);
+
+  const secondA = scope.activate("project-a", "A:/second");
+  assert.equal(projectB.signal.aborted, true);
+  assert.notEqual(secondA, firstA);
+  assert.equal(secondA.generation, 3);
+  assert.deepEqual(resets, [
+    ["project-a", undefined],
+    ["project-b", "project-a"],
+    ["project-a", "project-b"]
+  ]);
+
+  scope.clear();
+  assert.equal(secondA.signal.aborted, true);
+  assert.equal(scope.captureScope(), undefined);
+  assert.equal(scope.currentProjectId(), "");
+});
+
+test("resource state rejects stale success failure and finally-shaped completion", async () => {
+  const resourceModule = await importTypeScriptModuleWithMocks(
+    "apps/desktop/src/application/resources/resource-state.ts",
+    {
+      mobx: `export function makeAutoObservable() {}`,
+      "@zharwing/memory-core": `
+        export function createPublicError() {
+          return { code: "INTERNAL", category: "internal", messageId: "operation.internal", retry: "never" };
+        }
+        export function isPublicError(value) {
+          return Boolean(value && typeof value === "object" && typeof value.messageId === "string");
+        }
+      `
+    }
+  );
+  let nextId = 0;
+  let current;
+  const scope = {
+    captureScope: () => current,
+    isScopeCurrent: (candidate) => candidate === current && !candidate.signal.aborted
+  };
+  const runtime = {
+    createId: () => `request-${++nextId}`,
+    now: () => `time-${nextId}`
+  };
+  const makeToken = (projectId, generation) => {
+    const controller = new AbortController();
+    return { token: { projectId, generation, signal: controller.signal }, controller };
+  };
+
+  const a = makeToken("a", 1);
+  current = a.token;
+  const slot = new resourceModule.ResourceSlot(scope, runtime);
+  const attemptA = slot.begin();
+  assert.equal(slot.state.status, "loading");
+
+  const b = makeToken("b", 2);
+  a.controller.abort();
+  current = b.token;
+  slot.reset();
+  const attemptB1 = slot.begin();
+  const attemptB2 = slot.begin();
+  assert.equal(slot.begin(a.token), undefined);
+  assert.equal(slot.state.status, "loading");
+  assert.equal(slot.succeed(attemptA, ["old-a"]), false);
+  assert.equal(slot.fail(attemptB1, new Error("old failure")), false);
+  assert.equal(slot.cancel(attemptB1), false);
+  assert.equal(slot.state.status, "loading");
+  assert.equal(slot.succeed(attemptB2, [], { kind: "partial" }), true);
+  assert.equal(slot.state.status, "success");
+  assert.deepEqual(slot.data, []);
+  assert.equal(slot.completeness.kind, "partial");
+
+  const completeAttempt = slot.begin();
+  assert.equal(slot.state.status, "refreshing");
+  assert.equal(slot.succeed(completeAttempt, [], resourceModule.complete), true);
+  assert.equal(slot.state.status, "empty");
+
+  const failureAttempt = slot.begin();
+  assert.equal(slot.fail(failureAttempt, new Error("private detail")), true);
+  assert.equal(slot.state.status, "failure");
+  assert.deepEqual(slot.data, []);
+  assert.equal(slot.error.messageId, "operation.internal");
+  assert.equal(JSON.stringify(slot.state).includes("private detail"), false);
+});
+
+test("operation identities stay independent and stale scoped effects cannot settle", async () => {
+  const operationModule = await importTypeScriptModuleWithMocks(
+    "apps/desktop/src/application/operations/operation-state.ts",
+    {
+      mobx: `export function makeAutoObservable() {}`,
+      "@zharwing/memory-core": `
+        export function createPublicError() {
+          return { code: "INTERNAL", category: "internal", messageId: "operation.internal", retry: "never" };
+        }
+      `,
+      "../resources/resource-state.js": `
+        export function toPublicError(value) {
+          return value && value.publicError
+            ? value.publicError
+            : { code: "INTERNAL", category: "internal", messageId: "operation.internal", retry: "never" };
+        }
+      `
+    }
+  );
+  let nextId = 0;
+  const ledger = new operationModule.OperationLedger({
+    createId: (prefix) => `${prefix}:${++nextId}`,
+    now: () => "unused"
+  });
+  const controller = new AbortController();
+  const scope = { projectId: "a", generation: 1, signal: controller.signal };
+  const first = ledger.begin("document:update", scope);
+  const second = ledger.begin("document:update", scope);
+  assert.equal(ledger.isBusy("document:update"), true);
+  assert.equal(ledger.succeed(first, { id: "one" }), true);
+  assert.equal(ledger.isBusy("document:update"), true);
+  assert.equal(ledger.succeed(second, { id: "two" }), true);
+  assert.equal(ledger.isBusy("document:update"), false);
+  assert.deepEqual(ledger.state("document:update").result, { id: "two" });
+
+  const older = ledger.begin("document:move", scope);
+  const newer = ledger.begin("document:move", scope);
+  assert.equal(ledger.succeed(newer, { id: "newer" }), true);
+  assert.deepEqual(ledger.state("document:move").result, { id: "newer" });
+  assert.equal(ledger.isBusy("document:move"), true);
+  assert.equal(ledger.succeed(older, { id: "older" }), true);
+  assert.deepEqual(ledger.state("document:move").result, { id: "newer" });
+
+  const uncertain = ledger.begin("document:publish", scope);
+  assert.equal(ledger.fail(uncertain, {
+    publicError: {
+      code: "outcome_unknown",
+      category: "transport",
+      messageId: "operation.outcome_unknown",
+      retry: "after-reconcile"
+    }
+  }), true);
+  assert.equal(ledger.state("document:publish").status, "reconciling");
+  assert.equal(ledger.isBusy("document:publish"), false);
+  assert.equal(ledger.error.messageId, "operation.outcome_unknown");
+  assert.equal(ledger.abandon(uncertain), false);
+
+  const stale = ledger.begin("document:delete", scope);
+  controller.abort();
+  assert.equal(ledger.fail(stale, new Error("late failure")), false);
+  assert.equal(ledger.isBusy("document:delete"), false);
+  assert.equal(ledger.state("document:delete").status, "idle");
+});
+
+test("DocsStore accepts only the latest request across A-B-C and A-B-A", async () => {
+  const modules = await importStoreModules("apps/desktop/src/stores/docs-store.ts");
+  const scope = new modules.ProjectScopeCoordinator();
+  let nextId = 0;
+  const runtime = { createId: (prefix) => `${prefix}:${++nextId}`, now: () => "2026-08-12T00:00:00.000Z" };
+  const requests = [];
+  const client = {
+    operation: (name, input, options) => {
+      assert.equal(name, "memory.list_docs");
+      const request = deferredPromise();
+      requests.push({ projectId: input.projectId, signal: options.signal, request });
+      return request.promise;
+    }
+  };
+  const coordinator = {
+    refreshProjectSummary: async () => undefined,
+    refreshGraph: async () => undefined,
+    refreshTrash: async () => undefined
+  };
+  const store = new modules.DocsStore(client, scope, coordinator, runtime);
+
+  const a1 = scope.activate("a");
+  const loadA1 = store.load(a1);
+  const b = scope.activate("b");
+  store.clear();
+  const loadB = store.load(b);
+  const a2 = scope.activate("a");
+  store.clear();
+  const loadA2Old = store.load(a2);
+  const loadA2New = store.load(a2);
+  assert.equal(requests[0].signal.aborted, true);
+  assert.equal(requests[1].signal.aborted, true);
+
+  requests[0].request.resolve([{ id: "a-old", projectId: "a" }]);
+  requests[1].request.reject(new Error("private stale b failure"));
+  requests[2].request.resolve([{ id: "a-overlap-old", projectId: "a" }]);
+  await settleMicrotasks();
+  assert.equal(store.listState.status, "loading");
+  requests[3].request.resolve([{ id: "a-current", projectId: "a" }]);
+  await Promise.all([loadA1, loadB, loadA2Old, loadA2New]);
+  assert.deepEqual(store.list.map((doc) => doc.id), ["a-current"]);
+  assert.equal(store.error, "");
+});
+
+test("SessionStore commits only the latest request across A-B-C A-B-A and same-generation overlap", async () => {
+  const modules = await importStoreModules("apps/desktop/src/stores/session-store.ts");
+  const scope = new modules.ProjectScopeCoordinator();
+  let nextId = 0;
+  const runtime = {
+    createId: (prefix) => `${prefix}:${++nextId}`,
+    now: () => "2026-08-12T00:00:00.000Z"
+  };
+  const requests = [];
+  const client = {
+    operation: (name, input, options) => {
+      assert.equal(name, "memory.list_project_sessions");
+      const request = deferredPromise();
+      requests.push({ projectId: input.projectId, signal: options.signal, request });
+      return request.promise;
+    }
+  };
+  const coordinator = {
+    refreshProjectSummary: async () => undefined,
+    refreshGraph: async () => undefined,
+    refreshTrash: async () => undefined
+  };
+  const store = new modules.SessionStore(client, scope, coordinator, runtime);
+  scope.onScopeReset(() => store.clear());
+  const row = (id, projectId) => ({
+    id,
+    projectId,
+    status: "closed",
+    taskTitle: id,
+    started: "2026-08-12T00:00:00.000Z",
+    updated: "2026-08-12T00:00:00.000Z"
+  });
+
+  // A -> B -> C: neither an old success nor an old failure may disturb C.
+  const a1 = scope.activate("a");
+  const loadA1 = store.load(20, a1);
+  const b1 = scope.activate("b");
+  const loadB1 = store.load(20, b1);
+  const c = scope.activate("c");
+  const loadC = store.load(20, c);
+  assert.equal(requests[0].signal.aborted, true);
+  assert.equal(requests[1].signal.aborted, true);
+
+  requests[0].request.resolve([row("a-stale-success", "a")]);
+  requests[1].request.reject(new Error("private stale b failure"));
+  await settleMicrotasks();
+  assert.equal(store.listState.status, "loading");
+  assert.deepEqual(store.list, []);
+  assert.equal(store.loading, true);
+  assert.equal(store.error, "");
+
+  requests[2].request.resolve([row("c-current", "c")]);
+  await Promise.all([loadA1, loadB1, loadC]);
+  assert.deepEqual(store.list.map((session) => session.id), ["c-current"]);
+  assert.equal(store.loading, false);
+  assert.equal(store.error, "");
+
+  // A -> B -> A, then two requests in the second A generation: only the
+  // newest invocation may settle the resource or clear its loading state.
+  const a2 = scope.activate("a");
+  const loadA2 = store.load(20, a2);
+  const b2 = scope.activate("b");
+  const loadB2 = store.load(20, b2);
+  const a3 = scope.activate("a");
+  const loadA3Old = store.load(20, a3);
+  const loadA3New = store.load(20, a3);
+  assert.equal(requests[3].signal.aborted, true);
+  assert.equal(requests[4].signal.aborted, true);
+
+  requests[3].request.resolve([row("a-old-generation", "a")]);
+  requests[4].request.reject(new Error("private stale b2 failure"));
+  requests[5].request.resolve([row("a-overlap-old", "a")]);
+  await settleMicrotasks();
+  assert.equal(store.listState.status, "loading");
+  assert.deepEqual(store.list, []);
+  assert.equal(store.loading, true);
+  assert.equal(store.error, "");
+
+  requests[6].request.resolve([row("a-latest", "a")]);
+  await Promise.all([loadA2, loadB2, loadA3Old, loadA3New]);
+  assert.deepEqual(store.list.map((session) => session.id), ["a-latest"]);
+  assert.equal(store.listState.status, "success");
+  assert.equal(store.loading, false);
+  assert.equal(store.error, "");
+});
+
+test("SessionStore reports bounded completeness at 20-50-100-200", async () => {
+  const modules = await importStoreModules("apps/desktop/src/stores/session-store.ts");
+  const scope = new modules.ProjectScopeCoordinator();
+  const token = scope.activate("project-1");
+  let nextId = 0;
+  const runtime = { createId: (prefix) => `${prefix}:${++nextId}`, now: () => "2026-08-12T00:00:00.000Z" };
+  const client = {
+    operation: async (name, input) => {
+      assert.equal(name, "memory.list_project_sessions");
+      return Array.from({ length: input.limit }, (_, index) => ({
+        id: `session-${input.limit}-${index}`,
+        projectId: input.projectId,
+        status: "closed",
+        taskTitle: `Session ${index}`,
+        started: "2026-08-12T00:00:00.000Z",
+        updated: "2026-08-12T00:00:00.000Z"
+      }));
+    }
+  };
+  const coordinator = {
+    refreshProjectSummary: async () => undefined,
+    refreshGraph: async () => undefined,
+    refreshTrash: async () => undefined
+  };
+  const store = new modules.SessionStore(client, scope, coordinator, runtime);
+  for (const limit of [20, 50, 100, 200]) {
+    await store.load(limit, token);
+    assert.equal(store.requestedLimit, limit);
+    assert.equal(store.listCompleteness.kind, "partial");
+  }
+  assert.equal(store.canLoadMore, false);
+  client.operation = async (_name, input) => Array.from({ length: 19 }, (_, index) => ({
+    id: `short-${index}`,
+    projectId: input.projectId,
+    status: "closed",
+    taskTitle: `Session ${index}`,
+    started: "2026-08-12T00:00:00.000Z",
+    updated: "2026-08-12T00:00:00.000Z"
+  }));
+  await store.load(20, token);
+  assert.equal(store.listCompleteness.kind, "complete");
+});
+
+test("semantic polling is completion-scheduled, focus-aware, and disposal is idempotent", async () => {
+  const semanticModule = await importTypeScriptModuleWithMocks("apps/desktop/src/stores/semantic-store.ts", {
+    mobx: `
+      export function makeAutoObservable() {}
+      export function runInAction(work) { return work(); }
+    `,
+    "@zharwing/memory-core": `
+      export function parseOperationInput(_operation, input) { return input; }
+      export function createPublicError() {
+        return { code: "INTERNAL", category: "internal", messageId: "operation.internal", retry: "never" };
+      }
+      export function isPublicError(value) {
+        return Boolean(value && typeof value === "object" && typeof value.messageId === "string");
+      }
+    `,
+      "./graph-store.js": `
+        export function graphRelationshipParams() { return {}; }
+      `,
+      "../application/resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts"),
+      "../application/operations/operation-state.js": readSource("apps/desktop/src/application/operations/operation-state.ts"),
+      "../resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts")
+  });
+  let timeoutClears = 0;
+  const scheduledDelays = [];
+  const pendingTimers = new Map();
+  let nextTimer = 0;
+  const controller = new AbortController();
+  const token = { projectId: "project-1", generation: 1, signal: controller.signal };
+  const scope = {
+    currentProjectId: () => token.projectId,
+    currentProjectWorkingDirectory: () => undefined,
+    captureScope: () => token,
+    isScopeCurrent: (candidate) => candidate === token && !candidate.signal.aborted,
+    onScopeReset: () => () => undefined
+  };
+  const coordinator = {
+    graphRelationshipMode: () => "deterministic",
+    replaceInboxItems: () => undefined,
+    replaceGraph: () => undefined,
+    refreshInbox: async () => undefined,
+    refreshProjectSummary: async () => undefined,
+    refreshGraph: async () => undefined
+  };
+  const scheduler = {
+    setTimeout: (callback, delay) => {
+      scheduledDelays.push(delay);
+      const handle = ++nextTimer;
+      pendingTimers.set(handle, { callback, delay });
+      return handle;
+    },
+    clearTimeout: (handle) => {
+      if (pendingTimers.delete(handle)) timeoutClears += 1;
+    },
+    setInterval: () => { throw new Error("polling must not use setInterval"); },
+    clearInterval: () => { throw new Error("polling must not use clearInterval"); }
+  };
+  let nextId = 0;
+  const runtime = {
+    createId: (prefix) => `${prefix}:${++nextId}`,
+    now: () => "2026-08-12T00:00:00.000Z"
+  };
+  const pollRequests = [];
+  let analyzeRequest;
+  const activeRun = {
+    id: "run-1",
+    projectId: token.projectId,
+    status: "running",
+    mode: "hybrid",
+    scope: { kind: "project" },
+    counts: {},
+    created: "2026-08-12T00:00:00.000Z",
+    updated: "2026-08-12T00:00:00.000Z"
+  };
+  const client = {
+    operation: (name) => {
+      if (name === "memory.analyze_semantic_graph") {
+        analyzeRequest = deferredPromise();
+        return analyzeRequest.promise;
+      }
+      if (name === "memory.get_semantic_graph_status" || name === "memory.list_semantic_graph_runs") {
+        const request = deferredPromise();
+        pollRequests.push({ name, request });
+        return request.promise;
+      }
+      if (name === "memory.list_semantic_edges" || name === "memory.list_inbox") return Promise.resolve([]);
+      if (name === "memory.get_graph") return Promise.resolve({ projectId: token.projectId, nodes: [], edges: [] });
+      throw new Error(`unexpected semantic operation: ${name}`);
+    }
+  };
+  const store = new semanticModule.SemanticStore(client, scope, coordinator, scheduler, runtime);
+
+  const analysis = store.analyze({ mode: "hybrid" });
+  assert.deepEqual(scheduledDelays, [0]);
+  assert.equal(pendingTimers.size, 1);
+  const firstTimer = [...pendingTimers.entries()][0];
+  pendingTimers.delete(firstTimer[0]);
+  firstTimer[1].callback();
+  await Promise.resolve();
+  assert.equal(pollRequests.length, 2);
+  assert.equal(pendingTimers.size, 0, "no next timer exists while the poll is in flight");
+
+  pollRequests.find((entry) => entry.name === "memory.get_semantic_graph_status").request.resolve({
+    running: true,
+    runCounts: { latest: activeRun },
+    edgeCounts: {}
+  });
+  pollRequests.find((entry) => entry.name === "memory.list_semantic_graph_runs").request.resolve([activeRun]);
+  await settleMicrotasks();
+  assert.equal(pendingTimers.size, 1);
+  assert.equal(scheduledDelays.at(-1), 2_000);
+
+  store.setForeground(false);
+  assert.equal(pendingTimers.size, 0);
+  assert.equal(timeoutClears, 1);
+  store.setForeground(true);
+  assert.equal(scheduledDelays.at(-1), 0);
+  assert.equal(pendingTimers.size, 1);
+
+  async function failScheduledPoll(expectedNextDelay) {
+    const requestStart = pollRequests.length;
+    const timer = [...pendingTimers.entries()][0];
+    assert.ok(timer, "a retry timer is scheduled before the next poll");
+    pendingTimers.delete(timer[0]);
+    timer[1].callback();
+    await Promise.resolve();
+    const requests = pollRequests.slice(requestStart);
+    assert.equal(requests.length, 2, "each retry performs one status and one runs request");
+    for (const entry of requests) entry.request.reject(new Error("temporary polling failure"));
+    await settleMicrotasks();
+    assert.equal(pendingTimers.size, 1, "a failed poll schedules exactly one completion-delayed retry");
+    assert.equal(scheduledDelays.at(-1), expectedNextDelay);
+  }
+
+  for (const delay of [2_000, 4_000, 8_000, 16_000, 30_000, 30_000]) {
+    await failScheduledPoll(delay);
+  }
+
+  store.dispose();
+  store.dispose();
+  assert.equal(store.pollHandle, undefined);
+  assert.equal(pendingTimers.size, 0);
+  controller.abort();
+  analyzeRequest.reject(new Error("cancelled"));
+  await analysis;
+});
+
+function deferredPromise() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+async function settleMicrotasks() {
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
+}
 
 async function importTypeScriptModule(relativePath) {
   const source = readFileSync(path.join(repoRoot, relativePath), "utf8");
@@ -65,10 +802,97 @@ async function importTypeScriptModule(relativePath) {
     },
     fileName: relativePath
   }).outputText;
-  // data: URLs cannot resolve bare specifiers; point workspace imports at the
-  // built package output (pnpm test always runs tsc -b first).
-  const resolved = output.replace(/from\s+"@zharwing\/memory-([a-z-]+)"/g, (_match, pkg) =>
-    `from "${pathToFileURL(path.join(repoRoot, "packages", pkg, "dist/index.js")).href}"`
-  );
+  // data: URLs cannot resolve bare specifiers. A staging harness may point to
+  // an already-built checkout through the explicit project-neutral override.
+  const resolved = output.replace(/from\s+"@zharwing\/memory-([a-z-]+)"/g, (_match, pkg) => {
+    const compiledEntry = path.join(compiledRoot, "packages", pkg, "dist/index.js");
+    assert.equal(existsSync(compiledEntry), true, `missing compiled package entry: ${compiledEntry}`);
+    return `from "${pathToFileURL(compiledEntry).href}"`;
+  });
   return import(`data:text/javascript;base64,${Buffer.from(resolved).toString("base64")}`);
+}
+
+async function importTypeScriptModuleWithMocks(relativePath, mocks) {
+  let output = transpileTypeScript(relativePath);
+  const compiledMocks = new Map();
+  for (const specifier of Object.keys(mocks)) compileMock(specifier);
+  for (const [specifier, mockUrl] of compiledMocks) {
+    output = output.replaceAll(`from "${specifier}"`, `from "${mockUrl}"`);
+  }
+  return import(dataModuleUrl(output));
+
+  function compileMock(specifier) {
+    const existing = compiledMocks.get(specifier);
+    if (existing) return existing;
+    let mockOutput = transpileTypeScriptSource(mocks[specifier], `mock:${specifier}.ts`);
+    for (const dependency of Object.keys(mocks)) {
+      if (dependency === specifier) continue;
+      if (mockOutput.includes(`from "${dependency}"`)) {
+        mockOutput = mockOutput.replaceAll(`from "${dependency}"`, `from "${compileMock(dependency)}"`);
+      }
+    }
+    const url = dataModuleUrl(mockOutput);
+    compiledMocks.set(specifier, url);
+    return url;
+  }
+}
+
+async function importStoreModules(storePath) {
+  const mobx = `export function makeAutoObservable() {}`;
+  const core = `
+    export function createPublicError() {
+      return { code: "internal", category: "internal", messageId: "operation.internal", retry: "never" };
+    }
+    export function isPublicError(value) {
+      return Boolean(value && typeof value === "object" && typeof value.messageId === "string");
+    }
+  `;
+  const mocks = {
+    mobx,
+    "@zharwing/memory-core": core,
+    "../application/operations/destructive-operation.js": `
+      export async function executeConfirmedDestructiveOperation(client, projectId, operation, input, options) {
+        return client.operation(operation, input, options);
+      }
+    `,
+    "../application/resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts"),
+    "../application/operations/operation-state.js": readSource("apps/desktop/src/application/operations/operation-state.ts"),
+    "../resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts")
+  };
+  const [storeModule, scopeModule] = await Promise.all([
+    importTypeScriptModuleWithMocks(storePath, mocks),
+    importTypeScriptModuleWithMocks("apps/desktop/src/application/project-scope/project-scope-coordinator.ts", { mobx })
+  ]);
+  return { ...storeModule, ...scopeModule };
+}
+
+function transpileTypeScript(relativePath) {
+  const source = readSource(relativePath);
+  return transpileTypeScriptSource(source, relativePath);
+}
+
+function transpileTypeScriptSource(source, fileName) {
+  return ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022
+    },
+    fileName
+  }).outputText;
+}
+
+function dataModuleUrl(source) {
+  return `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
+}
+
+function readSource(relativePath) {
+  return readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+function sourceFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(fullPath);
+    return /\.[cm]?[jt]sx?$/.test(entry.name) ? [fullPath] : [];
+  });
 }

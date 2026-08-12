@@ -198,31 +198,34 @@
           </div>
 
           <div class="tour-shell reveal">
-            <div class="tour-tabs" role="tablist" aria-label="Product screenshots">
-              <button role="tab" aria-selected="true" aria-controls="tour-image" data-tour="graph" type="button">
-                <strong>Context graph</strong><span>Explore durable relationships</span>
-              </button>
-              <button role="tab" aria-selected="false" aria-controls="tour-image" data-tour="docs" type="button">
-                <strong>Docs library</strong><span>Organize reusable knowledge</span>
-              </button>
-              <button role="tab" aria-selected="false" aria-controls="tour-image" data-tour="sessions" type="button">
-                <strong>Session history</strong><span>Resume work with evidence</span>
-              </button>
-              <button role="tab" aria-selected="false" aria-controls="tour-image" data-tour="architecture" type="button">
-                <strong>Rendered diagrams</strong><span>Keep architecture visible</span>
-              </button>
-            </div>
+            <label class="tour-selector">
+              <span>Choose a product screenshot</span>
+              <select data-tour-select>
+                <option value="graph">Context graph</option>
+                <option value="docs">Docs library</option>
+                <option value="sessions">Session history</option>
+                <option value="architecture">Rendered diagrams</option>
+              </select>
+            </label>
 
-            <figure class="tour-stage" id="tour-image" aria-live="polite">
-              <img
-                src="assets/context-graph-v2.jpg"
-                alt="Zharwing Memory context graph focused on the fictional EchoDesk transcription service"
-                width="1280"
-                height="720"
-                data-tour-image
-              />
-              <figcaption data-tour-caption>Focus a graph on one service to inspect the decisions, specifications, diagrams, and repository evidence connected to it.</figcaption>
-            </figure>
+            <div class="tour-gallery" aria-live="polite">
+              <figure class="tour-stage" id="tour-graph" data-tour-panel="graph" data-active="true">
+                <img src="assets/context-graph-v2.jpg" alt="Zharwing Memory context graph focused on the fictional EchoDesk transcription service" width="1280" height="720" />
+                <figcaption>Focus a graph on one service to inspect the decisions, specifications, diagrams, and repository evidence connected to it.</figcaption>
+              </figure>
+              <figure class="tour-stage" id="tour-docs" data-tour-panel="docs">
+                <img src="assets/docs-library.png" alt="Zharwing Memory documentation library for the fictional EchoDesk project" width="1280" height="720" loading="lazy" />
+                <figcaption>Keep architecture decisions, technical specifications, runbooks, user flows, and privacy rules in one searchable project library.</figcaption>
+              </figure>
+              <figure class="tour-stage" id="tour-sessions" data-tour-panel="sessions">
+                <img src="assets/sessions.png" alt="Zharwing Memory session history for the fictional EchoDesk project" width="1280" height="720" loading="lazy" />
+                <figcaption>Review active and completed work sessions with agent, branch, status, goals, checkpoints, and concrete handoff information.</figcaption>
+              </figure>
+              <figure class="tour-stage" id="tour-architecture" data-tour-panel="architecture">
+                <img src="assets/architecture.png" alt="A rendered architecture diagram for the fictional EchoDesk project inside Zharwing Memory" width="1280" height="720" loading="lazy" />
+                <figcaption>Store Mermaid diagrams as Markdown and render them inside the same project memory used by agents and humans.</figcaption>
+              </figure>
+            </div>
           </div>
         </div>
       </section>
@@ -278,13 +281,13 @@ git clone https://github.com/zharwing/memory.git
 cd memory
 corepack pnpm install
 
-<span class="code-comment"># Create local configuration</span>
-copy .env.example .env
-
-<span class="code-comment"># In .env, choose a private store and keep the two auth tokens identical</span>
+<span class="code-comment"># Create a private, untracked .env with these values</span>
+<span class="code-comment"># Choose a private store and the explicit loopback preview profile</span>
 <span class="code-comment">#   ZHARWING_MEMORY_ROOT=&lt;absolute-private-store-path&gt;</span>
-<span class="code-comment">#   ZHARWING_MEMORY_AUTH_TOKEN=&lt;local-random-token&gt;</span>
-<span class="code-comment">#   VITE_ZHARWING_MEMORY_AUTH_TOKEN=&lt;same-local-random-token&gt;</span>
+<span class="code-comment">#   ZHARWING_MEMORY_PROFILE=personal-preview</span>
+<span class="code-comment">#   ZHARWING_MEMORY_AUTH_MODE=none</span>
+<span class="code-comment">#   ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841</span>
+<span class="code-comment">#   ZHARWING_PUBLIC_PROFILE=personal-preview</span>
 
 <span class="code-comment"># Terminal 1 - keep the local daemon running</span>
 corepack pnpm dev:daemon
@@ -313,7 +316,7 @@ http://localhost:5174/</code></pre>
           <article class="feature-card">
             <span class="feature-number">NATIVE DESKTOP</span>
             <h3>The same UI with OS integration</h3>
-            <p>The Tauri window renders the same React application, starts or reuses the daemon from source, and adds native folder Browse buttons.</p>
+            <p>The Tauri window renders the same React application. Its Rust host starts and owns a hardened local daemon, keeps desktop authority outside the webview, and adds native folder Browse buttons.</p>
           </article>
           <article class="feature-card">
             <span class="feature-number">PUBLIC WEBSITE</span>
@@ -425,7 +428,7 @@ http://localhost:5174/</code></pre>
           <div class="section-heading reveal"><span class="kicker">Questions</span><h2>Before you try it.</h2></div>
           <div class="faq-list reveal reveal-delay-1">
             <details open><summary>Is Zharwing Memory an AI coding agent?</summary><p>No. Your coding agent performs the engineering work. Memory provides durable project context, session history, and human controls.</p></details>
-            <details><summary>Does Zharwing Memory have a Web UI?</summary><p>Yes. Run the daemon and <code>corepack pnpm dev:web</code>, then open <code>http://localhost:5174/</code>. It is the full local React interface used by the desktop app. Browser mode uses typed paths instead of native folder pickers.</p></details>
+            <details><summary>Does Zharwing Memory have a Web UI?</summary><p>Yes. For the explicit loopback compatibility preview, select <code>personal-preview</code> with <code>authMode=none</code> for the daemon and public profile, run the daemon and <code>corepack pnpm dev:web</code>, then open <code>http://localhost:5174/</code>. Authenticated and hardened browser use requires a trusted one-shot bootstrap; no daemon token belongs in browser code. Browser mode uses typed paths instead of native folder pickers.</p></details>
             <details><summary>Does my project data go to this website?</summary><p>No. This is documentation only. Memory runs locally and uses a private store path chosen on your machine.</p></details>
             <details><summary>Do I need a local language model?</summary><p>No. The core workflow is deterministic. A local OpenAI-compatible provider is optional for assistant summaries and semantic relationship proposals.</p></details>
             <details><summary>Can one Memory project link several repositories?</summary><p>Yes. A product can link multiple repository roots while preserving one project-scoped memory record.</p></details>

@@ -1,20 +1,39 @@
-import { ProjectRegistry } from "@zharwing/memory-store";
+import crypto from "node:crypto";
+import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
+import {
+  ProjectRegistry,
+  projectGeneration,
+  type DurableDomainEffect
+} from "@zharwing/memory-store";
 import { AssistantService } from "./services/assistant-service.js";
 import { BackupService } from "./services/backup-service.js";
 import { ContextService } from "./services/context-service.js";
 import { DocumentService } from "./services/document-service.js";
+import { DestructiveIntentService } from "./services/destructive-intent-service.js";
 import { GraphService } from "./services/graph-service.js";
 import { ImportService } from "./services/import-service.js";
 import { InboxService } from "./services/inbox-service.js";
 import { ProjectService } from "./services/project-service.js";
+import { ProviderSecretService } from "./services/provider-secret-service.js";
 import { SearchService } from "./services/search-service.js";
 import { SemanticGraphService } from "./services/semantic-graph-service.js";
 import { SessionService } from "./services/session-service.js";
 import { TrashService } from "./services/trash-service.js";
 import { WorkstreamService } from "./services/workstream-service.js";
+import { SessionAuthorityStore } from "./services/session-visibility.js";
 
 export interface MemoryServiceOptions {
   memoryRoot: string;
+  authorityStateRoot?: string;
+  authorityKey?: Buffer;
+  providerSecretStateRoot?: string;
+  providerSecretKey?: Buffer;
+}
+
+interface AgentEffectContext {
+  readonly effect: DurableDomainEffect;
+  baseRevision?: string;
 }
 
 /**
@@ -37,18 +56,36 @@ export class MemoryService {
   private readonly backups: BackupService;
   private readonly trash: TrashService;
   private readonly assistant: AssistantService;
+  private readonly providerSecrets: ProviderSecretService;
+  private readonly destructiveIntents: DestructiveIntentService;
+  private readonly agentEffectContext = new AsyncLocalStorage<AgentEffectContext>();
 
   constructor(options: MemoryServiceOptions) {
     this.registry = new ProjectRegistry(options.memoryRoot);
-    this.projects = new ProjectService(this.registry);
+    const authorityNamespace = crypto.createHash("sha256")
+      .update("zharwing.memory-root.v1\0", "utf8")
+      .update(path.resolve(options.memoryRoot), "utf8")
+      .digest("hex");
+    const sessionAuthority = new SessionAuthorityStore({
+      stateRoot: options.authorityStateRoot,
+      key: options.authorityKey,
+      namespace: authorityNamespace
+    });
+    this.providerSecrets = new ProviderSecretService({
+      namespace: authorityNamespace,
+      stateRoot: options.providerSecretStateRoot,
+      key: options.providerSecretKey
+    });
+    this.destructiveIntents = new DestructiveIntentService();
+    this.projects = new ProjectService(this.registry, sessionAuthority);
     this.workstreams = new WorkstreamService(this.registry);
-    this.sessions = new SessionService(this.registry);
+    this.sessions = new SessionService(this.registry, sessionAuthority, this.providerSecrets);
     this.documents = new DocumentService(this.registry);
     this.imports = new ImportService(this.registry);
-    this.context = new ContextService(this.registry);
-    this.searchService = new SearchService(this.registry);
+    this.context = new ContextService(this.registry, sessionAuthority);
+    this.searchService = new SearchService(this.registry, sessionAuthority);
     this.graph = new GraphService(this.registry);
-    this.semanticGraph = new SemanticGraphService(this.registry);
+    this.semanticGraph = new SemanticGraphService(this.registry, this.providerSecrets);
     this.inbox = new InboxService(this.registry);
     this.backups = new BackupService(this.registry);
     this.trash = new TrashService(this.registry);
@@ -63,6 +100,16 @@ export class MemoryService {
 
   async getProject(projectId: string) {
     return this.projects.getProject(projectId);
+  }
+
+  async getProjectGeneration(projectId: string): Promise<string> {
+    const project = await this.registry.getProject(projectId);
+    if (!project) throw new Error("Project generation is unavailable.");
+    return projectGeneration(project);
+  }
+
+  withDomainEffect<T>(effect: DurableDomainEffect | undefined, task: () => Promise<T>): Promise<T> {
+    return effect ? this.agentEffectContext.run({ effect }, task) : task();
   }
 
   async detectProject(params: Parameters<ProjectService["detectProject"]>[0]) {
@@ -91,6 +138,53 @@ export class MemoryService {
 
   async updateAssistantPolicy(params: Parameters<ProjectService["updateAssistantPolicy"]>[0]) {
     return this.projects.updateAssistantPolicy(params);
+  }
+
+  getProviderSecretStatus(params: { projectId: string; providerKind: string }) {
+    return this.providerSecrets.status(params.projectId, params.providerKind);
+  }
+
+  setProviderSecret(params: { projectId: string; providerKind: string; secret: string }) {
+    return this.providerSecrets.set(params);
+  }
+
+  rotateProviderSecret(params: {
+    projectId: string;
+    providerKind: string;
+    secret: string;
+    expectedRevision: string;
+  }) {
+    return this.providerSecrets.set(params);
+  }
+
+  clearProviderSecret(params: {
+    projectId: string;
+    providerKind: string;
+    expectedRevision: string;
+  }) {
+    return this.providerSecrets.clear(params);
+  }
+
+  prepareDestructiveIntent(
+    params: { projectId: string; operation: string; input: Record<string, unknown> },
+    principal: Parameters<DestructiveIntentService["prepare"]>[1]
+  ) {
+    return this.destructiveIntents.prepare(params, principal);
+  }
+
+  commitDestructiveIntent(
+    params: { projectId: string; intentId: string; acknowledgement: string },
+    principal: Parameters<DestructiveIntentService["commit"]>[1],
+    execute: Parameters<DestructiveIntentService["commit"]>[2]
+  ) {
+    return this.destructiveIntents.commit(params, principal, execute);
+  }
+
+  cancelDestructiveIntent(
+    params: { projectId: string; intentId: string },
+    principal: Parameters<DestructiveIntentService["cancel"]>[1]
+  ) {
+    return this.destructiveIntents.cancel(params, principal);
   }
 
   async updateGraphRules(params: Parameters<ProjectService["updateGraphRules"]>[0]) {
@@ -161,6 +255,11 @@ export class MemoryService {
     return this.sessions.startSession(params);
   }
 
+  async startAgentSession(params: Parameters<SessionService["startAgentSession"]>[0]) {
+    const effect = this.agentEffectContext.getStore()?.effect;
+    return this.sessions.startAgentSession({ ...params, ...(effect ? { effect } : {}) });
+  }
+
   async startOrResumeSession(params: Parameters<SessionService["startOrResumeSession"]>[0]) {
     return this.sessions.startOrResumeSession(params);
   }
@@ -182,7 +281,27 @@ export class MemoryService {
   }
 
   async saveCheckpoint(params: Parameters<SessionService["saveCheckpoint"]>[0]) {
-    return this.sessions.saveCheckpoint(params);
+    const context = this.agentEffectContext.getStore();
+    return this.sessions.saveCheckpoint({
+      ...params,
+      ...(context?.effect ? { effect: context.effect } : {}),
+      ...(context?.baseRevision ? { effectBaseRevision: context.baseRevision } : {})
+    });
+  }
+
+  async classifyAgentWrittenSession(params: Parameters<SessionService["classifyAgentWrittenSession"]>[0]) {
+    const effect = this.agentEffectContext.getStore()?.effect;
+    return this.sessions.classifyAgentWrittenSession({ ...params, ...(effect ? { effect } : {}) });
+  }
+
+  async assertAgentOwnsSession(params: Parameters<SessionService["assertAgentOwnsSession"]>[0]) {
+    const context = this.agentEffectContext.getStore();
+    const guard = await this.sessions.assertAgentOwnsSession({
+      ...params,
+      ...(context?.effect ? { effect: context.effect } : {})
+    });
+    if (context) context.baseRevision = guard.baseRevision;
+    return guard;
   }
 
   async updateSessionGraphVisibility(params: Parameters<SessionService["updateSessionGraphVisibility"]>[0]) {
@@ -190,7 +309,12 @@ export class MemoryService {
   }
 
   async closeSession(params: Parameters<SessionService["closeSession"]>[0]) {
-    return this.sessions.closeSession(params);
+    const context = this.agentEffectContext.getStore();
+    return this.sessions.closeSession({
+      ...params,
+      ...(context?.effect ? { effect: context.effect } : {}),
+      ...(context?.baseRevision ? { effectBaseRevision: context.baseRevision } : {})
+    });
   }
 
   async closeStaleSessions(params: Parameters<SessionService["closeStaleSessions"]>[0]) {
@@ -247,8 +371,17 @@ export class MemoryService {
     return this.context.previewContextBundle(params);
   }
 
+  async previewAgentContextBundle(params: Parameters<ContextService["previewAgentContextBundle"]>[0]) {
+    return this.context.previewAgentContextBundle(params);
+  }
+
   async getContextBundle(params: Parameters<ContextService["getContextBundle"]>[0]) {
     return this.context.getContextBundle(params);
+  }
+
+  async getAgentContextBundle(params: Parameters<ContextService["getAgentContextBundle"]>[0]) {
+    const effect = this.agentEffectContext.getStore()?.effect;
+    return this.context.getAgentContextBundle({ ...params, ...(effect ? { effect } : {}) });
   }
 
   // Search
@@ -351,8 +484,8 @@ export class MemoryService {
 
   // Trash
 
-  async listTrash() {
-    return this.trash.listTrash();
+  async listTrash(params: Parameters<TrashService["listTrash"]>[0]) {
+    return this.trash.listTrash(params);
   }
 
   async restoreTrashItem(params: Parameters<TrashService["restoreTrashItem"]>[0]) {

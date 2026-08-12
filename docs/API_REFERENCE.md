@@ -7,22 +7,43 @@ automatically make it an MCP tool.
 
 ## Daemon
 
-Default endpoint:
+Default RPC endpoint:
 
 ```text
 POST http://127.0.0.1:37841/rpc
-Authorization: Bearer <auth-token>
 Content-Type: application/json
 ```
 
-The daemon uses token auth by default. The token comes from
-`ZHARWING_MEMORY_AUTH_TOKEN` when set; otherwise the daemon generates a random
-per-user token on first start and stores it in the OS user state directory
-(`%APPDATA%\zharwing-memory\daemon-token` on Windows, `$XDG_STATE_HOME` or
-`~/.local/state/zharwing-memory/daemon-token` on POSIX). Delete the file to
-rotate the token. Placeholder tokens copied from example configuration are for
-local development only and must never be exposed beyond the local machine or
-committed to a repo.
+The carrier determines the admission metadata:
+
+| Caller | Endpoint and authority |
+| --- | --- |
+| Browser | `/rpc` with exact Origin/Host, HttpOnly session cookie, `x-csrf-token`, correlation/version headers, and no `Authorization` header |
+| Native desktop | `/rpc` with a distinct native-host bearer issued through the one-shot OS exchange |
+| Administrator/CLI compatibility | `/rpc` with the administrator bearer; this is not valid browser or hardened-agent authority |
+| Agent | `/mcp` or `/agent-rpc` with a distinct project-bound agent bearer |
+
+Every operation is checked against the principal audience, allowed operation
+set, project binding, authority epoch, policy digest, expiry, rotation, and
+revocation claims. A recognized bearer never falls back to a less-specific
+compatibility path.
+
+### Browser Session Endpoints
+
+Browser JavaScript has no bearer input. Every request uses
+`credentials: include`.
+
+| Endpoint | Request | Result |
+| --- | --- | --- |
+| `POST /browser-session/bootstrap` | `{ "code": "<one-shot>" }` plus exact Origin/Host | Cookie plus `{ csrfToken, expiresAt, rotationId, projectId }` |
+| `POST /browser-session/preview` | `{}`; only explicit loopback `personal-preview + authMode=none` | Unbound compatibility browser session and the same public state |
+| `POST /browser-session/rotate` | `{}`, cookie, Origin/Host, CSRF | Atomically replaced cookie/CSRF state |
+| `POST /browser-session/project` | `{ "projectId": "<allowed-id>" }`, cookie, Origin/Host, CSRF | Rotated, project-bound session |
+| `POST /browser-session/revoke` | `{}`, cookie, Origin/Host, CSRF | `204` and expired cookie |
+
+Bootstrap codes are issued only through the trusted host composition hook, not
+an HTTP route. Codes are single-use, stored as digests, and bound to exact
+Origin/Host and grants. See [Browser Session Security](security/browser-session.md).
 
 Streamable HTTP MCP endpoint:
 
@@ -35,9 +56,12 @@ The HTTP `/mcp` endpoint and the stdio MCP adapter stay disabled until
 `ZHARWING_MEMORY_AGENT_SURFACE=enabled` is set in the daemon/adapter
 environment.
 
-For localhost-only personal use, set `ZHARWING_MEMORY_AUTH_MODE=none` to allow MCP
-clients to connect without a bearer token. The daemon refuses no-auth mode when
-bound to a non-loopback host.
+In `hardened-local`, the agent surface also requires the distinct
+`ZHARWING_MEMORY_AGENT_CREDENTIAL` and exact
+`ZHARWING_MEMORY_AGENT_PROJECT_ID`. The compatibility administrator token is
+not accepted as hardened agent authority. A loopback-only personal preview may
+explicitly set `ZHARWING_MEMORY_AUTH_MODE=none`; this compatibility path is
+refused outside loopback and under `hardened-local`.
 
 The stdio MCP entrypoint is:
 
@@ -77,13 +101,25 @@ Error shape:
 
 ```json
 {
+  "version": 1,
   "id": 1,
   "ok": false,
   "error": {
-    "message": "Project not found: my-app"
+    "code": "not_found",
+    "messageId": "operation.not_found",
+    "category": "validation",
+    "severity": "warning",
+    "retry": "never",
+    "recoveryActions": ["return", "refresh"],
+    "debugId": "bounded-correlation-id"
   }
 }
 ```
+
+Failures use a closed, sanitized public-error contract. They do not serialize
+exception messages, stacks, causes, paths, request bodies, credentials, or
+arbitrary metadata. Trusted UI code maps `messageId` to owned copy and may use
+the bounded `debugId` to correlate separately sanitized diagnostics.
 
 ## Daemon Methods
 
@@ -424,14 +460,18 @@ search/context pipeline.
 ## Security Notes
 
 - The daemon binds to localhost by default.
-- RPC requests require a bearer token unless `ZHARWING_MEMORY_AUTH_MODE=none` is used on
-  a loopback-only daemon.
-- HTTP MCP requests follow the same daemon auth mode.
-- There is no built-in default token. When `ZHARWING_MEMORY_AUTH_TOKEN` is
-  unset, the daemon generates a random per-user token and stores it with
-  restrictive permissions in the OS user state directory.
-- Placeholder tokens from example files are for local development only; never
-  reuse them on a reachable interface or commit a real token to a repo.
+- Browser RPC uses a short-lived HttpOnly cookie and memory-only CSRF value;
+  browser requests never use `Authorization`.
+- `ZHARWING_MEMORY_AUTH_TOKEN` is a compatibility administrator bearer. When
+  absent in token mode, it is generated into the per-user OS state directory.
+- Hardened MCP and agent RPC require a different project-bound agent credential.
+- Native desktop authority is delivered through a different one-shot OS
+  exchange and is not copied to the webview.
+- No credential is valid merely because it authenticates: the registry also
+  enforces exact audience, endpoint, operation, project, freshness, CSRF, and
+  required idempotency/revision metadata.
+- Never reuse credentials across audiences or place them in source, public
+  Vite variables, local/session storage, documentation, logs, or diagnostics.
 - Agent-facing surfaces (HTTP `/mcp` and stdio MCP) additionally require
   `ZHARWING_MEMORY_AGENT_SURFACE=enabled`.
 - Remote access should remain disabled unless explicitly configured.

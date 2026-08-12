@@ -30,6 +30,10 @@ test("unsupported schema keywords and types fail loudly", () => {
     () => assertSupportedSchema({ type: "object", properties: { a: { oneOf: [] } } }, "ctx"),
     SchemaSupportError
   );
+  assert.throws(
+    () => assertSupportedSchema({ type: "object", additionalProperties: { type: "string" } }, "ctx"),
+    SchemaSupportError
+  );
 });
 
 test("validateValue accepts conforming values", () => {
@@ -49,6 +53,14 @@ test("validateValue accepts conforming values", () => {
   );
   // Unknown extra keys are allowed; optional keys may be absent or null.
   assert.deepEqual(validateValue({ projectId: "p1", extra: 42, limit: null }, schema, "params"), []);
+  assert.deepEqual(
+    validateValue(
+      { projectId: "p1", extra: 42 },
+      { ...schema, additionalProperties: false },
+      "params"
+    ),
+    ["params.extra is not allowed"]
+  );
 });
 
 test("validateValue rejects wrong types with precise paths", () => {

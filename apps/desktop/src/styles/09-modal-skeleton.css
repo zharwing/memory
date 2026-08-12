@@ -32,5 +32,5 @@
 
 .session-modal,
 .session-closeout-dialog {
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+  box-shadow: var(--shadow-dialog);
 }

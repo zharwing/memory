@@ -128,7 +128,7 @@
 .segmented-control button.selected {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fffdf9;
+  color: var(--on-accent);
 }
 
 .quick-presets {

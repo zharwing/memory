@@ -84,7 +84,7 @@
   background: var(--surface);
   border-color: var(--border);
   border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(17, 16, 15, 0.14);
+  box-shadow: var(--shadow-small);
   display: inline-flex;
   height: 28px;
   justify-content: center;
@@ -94,7 +94,7 @@
   right: 8px;
   top: 8px;
   width: 28px;
-  z-index: 1;
+  z-index: var(--layer-sticky);
 }
 
 .diagram-open-button:hover {
@@ -108,13 +108,13 @@
 /* ===== Full-screen diagram viewer ===== */
 
 .diagram-viewer-backdrop {
-  background: rgba(17, 16, 15, 0.74);
+  background: var(--overlay);
   padding: 18px;
-  z-index: 30;
+  z-index: var(--layer-dialog);
 }
 
 .diagram-viewer {
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+  box-shadow: var(--shadow-dialog);
   grid-template-rows: auto minmax(0, 1fr);
   height: min(96vh, 1100px);
   min-width: 0;

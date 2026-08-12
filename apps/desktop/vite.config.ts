@@ -1,13 +1,20 @@
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { selectiveMermaidDiagrams } from "./build/selective-mermaid.js";
 
 const appRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   root: appRoot,
   envDir: fileURLToPath(new URL("../..", import.meta.url)),
-  plugins: [react()],
+  // Vite's default VITE_ prefix is intentionally disabled. Only explicitly
+  // public, non-authority runtime hints can be compiled into browser bytes.
+  envPrefix: ["ZHARWING_PUBLIC_"],
+  plugins: [
+    selectiveMermaidDiagrams(),
+    react()
+  ],
   resolve: {
     alias: {
       "@zharwing/memory-api-client": fileURLToPath(new URL("../../packages/api-client/src/index.ts", import.meta.url)),
@@ -27,6 +34,11 @@ export default defineConfig({
   build: {
     // The editor and graph engines are intentionally lazy-loaded feature chunks.
     // scripts/check-bundle-size.mjs enforces both startup and maximum chunk budgets.
-    chunkSizeWarningLimit: 1200
+    chunkSizeWarningLimit: 1200,
+    manifest: true,
+    sourcemap: false,
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
+    target: ["es2022", "chrome110", "edge110", "firefox115", "safari16.4"]
   }
 });

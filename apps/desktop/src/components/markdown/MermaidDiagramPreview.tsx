@@ -3,21 +3,47 @@ import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { graphiteCopperLight } from "@zharwing/memory-theme";
 import { Modal } from "../Modal.js";
 import { hashString } from "../../utils/format.js";
+import { IconButton } from "../IconButton.js";
+import { LoadingStatus } from "../AccessibleStatus.js";
+
+export const SUPPORTED_MERMAID_DIAGRAMS = [
+  "flowchart and graph",
+  "sequence",
+  "class",
+  "state",
+  "entity-relationship",
+  "Gantt",
+  "journey",
+  "mind map",
+  "timeline"
+] as const;
+
+const SUPPORTED_MERMAID_PATTERN = /^(flowchart(?!-elk\b)|graph|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|erDiagram|gantt|journey|mindmap|timeline)\b/;
+const UNSUPPORTED_MERMAID_MESSAGE =
+  `Supported Mermaid diagram families are ${SUPPORTED_MERMAID_DIAGRAMS.join(", ")}. ` +
+  "This source remains available in Markdown mode.";
 
 export function isLikelyMermaidSource(source: string) {
-  return /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|erDiagram|gantt|journey|pie|mindmap|timeline)\b/.test(source);
+  return SUPPORTED_MERMAID_PATTERN.test(source.trimStart());
 }
 
 export function MermaidDiagramPreview({ source }: { source: string }) {
   const [svg, setSvg] = useState("");
   const [error, setError] = useState("");
   const [viewerOpen, setViewerOpen] = useState(false);
+  const isSupported = isLikelyMermaidSource(source);
 
   useEffect(() => {
     setViewerOpen(false);
   }, [source]);
 
   useEffect(() => {
+    if (!isSupported) {
+      setSvg("");
+      setError("");
+      return;
+    }
+
     let cancelled = false;
 
     async function renderDiagram() {
@@ -44,8 +70,8 @@ export function MermaidDiagramPreview({ source }: { source: string }) {
         });
         const result = await mermaid.render(`zharwing-mermaid-${Math.abs(hashString(source))}-${Date.now()}`, source);
         if (!cancelled) setSvg(result.svg);
-      } catch (renderError) {
-        if (!cancelled) setError(renderError instanceof Error ? renderError.message : String(renderError));
+      } catch {
+        if (!cancelled) setError("Diagram preview is unavailable for this content.");
       }
     }
 
@@ -53,34 +79,35 @@ export function MermaidDiagramPreview({ source }: { source: string }) {
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [isSupported, source]);
+
+  const visibleSvg = isSupported ? svg : "";
+  const visibleError = isSupported ? error : UNSUPPORTED_MERMAID_MESSAGE;
 
   return (
     <div className="diagram-preview mermaid-preview">
-      {svg ? (
-        <button
-          type="button"
+      {visibleSvg ? (
+        <IconButton
           className="diagram-open-button"
           onClick={() => setViewerOpen(true)}
-          title="Open larger"
-          aria-label="Open diagram larger"
+          label="Open diagram larger"
         >
           <Maximize2 size={16} aria-hidden="true" />
-        </button>
+        </IconButton>
       ) : null}
       <div className="diagram-preview-canvas">
-        {svg ? (
-          <MermaidSvgMarkup svg={svg} />
-        ) : error ? (
-          <div className="mermaid-error">
+        {visibleSvg ? (
+          <MermaidSvgMarkup svg={visibleSvg} />
+        ) : visibleError ? (
+          <div className="mermaid-error" role="alert">
             <strong>Mermaid could not render this diagram.</strong>
-            <pre>{error}</pre>
+            <p>{visibleError}</p>
           </div>
         ) : (
-          <div className="diagram-loading">Rendering Mermaid diagram...</div>
+          <div className="diagram-loading"><LoadingStatus label="Rendering diagram…" /></div>
         )}
       </div>
-      {viewerOpen && svg ? <DiagramFullscreenViewer svg={svg} onClose={() => setViewerOpen(false)} /> : null}
+      {viewerOpen && visibleSvg ? <DiagramFullscreenViewer svg={visibleSvg} onClose={() => setViewerOpen(false)} /> : null}
     </div>
   );
 }
@@ -221,18 +248,18 @@ function DiagramFullscreenViewer({ svg, onClose }: { svg: string; onClose: () =>
             <span>{zoomPercent}%</span>
           </div>
           <div className="diagram-viewer-controls">
-            <button type="button" className="icon-button icon-only" onClick={zoomOut} title="Zoom out" aria-label="Zoom out">
+            <IconButton className="icon-only" onClick={zoomOut} label="Zoom out">
               <Minus size={16} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button icon-only" onClick={() => setZoom(1)} title="Reset zoom" aria-label="Reset zoom">
+            </IconButton>
+            <IconButton className="icon-only" onClick={() => setZoom(1)} label="Reset zoom">
               <RotateCcw size={16} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button icon-only" onClick={zoomIn} title="Zoom in" aria-label="Zoom in">
+            </IconButton>
+            <IconButton className="icon-only" onClick={zoomIn} label="Zoom in">
               <Plus size={16} aria-hidden="true" />
-            </button>
-            <button type="button" className="icon-button icon-only" onClick={onClose} title="Close" aria-label="Close diagram preview">
+            </IconButton>
+            <IconButton className="icon-only" onClick={onClose} label="Close diagram preview">
               <X size={16} aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
         </header>
         <div

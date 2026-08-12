@@ -33,62 +33,25 @@ if ("IntersectionObserver" in window) {
     },
     { rootMargin: "0px 0px -8%", threshold: 0.08 }
   );
-  revealItems.forEach((item) => revealObserver.observe(item));
+  revealItems.forEach((item) => {
+    item.dataset.revealReady = "true";
+    revealObserver.observe(item);
+  });
 } else {
   revealItems.forEach((item) => item.classList.add("visible"));
 }
 
-const tourContent = {
-  graph: {
-    src: "assets/context-graph-v2.jpg",
-    alt: "Zharwing Memory context graph focused on the fictional EchoDesk transcription service",
-    caption:
-      "Focus a graph on one service to inspect the decisions, specifications, diagrams, and repository evidence connected to it."
-  },
-  docs: {
-    src: "assets/docs-library.png",
-    alt: "Zharwing Memory documentation library for the fictional EchoDesk project",
-    caption:
-      "Keep architecture decisions, technical specifications, runbooks, user flows, and privacy rules in one searchable project library."
-  },
-  sessions: {
-    src: "assets/sessions.png",
-    alt: "Zharwing Memory session history for the fictional EchoDesk project",
-    caption:
-      "Review active and completed work sessions with agent, branch, status, goals, checkpoints, and concrete handoff information."
-  },
-  architecture: {
-    src: "assets/architecture.png",
-    alt: "A rendered architecture diagram for the fictional EchoDesk project inside Zharwing Memory",
-    caption:
-      "Store Mermaid diagrams as Markdown and render them inside the same project memory used by agents and humans."
+const tourSelect = document.querySelector("[data-tour-select]");
+const tourPanels = [...document.querySelectorAll("[data-tour-panel]")];
+const selectTourPanel = () => {
+  if (!tourSelect) return;
+  const selected = tourSelect.value;
+  for (const panel of tourPanels) {
+    panel.dataset.active = String(panel.dataset.tourPanel === selected);
   }
 };
-
-const tourButtons = [...document.querySelectorAll("[data-tour]")];
-const tourImage = document.querySelector("[data-tour-image]");
-const tourCaption = document.querySelector("[data-tour-caption]");
-
-for (const button of tourButtons) {
-  button.addEventListener("click", () => {
-    const key = button.dataset.tour;
-    const selected = key ? tourContent[key] : undefined;
-    if (!selected || !(tourImage instanceof HTMLImageElement) || !tourCaption) return;
-
-    tourButtons.forEach((candidate) => candidate.setAttribute("aria-selected", String(candidate === button)));
-    tourImage.classList.add("changing");
-
-    const preload = new Image();
-    preload.onload = () => {
-      tourImage.src = selected.src;
-      tourImage.alt = selected.alt;
-      tourCaption.textContent = selected.caption;
-      requestAnimationFrame(() => tourImage.classList.remove("changing"));
-    };
-    preload.onerror = () => tourImage.classList.remove("changing");
-    preload.src = selected.src;
-  });
-}
+tourSelect?.addEventListener("change", selectTourPanel);
+selectTourPanel();
 
 for (const button of document.querySelectorAll("[data-copy]")) {
   button.addEventListener("click", async () => {
@@ -129,3 +92,8 @@ if ("IntersectionObserver" in window && sections.length) {
   );
   sections.forEach((section) => navObserver.observe(section));
 }
+
+// Capability styling is activated only after every essential interaction has
+// been wired. If this script is blocked or fails earlier, navigation, content,
+// screenshots, and reveal items remain visible in their usable HTML defaults.
+document.documentElement.classList.add("js");

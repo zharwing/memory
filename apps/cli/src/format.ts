@@ -91,6 +91,8 @@ Flags:
   --transport <http|stdio>         MCP install transport
   --daemon-url <url>               Zharwing Memory daemon URL for MCP setup
   --auth <auto|none|token>         MCP HTTP auth mode for generated config
+  --request-id <string:value|number:value>
+                                   Stable caller id required for hardened agent start, checkpoint, close, and persisted context; reuse only for the same logical retry
   --config <path>                  Override MCP client config path
   --dry-run                        Preview installer output without writing config
 `);

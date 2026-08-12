@@ -5,6 +5,7 @@ import { Empty, Panel, Screen } from "../components/layout.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { DirectoryField } from "../components/DirectoryField.js";
 import { ListRow } from "../components/ListRow.js";
+import { ErrorSummary, type FormError } from "../components/FormField.js";
 
 export const RepositoriesScreen = observer(function RepositoriesScreen() {
   const store = useStore();
@@ -14,6 +15,8 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
   const [description, setDescription] = useState("");
   const [defaultBranch, setDefaultBranch] = useState("");
   const [writePointerFile, setWritePointerFile] = useState(true);
+  const [formErrors, setFormErrors] = useState<FormError[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (store.projects.selectedProjectId) void store.projects.loadRepoLinks();
@@ -21,10 +24,11 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
 
   const projectName = store.projects.selectedProject?.name || "this project";
   const hasLinkedRepos = store.projects.repoLinks.length > 0;
+  const repoLinksState = store.projects.repoLinksState;
 
   return (
-    <Screen title="Repositories" actions={<button disabled={!store.projects.selectedProjectId} onClick={() => store.projects.loadRepoLinks()}>Refresh</button>}>
-      {store.projects.selectedProjectId && !hasLinkedRepos ? (
+    <Screen title="Repositories" actions={<button type="button" disabled={!store.projects.selectedProjectId} onClick={() => store.projects.loadRepoLinks()}>Refresh</button>}>
+      {store.projects.selectedProjectId && repoLinksState.status === "empty" ? (
         <Panel title="Next: Add Repositories">
           <ol className="setup-steps">
             <li>Add every code repo that belongs to {projectName}.</li>
@@ -49,46 +53,67 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
         </div>
       </Panel>
       <Panel title="Link Repo">
-        <form className="stacked-form" onSubmit={(event) => {
+        <form className="stacked-form" aria-busy={submitting} onSubmit={async (event) => {
           event.preventDefault();
-          void store.projects.linkRepo({
-            repoPath,
-            role: role || "other",
-            name: repoName,
-            description,
-            defaultBranch,
-            writePointerFile
-          }).then(() => {
-            setRepoPath("");
-            setRepoName("");
-            setRole("");
-            setDescription("");
-            setDefaultBranch("");
-          });
+          const errors: FormError[] = [];
+          if (!repoPath.trim()) errors.push({ id: "repository-path", message: "Choose or enter a repository folder." });
+          setFormErrors(errors);
+          if (errors.length || submitting) return;
+          const previousCount = store.projects.repoLinks.length;
+          setSubmitting(true);
+          try {
+            await store.projects.linkRepo({
+              repoPath,
+              role: role || "other",
+              name: repoName,
+              description,
+              defaultBranch,
+              writePointerFile
+            });
+            if (store.projects.repoLinks.length > previousCount) {
+              setRepoPath("");
+              setRepoName("");
+              setRole("");
+              setDescription("");
+              setDefaultBranch("");
+            }
+          } catch {
+            // The shared operation layer owns public failure copy; retain fields.
+          } finally {
+            setSubmitting(false);
+          }
         }}>
-          <label>
-            <span>Repo path</span>
-            <DirectoryField value={repoPath} onChange={setRepoPath} placeholder="<absolute-path-to-repo-root>" required />
-          </label>
-          <p className="field-help">
+          <ErrorSummary errors={formErrors} />
+          <label htmlFor="repository-path">Repo path</label>
+          <DirectoryField
+            id="repository-path"
+            value={repoPath}
+            onChange={(value) => { setRepoPath(value); setFormErrors([]); }}
+            placeholder="<absolute-path-to-repo-root>"
+            describedBy={`repository-path-help${formErrors.length ? " repository-path-error" : ""}`}
+            invalid={formErrors.length > 0}
+            required
+          />
+          <p id="repository-path-help" className="field-help">
             Use the folder that contains the repo's `.git` directory, or any folder inside that repo.
             Zharwing Memory will resolve it to the repo root.
           </p>
-          <label>
+          {formErrors.length ? <p id="repository-path-error" className="field-error">Choose or enter a repository folder.</p> : null}
+          <label htmlFor="repository-name">
             <span>Name</span>
-            <input value={repoName} onChange={(event) => setRepoName(event.target.value)} placeholder="Product web runtime" />
+            <input id="repository-name" value={repoName} onChange={(event) => setRepoName(event.target.value)} placeholder="Product web runtime" autoComplete="off" />
           </label>
-          <label>
+          <label htmlFor="repository-category">
             <span>Category</span>
-            <input value={role} onChange={(event) => setRole(event.target.value)} placeholder="service, app, docs, worker, wrapper" />
+            <input id="repository-category" value={role} onChange={(event) => setRole(event.target.value)} placeholder="service, app, docs, worker, wrapper" autoComplete="off" />
           </label>
-          <label>
+          <label htmlFor="repository-description">
             <span>Description</span>
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What this repository owns" rows={3} />
+            <textarea id="repository-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What this repository owns" rows={3} />
           </label>
-          <label>
+          <label htmlFor="repository-default-branch">
             <span>Default branch</span>
-            <input value={defaultBranch} onChange={(event) => setDefaultBranch(event.target.value)} placeholder="main" />
+            <input id="repository-default-branch" value={defaultBranch} onChange={(event) => setDefaultBranch(event.target.value)} placeholder="main" autoComplete="off" spellCheck={false} />
           </label>
           <label className="checkbox-row">
             <input type="checkbox" checked={writePointerFile} onChange={(event) => setWritePointerFile(event.target.checked)} />
@@ -97,7 +122,7 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
           <p className="field-help">
             Pointer files are small `.zharwing/memory.json` files in linked repos (legacy `.ai-memory.json` files are still detected). They help agents auto-detect this project from the repo.
           </p>
-          <button type="submit" disabled={!store.projects.selectedProjectId}>Link Repo</button>
+          <button type="submit" disabled={!store.projects.selectedProjectId || submitting} aria-busy={submitting}>{submitting ? "Linking…" : "Link Repo"}</button>
         </form>
       </Panel>
       {store.projects.selectedProjectId && hasLinkedRepos ? (
@@ -109,7 +134,9 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
         </Panel>
       ) : null}
       <Panel title="Linked Repos">
-        {store.projects.repoLinks.length ? (
+        {repoLinksState.status === "idle" || repoLinksState.status === "loading" ? (
+          <p className="panel-help" role="status">Loading repositories...</p>
+        ) : store.projects.repoLinks.length ? (
           <div className="repo-list">
             {store.projects.repoLinks.map((repo) => (
               <ListRow
@@ -133,9 +160,9 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
               />
             ))}
           </div>
-        ) : (
+        ) : repoLinksState.status === "empty" ? (
           <Empty text="No repos linked to this project." />
-        )}
+        ) : null}
       </Panel>
     </Screen>
   );

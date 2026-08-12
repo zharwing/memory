@@ -1,0 +1,724 @@
+{
+  "schema": "zharwing.public-doc-search.v1",
+  "version": 1,
+  "guides": [
+    {
+      "slug": "project-overview",
+      "path": "/memory/docs/project-overview/",
+      "title": "Project overview",
+      "description": "What Memory does, how it is organized, and the fastest way to start.",
+      "group": "Start here",
+      "headings": [
+        "Current Implementation Status",
+        "Product Principles",
+        "Repository Layout",
+        "First Run",
+        "Local Browser UI",
+        "Native Desktop UI",
+        "Pointer Files",
+        "Architecture Summary",
+        "Memory Root Shape",
+        "Main Workflow",
+        "Agent Automation",
+        "CLI Examples",
+        "MCP Tools",
+        "Browser And Desktop UI",
+        "Documentation",
+        "Implementation Notes",
+        "License"
+      ]
+    },
+    {
+      "slug": "setup",
+      "path": "/memory/docs/setup/",
+      "title": "Setup",
+      "description": "Choose a supported local profile and start the daemon, browser UI, desktop app, or agent connection.",
+      "group": "Start here",
+      "headings": [
+        "Requirements",
+        "Install The Source Dependencies",
+        "Choose A Runtime Profile",
+        "Start The Browser Interface",
+        "Start The Native Interface",
+        "Connect An Agent",
+        "First Project",
+        "Public Documentation",
+        "Troubleshooting"
+      ]
+    },
+    {
+      "slug": "frontend-v2-status",
+      "path": "/memory/docs/frontend-v2-status/",
+      "title": "Frontend V2 status",
+      "description": "Separate implemented source boundaries from candidate and release/device qualification.",
+      "group": "Start here",
+      "headings": [
+        "Compatibility boundary",
+        "Implemented architecture",
+        "Product profiles",
+        "What remains unclaimed"
+      ]
+    },
+    {
+      "slug": "developer-preview",
+      "path": "/memory/docs/developer-preview/",
+      "title": "Developer preview",
+      "description": "What is ready today, current limitations, and the project boundary.",
+      "group": "Start here",
+      "headings": [
+        "Implemented profile boundary",
+        "Source capabilities present",
+        "Compatibility and migration",
+        "Qualification boundary",
+        "Candidate gate order"
+      ]
+    },
+    {
+      "slug": "mvp-walkthrough",
+      "path": "/memory/docs/mvp-walkthrough/",
+      "title": "First walkthrough",
+      "description": "Create a project, start a session, save context, and resume work.",
+      "group": "Start here",
+      "headings": [
+        "Start Daemon",
+        "Start The UI",
+        "UI First Run",
+        "Create Project Memory",
+        "Link Additional Repos",
+        "Import Existing Markdown",
+        "Start Session",
+        "Preview Context",
+        "Save Checkpoint",
+        "Close Session",
+        "Review Memory Inbox",
+        "Manage Deletes In The UI",
+        "Search Project Memory",
+        "MCP Startup Flow"
+      ]
+    },
+    {
+      "slug": "browser-ui",
+      "path": "/memory/docs/browser-ui/",
+      "title": "Browser UI",
+      "description": "Run the frequently used local interface in a browser.",
+      "group": "Start here",
+      "headings": [
+        "Security model",
+        "Profiles",
+        "Run the local compatibility preview from source",
+        "Session and project transitions",
+        "Browser versus native desktop",
+        "Troubleshooting"
+      ]
+    },
+    {
+      "slug": "desktop-ui",
+      "path": "/memory/docs/desktop-ui/",
+      "title": "Desktop UI",
+      "description": "Use the native application, navigation, and folder selection workflows.",
+      "group": "Start here",
+      "headings": [
+        "Runtime Modes",
+        "Sidebar Model",
+        "First-Run Flow",
+        "Repo Paths",
+        "Import Flow",
+        "Sessions",
+        "Session Graph Visibility",
+        "Docs Library Editing",
+        "Memory Write Mode",
+        "Delete And Trash",
+        "Derived Screens"
+      ]
+    },
+    {
+      "slug": "user-flows",
+      "path": "/memory/docs/user-flows/",
+      "title": "User flows",
+      "description": "Understand setup, daily sessions, context, review, and recovery flows.",
+      "group": "Use Memory",
+      "headings": [
+        "First-Time Project Setup",
+        "Multi-Repo Codex Project",
+        "Desktop Navigation",
+        "Daily AI Coding Session",
+        "Session History And Graph Visibility",
+        "MCP Agent Startup",
+        "Return To Project",
+        "Context Preview",
+        "Memory Inbox Review",
+        "Docs And Diagrams",
+        "Backup And Restore",
+        "Delete And Trash",
+        "Assistant Jobs",
+        "Project Separation"
+      ]
+    },
+    {
+      "slug": "repositories",
+      "path": "/memory/docs/repositories/",
+      "title": "Repositories",
+      "description": "Connect one or several code repositories to a Memory project.",
+      "group": "Use Memory",
+      "headings": [
+        "UI",
+        "Metadata",
+        "CLI",
+        "Daemon Administration API",
+        "Pointer Files",
+        "Using One Memory Project From Several Codex Workspaces"
+      ]
+    },
+    {
+      "slug": "workstreams",
+      "path": "/memory/docs/workstreams/",
+      "title": "Workstreams",
+      "description": "Group sessions and knowledge around long-running areas of work.",
+      "group": "Use Memory",
+      "headings": [
+        "Why Workstream Instead Of Epic",
+        "Stored Shape",
+        "UI Workflow",
+        "CLI",
+        "Daemon Administration API"
+      ]
+    },
+    {
+      "slug": "importing",
+      "path": "/memory/docs/importing/",
+      "title": "Import existing memory",
+      "description": "Preview and import existing Markdown documents and session history.",
+      "group": "Use Memory",
+      "headings": [
+        "Import Model",
+        "What Profiles Are",
+        "Built-In Profile Behavior",
+        "UI Workflow",
+        "CLI Workflow",
+        "Daemon JSON-RPC Workflow",
+        "After Import: Graph Rules",
+        "Notes"
+      ]
+    },
+    {
+      "slug": "graph-rules",
+      "path": "/memory/docs/graph-rules/",
+      "title": "Graph rules",
+      "description": "Shape useful graph hubs with deterministic project rules.",
+      "group": "Use Memory",
+      "headings": [
+        "How The Graph Is Built",
+        "Manual Use",
+        "Rule Fields",
+        "Match Semantics",
+        "AI-Assisted Administration",
+        "What Not To Use Graph Rules For"
+      ]
+    },
+    {
+      "slug": "semantic-graph",
+      "path": "/memory/docs/semantic-graph/",
+      "title": "Semantic graph",
+      "description": "Add locally reviewed semantic relationships to the context graph.",
+      "group": "Use Memory",
+      "headings": [
+        "Product Model",
+        "Recommended Flow",
+        "Should LM Studio Be Running?",
+        "Local Small-LLM Strategy",
+        "Relationship Quality",
+        "Standalone Chunking",
+        "Companion Context Adapter",
+        "Vector Store Decision",
+        "Local OpenAI-Compatible Example",
+        "Review And Approval",
+        "Session TLDRs",
+        "Storage",
+        "CLI"
+      ]
+    },
+    {
+      "slug": "mcp-setup",
+      "path": "/memory/docs/mcp-setup/",
+      "title": "MCP setup",
+      "description": "Connect Codex, Claude, or another MCP-compatible client.",
+      "group": "Connect AI agents",
+      "headings": [
+        "Install",
+        "Auth Modes",
+        "Agent Surface",
+        "Manual Codex Config",
+        "Manual Claude Config",
+        "Windows And WSL",
+        "Desktop Setup",
+        "Troubleshooting"
+      ]
+    },
+    {
+      "slug": "agent-automation",
+      "path": "/memory/docs/agent-automation/",
+      "title": "Agent automation",
+      "description": "Bootstrap repositories and make session memory part of agent work.",
+      "group": "Connect AI agents",
+      "headings": [
+        "Goal",
+        "Required Pieces",
+        "MCP Setup",
+        "Repo Bootstrap",
+        "Optional Skill",
+        "Agent Workflow",
+        "Closeout Extensions",
+        "Scope And Secret Safety"
+      ]
+    },
+    {
+      "slug": "agent-protocol",
+      "path": "/memory/docs/agent-protocol/",
+      "title": "Agent protocol",
+      "description": "Follow the shared startup, checkpoint, and closeout contract.",
+      "group": "Connect AI agents",
+      "headings": [
+        "Purpose",
+        "Startup Flow",
+        "Day rollover",
+        "During Work",
+        "Closeout Flow",
+        "AI Visibility And Boundaries",
+        "Tool Preference",
+        "Required Capabilities",
+        "Project Profiles"
+      ]
+    },
+    {
+      "slug": "generic-mcp-adapter",
+      "path": "/memory/docs/generic-mcp-adapter/",
+      "title": "Generic MCP adapter",
+      "description": "Use the project-neutral MCP integration pattern.",
+      "group": "Connect AI agents",
+      "headings": [
+        "Startup",
+        "During Work",
+        "Closeout"
+      ]
+    },
+    {
+      "slug": "cli-adapter",
+      "path": "/memory/docs/cli-adapter/",
+      "title": "CLI adapter",
+      "description": "Use Memory through command-line workflows.",
+      "group": "Connect AI agents",
+      "headings": [
+        "Startup",
+        "Context",
+        "Progress",
+        "Agent Instructions"
+      ]
+    },
+    {
+      "slug": "json-rpc-adapter",
+      "path": "/memory/docs/json-rpc-adapter/",
+      "title": "JSON-RPC adapter",
+      "description": "Integrate directly with the local daemon API.",
+      "group": "Connect AI agents",
+      "headings": [
+        "Endpoint",
+        "Request Shape"
+      ]
+    },
+    {
+      "slug": "architecture",
+      "path": "/memory/docs/architecture/",
+      "title": "Architecture",
+      "description": "See the local daemon, adapters, packages, and trust boundaries.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "System Boundary",
+        "Runtime Components",
+        "Desktop App",
+        "Daemon",
+        "CLI",
+        "MCP Adapter",
+        "Shared Packages",
+        "Storage Architecture",
+        "Context Pipeline",
+        "AI Visibility And Secret Safety",
+        "Project-Scoped Defaults",
+        "Current Validation Boundary",
+        "Remaining Productization Work"
+      ]
+    },
+    {
+      "slug": "data-model",
+      "path": "/memory/docs/data-model/",
+      "title": "Data model",
+      "description": "Understand projects, sessions, documents, graph data, and storage.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Entity Overview",
+        "Project",
+        "Workstream",
+        "Session",
+        "Document",
+        "Import",
+        "Trash",
+        "Proposed Memory Update",
+        "Context Bundle",
+        "Graph Model",
+        "Semantic Graph Model",
+        "Index Model"
+      ]
+    },
+    {
+      "slug": "api-reference",
+      "path": "/memory/docs/api-reference/",
+      "title": "API reference",
+      "description": "Reference the local HTTP, JSON-RPC, and MCP surfaces.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Daemon",
+        "Browser Session Endpoints",
+        "Daemon Methods",
+        "Health",
+        "Projects",
+        "Sessions",
+        "Workstreams",
+        "Context",
+        "Docs",
+        "Import",
+        "Search And Graph",
+        "Semantic Graph",
+        "Memory Inbox",
+        "Backup",
+        "Trash",
+        "Assistant",
+        "CLI Commands",
+        "MCP Tools",
+        "MCP Prompt Resources",
+        "Security Notes"
+      ]
+    },
+    {
+      "slug": "diagrams",
+      "path": "/memory/docs/diagrams/",
+      "title": "System diagrams",
+      "description": "Review the main component, data, and interaction diagrams.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "System Context",
+        "Runtime Components",
+        "Clean Architecture Dependency Direction",
+        "UML Class Diagram",
+        "Entity Relationship Diagram",
+        "Project Startup Sequence",
+        "Project Creation Sequence",
+        "Context Bundle Sequence",
+        "Checkpoint And Close Session Sequence",
+        "Memory Inbox Review Flow",
+        "Session State Machine",
+        "Project Resolution State Machine",
+        "Context Safety State Machine",
+        "User Flow",
+        "Desktop Screen Flow",
+        "Storage Layout",
+        "Graph Projection",
+        "Assistant Proposal Flow",
+        "Backup And Rebuild Flow",
+        "Deployment And Packaging View",
+        "Package Dependency Overview"
+      ]
+    },
+    {
+      "slug": "source-context",
+      "path": "/memory/docs/source-context/",
+      "title": "Source and context boundary",
+      "description": "Understand which sources become public documentation and how private context stays excluded.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Public Source Manifest",
+        "Generated Pages",
+        "Bounded Search Projection",
+        "Synthetic Product Evidence",
+        "Change Procedure"
+      ]
+    },
+    {
+      "slug": "architecture-decisions",
+      "path": "/memory/docs/architecture-decisions/",
+      "title": "Architecture decisions",
+      "description": "Read the decision log and the rules for changing durable system boundaries.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Decision Index",
+        "Record Rules"
+      ]
+    },
+    {
+      "slug": "adr-local-first",
+      "path": "/memory/docs/adr-local-first/",
+      "title": "ADR 0001: Local-first project boundary",
+      "description": "Keep application source, private memory, and public documentation in separate ownership domains.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Context",
+        "Decision",
+        "Consequences",
+        "Revisit When"
+      ]
+    },
+    {
+      "slug": "adr-progressive-docs",
+      "path": "/memory/docs/adr-progressive-docs/",
+      "title": "ADR 0002: Progressive public documentation",
+      "description": "Generate directly addressable pages whose content and navigation do not depend on JavaScript.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Context",
+        "Decision",
+        "Consequences",
+        "Revisit When"
+      ]
+    },
+    {
+      "slug": "adr-agent-authority",
+      "path": "/memory/docs/adr-agent-authority/",
+      "title": "ADR 0003: Project-bound agent authority",
+      "description": "Use explicit project-bound agent authority and centralized privacy projection.",
+      "group": "Architecture and decisions",
+      "headings": [
+        "Context",
+        "Decision",
+        "Consequences",
+        "Revisit When"
+      ]
+    },
+    {
+      "slug": "security",
+      "path": "/memory/docs/security/",
+      "title": "Security",
+      "description": "Understand the local trust model and report vulnerabilities.",
+      "group": "Security and contracts",
+      "headings": [
+        "Supported Versions",
+        "Reporting a Vulnerability",
+        "Threat Model Notes"
+      ]
+    },
+    {
+      "slug": "principal-model",
+      "path": "/memory/docs/principal-model/",
+      "title": "Principal model",
+      "description": "Review audiences, project binding, expiry, revocation, and operation authority.",
+      "group": "Security and contracts",
+      "headings": [
+        "Scope and security invariant",
+        "Immutable claims",
+        "Six audiences",
+        "Project binding",
+        "Credential and session composition",
+        "Administrative compatibility credential",
+        "Trusted agent credential",
+        "Browser authority",
+        "Admission and dispatch boundary",
+        "Profiles and rollback",
+        "Verification obligations"
+      ]
+    },
+    {
+      "slug": "browser-session-security",
+      "path": "/memory/docs/browser-session-security/",
+      "title": "Browser session security",
+      "description": "Review local browser bootstrap, CSRF, rotation, revocation, and project binding.",
+      "group": "Security and contracts",
+      "headings": [
+        "Purpose",
+        "Profiles",
+        "Trusted bootstrap issuance",
+        "Exact HTTP endpoints",
+        "Cookie and CSRF properties",
+        "Rotation, revocation, and project binding",
+        "Client state machine",
+        "Restart and rollback",
+        "Synthetic evidence"
+      ]
+    },
+    {
+      "slug": "native-desktop-security",
+      "path": "/memory/docs/native-desktop-security/",
+      "title": "Native desktop authority",
+      "description": "Review the Rust-owned daemon and credential boundary outside the webview.",
+      "group": "Security and contracts",
+      "headings": [
+        "Security boundary",
+        "Startup and project binding",
+        "Invoke surface",
+        "Failure and recovery",
+        "Verification obligations"
+      ]
+    },
+    {
+      "slug": "provider-security",
+      "path": "/memory/docs/provider-security/",
+      "title": "Provider secrets and egress",
+      "description": "Operate write-only credentials and constrained provider destinations.",
+      "group": "Security and contracts",
+      "headings": [
+        "Owned secret lifecycle",
+        "Egress authorization",
+        "Failure semantics",
+        "Verification obligations"
+      ]
+    },
+    {
+      "slug": "privacy-projection",
+      "path": "/memory/docs/privacy-projection/",
+      "title": "Privacy projection",
+      "description": "Understand centralized agent and provider projection, visibility, and completeness.",
+      "group": "Security and contracts",
+      "headings": [
+        "Security invariant",
+        "Projection input",
+        "Projection result",
+        "Restricted-surface decisions",
+        "Hardened agent wire contracts",
+        "Authority-owned session classification",
+        "Profile and rollback rules",
+        "Synthetic canary matrix"
+      ]
+    },
+    {
+      "slug": "operation-admission",
+      "path": "/memory/docs/operation-admission/",
+      "title": "Operation admission",
+      "description": "Trace requests through exact decoding, authority, idempotency, and dispatch.",
+      "group": "Security and contracts",
+      "headings": [
+        "Purpose",
+        "Registry authority",
+        "Server pre-admission",
+        "Registrar denial order",
+        "Authorized invocation",
+        "Idempotency and replay",
+        "Domain output and agent projection",
+        "Profiles and rollback",
+        "Client obligations and focused evidence"
+      ]
+    },
+    {
+      "slug": "operations",
+      "path": "/memory/docs/operations/",
+      "title": "Operations",
+      "description": "Run, package, back up, restore, and troubleshoot Memory.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Runtime Assumptions",
+        "Environment Variables",
+        "Rename Compatibility",
+        "Intended Startup",
+        "Local Browser UI",
+        "Security",
+        "Backups And Trash",
+        "Indexing",
+        "Local Assistant",
+        "AI Provider Smoke Testing",
+        "Validation Checklist For Future Runtime Work",
+        "Known Constraints"
+      ]
+    },
+    {
+      "slug": "ai-testing",
+      "path": "/memory/docs/ai-testing/",
+      "title": "AI provider testing",
+      "description": "Test local and external model-backed workflows safely.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Should LM Studio Be Running?",
+        "Baseline Non-AI Validation",
+        "Start Zharwing Memory",
+        "Create A Disposable Test Project",
+        "Provider Check",
+        "Semantic Graph Smoke Test",
+        "Session TLDR Smoke Test",
+        "MCP Smoke Test",
+        "Troubleshooting"
+      ]
+    },
+    {
+      "slug": "testing-plan",
+      "path": "/memory/docs/testing-plan/",
+      "title": "Testing plan",
+      "description": "See the testing strategy and expected coverage.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Repository commands",
+        "What the source suites cover",
+        "Current CI versus release qualification",
+        "Final integrated order"
+      ]
+    },
+    {
+      "slug": "frontend-accessibility",
+      "path": "/memory/docs/frontend-accessibility/",
+      "title": "Frontend accessibility",
+      "description": "Review the responsive, keyboard, focus, contrast, motion, and manual qualification contract.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Supported boundary",
+        "Theme and visual semantics",
+        "Component contracts",
+        "Reproducible local checks"
+      ]
+    },
+    {
+      "slug": "frontend-v2-migration",
+      "path": "/memory/docs/frontend-v2-migration/",
+      "title": "Frontend V2 migration",
+      "description": "Migrate profiles, credentials, visibility, preferences, and layout caches with rollback.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Before changing profile",
+        "Migration matrix",
+        "Visibility review",
+        "Preference and graph cache details",
+        "Compatibility window",
+        "Rollback"
+      ]
+    },
+    {
+      "slug": "frontend-v2-compatibility",
+      "path": "/memory/docs/frontend-v2-compatibility/",
+      "title": "Compatibility register",
+      "description": "See retained and removed compatibility paths, callers, dates, and removal proof.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Removed in this reconciliation",
+        "Configuration-template reconciliation",
+        "Removal proof template"
+      ]
+    },
+    {
+      "slug": "frontend-qualification",
+      "path": "/memory/docs/frontend-qualification/",
+      "title": "Frontend qualification",
+      "description": "Separate source observations from candidate, browser, WebView, assistive-device, and release evidence.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Required integrated order",
+        "Claim rules"
+      ]
+    },
+    {
+      "slug": "contributing",
+      "path": "/memory/docs/contributing/",
+      "title": "Contributing",
+      "description": "Set up the repository and follow the contribution workflow.",
+      "group": "Operate and contribute",
+      "headings": [
+        "Runtime requirements",
+        "Commands",
+        "Source and build-output policy",
+        "Windows and WSL",
+        "Tests"
+      ]
+    }
+  ]
+}

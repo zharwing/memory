@@ -9,9 +9,11 @@ import { WorkstreamStatusActions } from "../components/WorkstreamStatusActions.j
 import { MarkdownPreview } from "../components/markdown/MarkdownPreview.js";
 import { searchResultTypeLabel, statusLabel, visibilityLabel } from "../utils/labels.js";
 import { graphRulesFromProposalPatch } from "../utils/graph-proposals.js";
+import { VisuallyHidden } from "../components/AccessibleStatus.js";
 
 export const SearchScreen = observer(function SearchScreen() {
   const store = useStore();
+  const searchState = store.docs.searchState;
   const [query, setQuery] = useState("");
   const [selectedResultId, setSelectedResultId] = useState("");
   const [editingDocId, setEditingDocId] = useState("");
@@ -82,7 +84,8 @@ export const SearchScreen = observer(function SearchScreen() {
         setSelectedResultId("");
         void store.docs.search(query);
       }}>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sessions, docs, commands, gotchas, diagrams" />
+        <VisuallyHidden as="div"><label htmlFor="project-search-query">Search query</label></VisuallyHidden>
+        <input id="project-search-query" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sessions, docs, commands, gotchas, diagrams" autoComplete="off" />
         <button type="submit">Search</button>
       </form>
       <div className="notice docs-explainer">
@@ -95,17 +98,24 @@ export const SearchScreen = observer(function SearchScreen() {
           Snippet is the matching excerpt around your search term. Use Open or View to inspect the full record.
         </p>
       </div>
-      <DataTable
-        columns={["kind", "state", "AI access", "title", "snippet"]}
-        rows={searchRows}
-        selectedRowId={selectedResultId}
-        onRowClick={(row) => setSelectedResultId(row.id)}
-        rowActions={(row) => (
-          <button type="button" onClick={() => openSearchResult(row)}>
-            {row.resultType === "document" ? "Open" : "View"}
-          </button>
-        )}
-      />
+      {searchState.status === "loading" ? (
+        <p className="panel-help" role="status">Searching this project...</p>
+      ) : searchState.status === "failure" ? (
+        <p className="panel-help" role="alert">Search could not be completed. Check the query and try again.</p>
+      ) : (
+        <DataTable
+          ariaLabel="Project search results"
+          columns={["kind", "state", "AI access", "title", "snippet"]}
+          rows={searchRows}
+          selectedRowId={selectedResultId}
+          onRowClick={(row) => setSelectedResultId(row.id)}
+          rowActions={(row) => (
+            <button type="button" onClick={() => openSearchResult(row)}>
+              {row.resultType === "document" ? "Open" : "View"}
+            </button>
+          )}
+        />
+      )}
       {selectedResult ? (
         <SearchResultDetail
           result={selectedResult}
@@ -117,9 +127,11 @@ export const SearchScreen = observer(function SearchScreen() {
           store={store}
           onEditDoc={() => selectedDoc ? setEditingDocId(selectedDoc.id) : undefined}
         />
-      ) : store.docs.searchResults.length ? null : (
+      ) : searchState.status === "empty" ? (
+        <Empty text="No results matched this search." />
+      ) : searchState.status === "idle" ? (
         <Empty text="Run a search to inspect matching docs, diagrams, sessions, workstreams, and inbox proposals." />
-      )}
+      ) : null}
       {editingDoc ? (
         <DocumentEditorHost doc={editingDoc} onClose={() => setEditingDocId("")} />
       ) : null}

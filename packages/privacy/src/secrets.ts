@@ -22,8 +22,26 @@ const SECRET_PATTERNS: Array<{
   {
     kind: "token",
     severity: "high",
-    pattern: /\b(?:sk|pk|rk|ghp|gho|github_pat)_[A-Za-z0-9_\-]{20,}\b/g,
+    pattern: /\b(?:sk[-_](?:proj[-_]|ant[-_])?|pk_|rk_|ghp_|gho_|github_pat_|glpat-|xox[baprs]-)[A-Za-z0-9_\-]{16,}\b/g,
     replacement: "[REDACTED_TOKEN]"
+  },
+  {
+    kind: "token",
+    severity: "high",
+    pattern: /\bAIza[A-Za-z0-9_-]{30,}\b/g,
+    replacement: "[REDACTED_GOOGLE_API_KEY]"
+  },
+  {
+    kind: "token",
+    severity: "high",
+    pattern: /\bBearer\s+[A-Za-z0-9._~+\/-]{16,}={0,2}\b/gi,
+    replacement: "Bearer [REDACTED_TOKEN]"
+  },
+  {
+    kind: "token",
+    severity: "high",
+    pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+    replacement: "[REDACTED_JWT]"
   },
   {
     kind: "credential",

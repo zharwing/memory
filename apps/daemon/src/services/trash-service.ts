@@ -15,13 +15,16 @@ import { resolveProject } from "./project-resolver.js";
 export class TrashService {
   constructor(private readonly registry: ProjectRegistry) {}
 
-  async listTrash() {
-    return storageListTrash(this.registry.memoryRoot);
+  async listTrash(params: { projectId: string }) {
+    return (await storageListTrash(this.registry.memoryRoot)).filter(
+      (item) => item.projectId === params.projectId || (item.type === "project" && item.itemId === params.projectId)
+    );
   }
 
-  async restoreTrashItem(params: { trashItemId: string }) {
+  async restoreTrashItem(params: { projectId: string; trashItemId: string }) {
     const item = (await storageListTrash(this.registry.memoryRoot)).find((candidate) => candidate.id === params.trashItemId);
     if (!item) throw new Error(`Trash item not found: ${params.trashItemId}`);
+    requireProject(item, params.projectId);
 
     if (item.type === "project") {
       await restorePathFromTrash(item);
@@ -55,18 +58,28 @@ export class TrashService {
     return item;
   }
 
-  async purgeTrashItem(params: { trashItemId: string }) {
+  async purgeTrashItem(params: { projectId: string; trashItemId: string }) {
+    const item = (await storageListTrash(this.registry.memoryRoot)).find((candidate) => candidate.id === params.trashItemId);
+    if (!item) throw new Error(`Trash item not found: ${params.trashItemId}`);
+    requireProject(item, params.projectId);
     return storagePurgeTrashItem(this.registry.memoryRoot, params.trashItemId);
   }
 
-  async emptyTrash(params: { trashItemIds?: string[] }) {
-    const items = params.trashItemIds?.length
-      ? params.trashItemIds
-      : (await storageListTrash(this.registry.memoryRoot)).map((item) => item.id);
+  async emptyTrash(params: { projectId: string; trashItemIds?: string[] }) {
+    const projectItems = (await this.listTrash({ projectId: params.projectId }));
+    const allowed = new Set(projectItems.map((item) => item.id));
+    const items = params.trashItemIds?.length ? params.trashItemIds : [...allowed];
+    if (items.some((id) => !allowed.has(id))) throw new Error("Trash selection crosses project authority.");
     const purged = [];
     for (const trashItemId of items) {
       purged.push(await storagePurgeTrashItem(this.registry.memoryRoot, trashItemId));
     }
     return { purged: purged.length, items: purged };
+  }
+}
+
+function requireProject(item: { projectId?: string; type: string; itemId: string }, projectId: string): void {
+  if (item.projectId !== projectId && !(item.type === "project" && item.itemId === projectId)) {
+    throw new Error("Trash item belongs to a different project.");
   }
 }

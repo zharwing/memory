@@ -4,6 +4,18 @@ import { DEFAULT_PRIVACY_POLICY } from "@zharwing/memory-core";
 import { applyPrivacyGate, combineSafetyStatus } from "./gate.js";
 
 test("applyPrivacyGate excludes blocked visibility and never-send paths", () => {
+  const missingVisibility = applyPrivacyGate(
+    {
+      id: "doc-legacy",
+      projectId: "project-a",
+      type: "document",
+      title: "Legacy Notes",
+      content: "Missing metadata must not become AI-visible."
+    },
+    DEFAULT_PRIVACY_POLICY
+  );
+  assert.equal(missingVisibility.allowed, false);
+
   const neverSendVisibility = applyPrivacyGate(
     {
       id: "doc-private",

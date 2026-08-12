@@ -1,3 +1,5 @@
+import { AGENT_OPERATIONS } from "@zharwing/memory-core";
+
 export interface McpToolDefinition {
   name: string;
   description: string;
@@ -5,6 +7,7 @@ export interface McpToolDefinition {
     type: "object";
     properties: Record<string, unknown>;
     required?: string[];
+    additionalProperties: false;
   };
   rpcMethod: string;
 }
@@ -16,7 +19,7 @@ export interface McpToolDefinition {
  * this list focused on the daily memory loop and do not advertise daemon
  * control-plane operations that the agent endpoint will reject.
  */
-export const MEMORY_TOOLS: McpToolDefinition[] = [
+const CONFIGURED_MEMORY_TOOLS: McpToolDefinition[] = [
   tool("memory.health", "Check that the local Zharwing Memory service is available.", {}),
   tool("memory.get_startup_state", "Resolve the current project and return compact carry-forward summaries plus open workstreams. Call once per work round; pass knownRevision only for a justified refresh.", {
     workingDirectory: { type: "string" },
@@ -61,16 +64,14 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
     sessionId: { type: "string" },
     taskText: { type: "string" },
     requestedBy: { type: "string" },
-    maxTokens: { type: "number", minimum: 1 },
-    idempotencyKey: { type: "string" }
+    maxTokens: { type: "number", minimum: 1 }
   }, ["projectId"]),
   tool("memory.get_context_bundle", "Generate and persist a relevant project memory bundle.", {
     projectId: { type: "string" },
     sessionId: { type: "string" },
     taskText: { type: "string" },
     requestedBy: { type: "string" },
-    maxTokens: { type: "number", minimum: 1 },
-    idempotencyKey: { type: "string" }
+    maxTokens: { type: "number", minimum: 1 }
   }, ["projectId"]),
   tool("memory.save_checkpoint", "Save progress, touched files, blockers, and next steps to a session.", {
     projectId: { type: "string" },
@@ -93,6 +94,28 @@ export const MEMORY_TOOLS: McpToolDefinition[] = [
   }, ["projectId", "sessionId"])
 ];
 
+const configuredByOperation = new Map(
+  CONFIGURED_MEMORY_TOOLS.map((definition) => [definition.rpcMethod, definition] as const)
+);
+const registeredAgentOperations = new Set<string>(AGENT_OPERATIONS);
+
+/**
+ * The operation registry is the authority for the production agent surface;
+ * this module contributes only MCP descriptions and JSON Schema presentation.
+ */
+export const MEMORY_TOOLS: readonly McpToolDefinition[] = Object.freeze(
+  CONFIGURED_MEMORY_TOOLS
+    .filter((definition) => registeredAgentOperations.has(definition.rpcMethod))
+    .map((definition) => Object.freeze(definition))
+);
+
+if (
+  configuredByOperation.size !== AGENT_OPERATIONS.length ||
+  AGENT_OPERATIONS.some((operation) => !configuredByOperation.has(operation))
+) {
+  throw new Error("The agent tool presentation registry does not match the operation registry.");
+}
+
 function tool(
   name: string,
   description: string,
@@ -105,7 +128,8 @@ function tool(
     inputSchema: {
       type: "object",
       properties,
-      required
+      required,
+      additionalProperties: false
     },
     rpcMethod: name
   };

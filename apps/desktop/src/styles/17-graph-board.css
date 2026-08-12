@@ -130,7 +130,6 @@
 .graph-map {
   cursor: grab;
   height: 100%;
-  outline: none;
   width: 100%;
 }
 
@@ -147,7 +146,16 @@
 
 .graph-map-node {
   cursor: grab;
-  outline: none;
+}
+
+.graph-map:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: calc(-1 * var(--focus-width));
+}
+
+.graph-map-node:focus-visible circle {
+  stroke: var(--focus-ring);
+  stroke-width: 4px;
 }
 
 .graph-map-node.is-actionable {
@@ -159,8 +167,8 @@
 }
 
 .graph-map-node circle {
-  filter: drop-shadow(0 8px 18px rgba(17, 16, 15, 0.16));
-  transition: stroke-width 120ms ease, filter 120ms ease;
+  filter: drop-shadow(var(--shadow-node));
+  transition: stroke-width var(--motion-fast) var(--ease-standard), filter var(--motion-fast) var(--ease-standard);
 }
 
 .graph-map-node .graph-map-node-hitbox {
@@ -169,7 +177,7 @@
 
 .graph-map-node:focus-visible circle,
 .graph-map-node:hover circle {
-  filter: drop-shadow(0 10px 24px rgba(17, 16, 15, 0.22));
+  filter: drop-shadow(var(--shadow-node-active));
   stroke-width: 7;
 }
 
@@ -182,12 +190,12 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   bottom: 14px;
-  box-shadow: 0 8px 24px rgba(17, 16, 15, 0.12);
+  box-shadow: var(--shadow-panel);
   display: grid;
   left: 14px;
   overflow: hidden;
   position: absolute;
-  z-index: 5;
+  z-index: var(--layer-sticky);
 }
 
 .graph-map-controls button {

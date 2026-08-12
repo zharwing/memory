@@ -9,6 +9,7 @@ import {
   summarizeEdgeTypes,
   summarizeNodeTypes
 } from "./graph-display.js";
+import { virtualizeGraph } from "../../features/graph/application/graph-virtualization.js";
 
 export interface GraphMapNode {
   id: string;
@@ -17,7 +18,7 @@ export interface GraphMapNode {
   typeLabel: string;
   label: string;
   metadata: string;
-  graphNode: any;
+  graphNode: unknown;
   isAnchor: boolean;
 }
 
@@ -42,6 +43,9 @@ export interface GraphFlowElements {
   edgeTypes: Array<{ type: string; count: number }>;
   hiddenMemberships: number;
   hiddenLeafNodes: number;
+  omittedNodeCount: number;
+  omittedEdgeCount: number;
+  projectionLimited: boolean;
   focusLabel?: string;
 }
 
@@ -53,32 +57,36 @@ export function graphNodeVisualKind(node: Pick<GraphMapNode, "type" | "displayTy
   return displayType || type;
 }
 
-export function buildGraphFlowElements(graph: any, viewMode: GraphViewMode, focusedNodeId = ""): GraphFlowElements {
-  const allNodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-  const allEdges = Array.isArray(graph?.edges) ? graph.edges : [];
-  const nodeById = new Map<string, any>(allNodes.map((sourceNode: any) => [sourceNode.id, sourceNode]));
+export function buildGraphFlowElements(graph: unknown, viewMode: GraphViewMode, focusedNodeId = ""): GraphFlowElements {
+  const graphRecord = objectRecord(graph);
+  const allNodes = recordArray(graphRecord?.nodes);
+  const allEdges = recordArray(graphRecord?.edges);
+  const nodeById = new Map<string, UnknownRecord>(
+    allNodes.map((sourceNode) => [readGraphString(sourceNode, "id"), sourceNode])
+  );
   const graphSelection = selectGraphEdgesForView(allEdges, allNodes, viewMode, focusedNodeId);
   const visibleEdges = graphSelection.edges;
   const visibleNodeIds = graphSelection.nodeIds;
-  const hiddenMemberships = allEdges.filter((sourceEdge: any) => sourceEdge.type === "belongs-to").length - visibleEdges.filter((sourceEdge: any) => sourceEdge.type === "belongs-to").length;
+  const hiddenMemberships = allEdges.filter((sourceEdge) => sourceEdge.type === "belongs-to").length - visibleEdges.filter((sourceEdge: UnknownRecord) => sourceEdge.type === "belongs-to").length;
 
-  const sourceNodes = allNodes.filter((sourceNode: any) => visibleNodeIds.has(sourceNode.id));
-  const hiddenLeafNodes = viewMode === "all" ? 0 : allNodes.filter((sourceNode: any) => !visibleNodeIds.has(sourceNode.id)).length;
+  const sourceNodes = allNodes.filter((sourceNode) => visibleNodeIds.has(readGraphString(sourceNode, "id")));
+  const hiddenLeafNodes = viewMode === "all" ? 0 : allNodes.filter((sourceNode) => !visibleNodeIds.has(readGraphString(sourceNode, "id"))).length;
   const nodeIds = new Set<string>();
 
-  const nodes: GraphMapNode[] = sourceNodes.map((sourceNode: any) => {
-    nodeIds.add(sourceNode.id);
-    const nodeType = String(sourceNode.type || "doc");
-    const displayType = String(sourceNode.documentType || nodeType);
-    const metadata = [sourceNode.status, sourceNode.visibility].filter(Boolean).join(" / ");
+  const nodes: GraphMapNode[] = sourceNodes.map((sourceNode) => {
+    const sourceNodeId = readGraphString(sourceNode, "id");
+    nodeIds.add(sourceNodeId);
+    const nodeType = readGraphString(sourceNode, "type") || "doc";
+    const displayType = readGraphString(sourceNode, "documentType") || nodeType;
+    const metadata = [readGraphString(sourceNode, "status"), readGraphString(sourceNode, "visibility")].filter(Boolean).join(" / ");
     const secondaryMetadata = metadata || (isGraphAnchorNode(sourceNode) ? "" : graphNodeTypeLabel(nodeType));
 
     return {
-      id: sourceNode.id,
+      id: sourceNodeId,
       type: nodeType,
       displayType,
       typeLabel: graphNodeTypeLabel(displayType),
-      label: String(sourceNode.label || sourceNode.id),
+      label: readGraphString(sourceNode, "label") || sourceNodeId,
       metadata: secondaryMetadata,
       graphNode: sourceNode,
       isAnchor: isGraphAnchorNode(sourceNode)
@@ -86,43 +94,51 @@ export function buildGraphFlowElements(graph: any, viewMode: GraphViewMode, focu
   });
 
   const edges: GraphMapEdge[] = visibleEdges
-    .filter((sourceEdge: any) => nodeIds.has(sourceEdge.from) && nodeIds.has(sourceEdge.to))
-    .map((sourceEdge: any) => {
-      const edgeType = String(sourceEdge.type || "related");
+    .filter((sourceEdge: UnknownRecord) => nodeIds.has(readGraphString(sourceEdge, "from")) && nodeIds.has(readGraphString(sourceEdge, "to")))
+    .map((sourceEdge: UnknownRecord) => {
+      const edgeType = readGraphString(sourceEdge, "type") || "related";
       const displayEdge = graphDisplayEdge(sourceEdge, viewMode);
       return {
-        id: String(sourceEdge.id || `${displayEdge.source}->${edgeType}->${displayEdge.target}`),
+        id: readGraphString(sourceEdge, "id") || `${displayEdge.source}->${edgeType}->${displayEdge.target}`,
         source: displayEdge.source,
         target: displayEdge.target,
         type: edgeType,
         label: displayEdge.label,
         color: graphEdgeColor(edgeType, sourceEdge),
-        reason: String(sourceEdge.reason || ""),
-        sourceKind: String(sourceEdge.sourceKind || ""),
-        semanticEdgeId: sourceEdge.semanticEdgeId ? String(sourceEdge.semanticEdgeId) : undefined,
-        semanticStatus: sourceEdge.semanticStatus ? String(sourceEdge.semanticStatus) : undefined,
+        reason: readGraphString(sourceEdge, "reason"),
+        sourceKind: readGraphString(sourceEdge, "sourceKind") || undefined,
+        semanticEdgeId: readGraphString(sourceEdge, "semanticEdgeId") || undefined,
+        semanticStatus: readGraphString(sourceEdge, "semanticStatus") || undefined,
         confidence: typeof sourceEdge.confidence === "number" ? sourceEdge.confidence : undefined,
-        evidence: Array.isArray(sourceEdge.evidence) ? sourceEdge.evidence : undefined
+        evidence: graphEvidence(sourceEdge.evidence)
       };
     });
 
+  const virtualized = virtualizeGraph(nodes, edges, focusedNodeId);
+
   return {
-    nodes,
-    edges,
-    edgeTypes: summarizeEdgeTypes(visibleEdges),
+    nodes: virtualized.nodes,
+    edges: virtualized.edges,
+    edgeTypes: summarizeEdgeTypes(virtualized.edges),
     hiddenMemberships: Math.max(0, hiddenMemberships),
     hiddenLeafNodes,
-    focusLabel: focusedNodeId ? nodeById.get(focusedNodeId)?.label : undefined
+    omittedNodeCount: virtualized.omittedNodeCount,
+    omittedEdgeCount: virtualized.omittedEdgeCount,
+    projectionLimited: virtualized.limited,
+    focusLabel: focusedNodeId
+      ? readGraphString(nodeById.get(focusedNodeId) ?? {}, "label") || undefined
+      : undefined
   };
 }
 
-export function RawStorageAudit({ graph }: { graph: any }) {
-  const nodes: any[] = Array.isArray(graph?.nodes) ? graph.nodes : [];
-  const edges: any[] = Array.isArray(graph?.edges) ? graph.edges : [];
+export function RawStorageAudit({ graph }: { graph: unknown }) {
+  const graphRecord = objectRecord(graph);
+  const nodes = recordArray(graphRecord?.nodes);
+  const edges = recordArray(graphRecord?.edges);
   const nodeTypes = summarizeNodeTypes(nodes);
   const edgeTypes = summarizeEdgeTypes(edges);
-  const storageEdges = edges.filter((sourceEdge: any) => sourceEdge.type === "belongs-to");
-  const contextEdges = edges.filter((sourceEdge: any) => sourceEdge.type !== "belongs-to");
+  const storageEdges = edges.filter((sourceEdge) => sourceEdge.type === "belongs-to");
+  const contextEdges = edges.filter((sourceEdge) => sourceEdge.type !== "belongs-to");
 
   return (
     <div className="graph-audit-panel">
@@ -168,4 +184,37 @@ function GraphAuditRows({ rows }: { rows: Array<{ type: string; count: number }>
       ))}
     </div>
   );
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function objectRecord(input: unknown): UnknownRecord | undefined {
+  return input !== null && typeof input === "object" && !Array.isArray(input)
+    ? input as UnknownRecord
+    : undefined;
+}
+
+function recordArray(input: unknown): UnknownRecord[] {
+  return Array.isArray(input)
+    ? input.map(objectRecord).filter((item): item is UnknownRecord => item !== undefined)
+    : [];
+}
+
+function readGraphString(input: UnknownRecord, key: string): string {
+  const value = input[key];
+  return typeof value === "string" ? value : "";
+}
+
+function graphEvidence(input: unknown): GraphMapEdge["evidence"] {
+  if (!Array.isArray(input)) return undefined;
+  return input.slice(0, 20).flatMap((item) => {
+    const record = objectRecord(item);
+    if (!record) return [];
+    return [{
+      quote: readGraphString(record, "quote") || undefined,
+      documentId: readGraphString(record, "documentId") || undefined,
+      location: readGraphString(record, "location") || undefined,
+      sourcePath: readGraphString(record, "sourcePath") || undefined
+    }];
+  });
 }

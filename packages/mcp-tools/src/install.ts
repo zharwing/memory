@@ -103,12 +103,17 @@ export async function installMcpClient(options: McpInstallOptions): Promise<McpI
   );
   const health = await readDaemonHealth(daemonUrl);
   const envAuthMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE");
+  const transport = options.transport || "http";
   const authMode = options.authMode && options.authMode !== "auto"
     ? options.authMode
-    : health.authMode === "none" || envAuthMode === "none"
+    : transport === "stdio"
+      ? "token"
+      : health.authMode === "none" || envAuthMode === "none"
       ? "none"
       : "token";
-  const transport = options.transport || "http";
+  if (transport === "stdio" && authMode === "none") {
+    throw new Error("Stdio MCP requires a dedicated agent credential; credential-free mode is HTTP preview compatibility only.");
+  }
   const configPath = options.configPath
     ? path.resolve(options.configPath)
     : defaultConfigPath(options.client, options.workingDirectory || process.cwd());
@@ -119,8 +124,11 @@ export async function installMcpClient(options: McpInstallOptions): Promise<McpI
   if (transport === "http" && !health.reachable) {
     warnings.push(`Daemon was not reachable at ${daemonUrl}; config was written but clients will fail until the daemon is running.`);
   }
-  if (transport === "http" && authMode === "token") {
-    warnings.push("Daemon reports token auth; clients must have ZHARWING_MEMORY_AUTH_TOKEN in their environment or switch local daemon to ZHARWING_MEMORY_AUTH_MODE=none.");
+  if (authMode === "token") {
+    warnings.push("The MCP host must receive a dedicated project-bound ZHARWING_MEMORY_AGENT_CREDENTIAL.");
+  }
+  if (transport === "http" && authMode === "none") {
+    warnings.push("Credential-free MCP is a personal-preview compatibility mode and is not a hardened agent profile.");
   }
 
   const serverConfig = transport === "http"
@@ -381,11 +389,11 @@ async function runtimeCliEntry(cliEntryPath?: string): Promise<string> {
 function httpServerConfig(client: McpClientTarget, url: string, authMode: "none" | "token"): Record<string, unknown> {
   if (client === "codex") {
     return authMode === "token"
-      ? { url, bearer_token_env_var: "ZHARWING_MEMORY_AUTH_TOKEN" }
+      ? { url, bearer_token_env_var: "ZHARWING_MEMORY_AGENT_CREDENTIAL" }
       : { url };
   }
   return authMode === "token"
-    ? { type: "http", url, headers: { Authorization: "Bearer ${ZHARWING_MEMORY_AUTH_TOKEN}" } }
+    ? { type: "http", url, headers: { Authorization: "Bearer ${ZHARWING_MEMORY_AGENT_CREDENTIAL}" } }
     : { type: "http", url };
 }
 
@@ -396,12 +404,25 @@ function stdioServerConfig(
   daemonUrl: string,
   authMode: "none" | "token"
 ): Record<string, unknown> {
-  const env: Record<string, string> = { ZHARWING_MEMORY_DAEMON_URL: daemonUrl };
-  if (authMode === "token") env.ZHARWING_MEMORY_AUTH_TOKEN = "${ZHARWING_MEMORY_AUTH_TOKEN}";
+  const env: Record<string, string> = {
+    ZHARWING_MEMORY_DAEMON_URL: daemonUrl,
+    ZHARWING_MEMORY_AGENT_SURFACE: "enabled"
+  };
+  if (authMode === "token") {
+    env.ZHARWING_MEMORY_AGENT_CREDENTIAL = "${ZHARWING_MEMORY_AGENT_CREDENTIAL}";
+  }
   if (client === "codex") {
     return authMode === "token"
-      ? { command, args, env: { ZHARWING_MEMORY_DAEMON_URL: daemonUrl }, env_vars: ["ZHARWING_MEMORY_AUTH_TOKEN"] }
-      : { command, args, env: { ZHARWING_MEMORY_DAEMON_URL: daemonUrl } };
+      ? {
+          command,
+          args,
+          env: {
+            ZHARWING_MEMORY_DAEMON_URL: daemonUrl,
+            ZHARWING_MEMORY_AGENT_SURFACE: "enabled"
+          },
+          env_vars: ["ZHARWING_MEMORY_AGENT_CREDENTIAL"]
+        }
+      : { command, args, env };
   }
   return { type: "stdio", command, args, env };
 }
@@ -490,7 +511,9 @@ async function backupFile(filePath: string, contents: string): Promise<string> {
 }
 
 function trimTrailingSlash(input: string): string {
-  return input.replace(/\/+$/, "");
+  let end = input.length;
+  while (end > 0 && input.charCodeAt(end - 1) === 47) end -= 1;
+  return end === input.length ? input : input.slice(0, end);
 }
 
 function ensureTrailingNewline(input: string): string {

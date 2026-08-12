@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-rpc"
+description = "Enables the memory_rpc command without any pre-configured scope."
+commands.allow = ["memory_rpc"]
+
+[[permission]]
+identifier = "deny-memory-rpc"
+description = "Denies the memory_rpc command without any pre-configured scope."
+commands.deny = ["memory_rpc"]

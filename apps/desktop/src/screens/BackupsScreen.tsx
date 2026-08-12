@@ -9,18 +9,21 @@ import { formatShortDateTime } from "../utils/format.js";
 
 export const BackupsScreen = observer(function BackupsScreen() {
   const store = useStore();
+  const backupsState = store.system.backupsResource.state;
   useEffect(() => {
     if (store.projects.selectedProjectId) void store.system.loadBackups();
   }, [store, store.projects.selectedProjectId]);
   return (
-    <Screen title="Backups" actions={<button disabled={!store.projects.selectedProjectId} onClick={() => store.system.loadBackups()}>Refresh</button>}>
+    <Screen title="Backups" actions={<button type="button" disabled={!store.projects.selectedProjectId} onClick={() => store.system.loadBackups()}>Refresh</button>}>
       <SettingsTabs />
       <Panel title="Project Snapshot">
         <p>Snapshots copy project memory into `backups/snapshots` while excluding previous backups.</p>
-        <button disabled={!store.projects.selectedProjectId} onClick={() => store.system.createBackup()}>Create Snapshot</button>
+        <button type="button" disabled={!store.projects.selectedProjectId} onClick={() => store.system.createBackup()}>Create Snapshot</button>
       </Panel>
       <Panel title="Snapshots">
-        {store.system.backups.length ? (
+        {backupsState.status === "idle" || backupsState.status === "loading" ? (
+          <p className="panel-help" role="status">Loading snapshots...</p>
+        ) : store.system.backups.length ? (
           <div className="repo-list">
             {store.system.backups.map((backup) => (
               <ListRow
@@ -43,9 +46,9 @@ export const BackupsScreen = observer(function BackupsScreen() {
               />
             ))}
           </div>
-        ) : (
+        ) : backupsState.status === "empty" ? (
           <Empty text="No snapshots yet." />
-        )}
+        ) : null}
       </Panel>
     </Screen>
   );

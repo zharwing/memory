@@ -13,4 +13,11 @@ if (agentSurface !== "enabled") {
   process.exit(1);
 }
 
+if (!process.env.ZHARWING_MEMORY_AGENT_CREDENTIAL?.trim()) {
+  console.error(
+    "AGENT_CREDENTIAL_REQUIRED: provide a dedicated project-bound agent credential at the trusted host boundary."
+  );
+  process.exit(1);
+}
+
 serveMcpStdio();
