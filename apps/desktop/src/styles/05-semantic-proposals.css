@@ -327,7 +327,7 @@
 }
 
 .semantic-edge-evidence-list blockquote {
-  border-left: 3px solid #7c3aed;
+  border-left: 3px solid var(--information);
   color: var(--text);
   line-height: 1.45;
   margin: 0;

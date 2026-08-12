@@ -5,6 +5,7 @@ import { listWorkspaces, readWorkspaceTsconfig, toPosix, walkFiles } from "./wor
 
 const SOURCE_TEST_PATTERN = /\.test\.tsx?$/i;
 const COMPILED_TEST_PATTERN = /\.test\.js$/i;
+const FRONTEND_SOURCE_WORKSPACE = "apps/desktop";
 
 export function mapSourceToCompiled(workspaceDir, tsconfig, sourceFile) {
   const rootDir = path.resolve(workspaceDir, tsconfig.rootDir);
@@ -24,6 +25,8 @@ export function mapCompiledToSourceCandidates(workspaceDir, tsconfig, compiledFi
 export function discoverWorkspaceTests(repoRoot) {
   const result = {
     sourceTests: [],
+    compiledSourceTests: [],
+    frontendSourceTests: [],
     expectedCompiled: [],
     missingCompiled: [],
     staleCompiled: [],
@@ -39,6 +42,13 @@ export function discoverWorkspaceTests(repoRoot) {
     });
     sourceTests.sort();
 
+    result.sourceTests.push(...sourceTests.map((file) => toPosix(path.relative(repoRoot, file))));
+
+    if (sourceTests.length > 0 && tsconfig?.noEmit && workspace.name === FRONTEND_SOURCE_WORKSPACE) {
+      result.frontendSourceTests.push(...sourceTests);
+      continue;
+    }
+
     if (sourceTests.length > 0 && (!tsconfig || tsconfig.noEmit)) {
       result.noEmitViolations.push(
         ...sourceTests.map((file) => ({ workspace: workspace.name, file: toPosix(path.relative(repoRoot, file)) }))
@@ -48,7 +58,7 @@ export function discoverWorkspaceTests(repoRoot) {
 
     for (const sourceFile of sourceTests) {
       const compiled = mapSourceToCompiled(workspace.dir, tsconfig, sourceFile);
-      result.sourceTests.push(toPosix(path.relative(repoRoot, sourceFile)));
+      result.compiledSourceTests.push(toPosix(path.relative(repoRoot, sourceFile)));
       if (existsSync(compiled)) {
         result.expectedCompiled.push(compiled);
       } else {
@@ -68,6 +78,8 @@ export function discoverWorkspaceTests(repoRoot) {
   }
 
   result.expectedCompiled.sort();
+  result.compiledSourceTests.sort();
+  result.frontendSourceTests.sort();
   result.sourceTests.sort();
   result.missingCompiled.sort();
   result.staleCompiled.sort();

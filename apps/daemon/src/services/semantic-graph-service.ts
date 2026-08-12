@@ -25,8 +25,10 @@ import {
   callAiProviderJson,
   checkAiProvider,
   providerKindFromAssistantRuntime,
-  type AiProviderConfig
+  type AiProviderConfig,
+  type ProviderCheckResult
 } from "@zharwing/memory-assistant";
+import { scanSecrets } from "@zharwing/memory-privacy";
 import {
   applySemanticEdgePolicy,
   baselineSemanticExtractionFromPlanItem,
@@ -69,9 +71,13 @@ import {
   type SemanticGraphSettings
 } from "@zharwing/memory-core";
 import { resolveProject } from "./project-resolver.js";
+import type { ProviderSecretService } from "./provider-secret-service.js";
 
 export class SemanticGraphService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(
+    private readonly registry: ProjectRegistry,
+    private readonly providerSecrets?: ProviderSecretService
+  ) {}
 
   async getSettings(params: { projectId: string }) {
     const project = await resolveProject(this.registry, params.projectId);
@@ -259,7 +265,6 @@ export class SemanticGraphService {
     projectId: string;
     endpoint?: string;
     model?: string;
-    apiKey?: string;
     providerKind?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
@@ -267,12 +272,19 @@ export class SemanticGraphService {
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     const settings = await readSemanticGraphSettings(project);
-    const config = semanticProviderCheckConfig(project, settings, {
+    const configured = semanticProviderCheckConfig(project, settings, {
       ...params,
       timeoutMs: params.timeoutMs || 30000,
       maxOutputTokens: params.maxOutputTokens || 128
     });
-    return checkAiProvider(config);
+    const config = {
+      ...configured,
+      apiKey: this.providerSecrets?.read(project.id, configured.providerKind)
+    };
+    return sanitizeSemanticProviderCheckResult(await checkAiProvider(config), {
+      endpoint: config.endpoint,
+      model: config.model
+    });
   }
 
   async analyze(params: {
@@ -280,11 +292,6 @@ export class SemanticGraphService {
     scope?: SemanticGraphScope;
     mode?: SemanticGraphMode;
     dryRun?: boolean;
-    endpoint?: string;
-    model?: string;
-    apiKey?: string;
-    providerId?: string;
-    providerKind?: string;
     sourceAgent?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
@@ -310,7 +317,13 @@ export class SemanticGraphService {
       reviewThreshold: params.reviewThreshold ?? storedSettings.reviewThreshold,
       discardBelowThreshold: params.discardBelowThreshold ?? storedSettings.discardBelowThreshold
     });
-    const provider = semanticProviderConfig(project, settings, params);
+    const providerKind = semanticProviderKind(project, settings);
+    const provider = semanticProviderConfig(
+      project,
+      settings,
+      params,
+      this.providerSecrets?.read(project.id, providerKind)
+    );
 
     const [documents, sessions, workstreams] = await Promise.all([
       listProjectDocuments(project),
@@ -353,8 +366,8 @@ export class SemanticGraphService {
       scope,
       mode,
       settings,
-      providerId: params.providerId || settings.providerId,
-      providerKind: provider.providerKind || params.providerKind || settings.providerKind || "openai-compatible",
+      providerId: settings.providerId,
+      providerKind,
       model: provider.model,
       counts: {
         documentsTotal: selectedPlanItems.length,
@@ -705,6 +718,61 @@ export class SemanticGraphService {
   }
 }
 
+const MAX_PUBLIC_PROVIDER_IDENTIFIER = 160;
+const MAX_PUBLIC_PROVIDER_ENDPOINT = 2_048;
+
+/**
+ * Converts provider-controlled discovery/check output into the closed public
+ * contract before any browser, desktop, admin, or provider principal can
+ * observe it. Provider prose is never forwarded as product copy.
+ */
+export function sanitizeSemanticProviderCheckResult(
+  result: ProviderCheckResult,
+  serverOwned: { endpoint: string; model: string }
+): ProviderCheckResult {
+  return {
+    ok: result.ok === true,
+    endpoint: sanitizeProviderEndpoint(serverOwned.endpoint),
+    model: safeProviderIdentifier(serverOwned.model) ?? "provider-model-withheld",
+    latencyMs: Number.isFinite(result.latencyMs)
+      ? Math.min(Math.max(0, result.latencyMs), 24 * 60 * 60 * 1_000)
+      : 0,
+    message: result.ok === true
+      ? "Provider connection check succeeded."
+      : "Provider connection check was refused."
+  };
+}
+
+function safeProviderIdentifier(value: string | undefined): string | undefined {
+  const candidate = value?.trim();
+  if (
+    !candidate ||
+    candidate.length > MAX_PUBLIC_PROVIDER_IDENTIFIER ||
+    /[\u0000-\u001f\u007f]/.test(candidate) ||
+    scanSecrets(candidate).length > 0
+  ) return undefined;
+  return candidate;
+}
+
+function sanitizeProviderEndpoint(value: string): string {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "provider-endpoint-withheld";
+    }
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    const endpoint = parsed.toString();
+    return endpoint.length <= MAX_PUBLIC_PROVIDER_ENDPOINT
+      ? endpoint
+      : "provider-endpoint-withheld";
+  } catch {
+    return "provider-endpoint-withheld";
+  }
+}
+
 async function proposeCurrentSemanticEdges(args: {
   project: Project;
   sourceKind: ProposedMemoryUpdate["sourceKind"];
@@ -738,23 +806,20 @@ function semanticProviderConfig(
   project: Project,
   settings: SemanticGraphSettings,
   params: {
-    endpoint?: string;
-    model?: string;
-    apiKey?: string;
-    providerKind?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
-  }
-): AiProviderConfig & { model: string } {
-  const providerKind = semanticProviderKind(project, settings, params.providerKind);
-  const endpoint = params.endpoint || project.assistantPolicy.endpoint || defaultEndpointForProviderKind(providerKind);
-  const model = params.model || settings.model || project.assistantPolicy.modelName;
+  },
+  apiKey?: string
+): AiProviderConfig & { endpoint: string; model: string; providerKind: string } {
+  const providerKind = semanticProviderKind(project, settings);
+  const endpoint = project.assistantPolicy.endpoint || defaultEndpointForProviderKind(providerKind);
+  const model = settings.model || project.assistantPolicy.modelName;
   if (!endpoint) {
-    throw new Error("No AI provider endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
+    throw new Error("No AI provider endpoint configured in project settings.");
   }
   if (!model) {
-    throw new Error("No model configured. Set semantic graph model, assistantPolicy.modelName, or pass model.");
+    throw new Error("No model configured in project settings.");
   }
   if (!settings.remoteProvidersEnabled && !isLocalProviderEndpoint(endpoint)) {
     throw new Error("Remote semantic graph providers are disabled for this project. Enable remoteProvidersEnabled before sending eligible documents to a remote endpoint.");
@@ -764,7 +829,7 @@ function semanticProviderConfig(
     providerKind,
     endpoint,
     model,
-    apiKey: params.apiKey,
+    apiKey,
     timeoutMs: params.timeoutMs || 60000,
     maxOutputTokens: params.maxOutputTokens || 1024,
     temperature: 0,
@@ -772,36 +837,69 @@ function semanticProviderConfig(
   };
 }
 
-function semanticProviderCheckConfig(
+export function semanticProviderCheckConfig(
   project: Project,
   settings: SemanticGraphSettings,
   params: {
     endpoint?: string;
     model?: string;
-    apiKey?: string;
     providerKind?: string;
     timeoutMs?: number;
     maxOutputTokens?: number;
     jsonMode?: boolean;
   }
-): AiProviderConfig {
-  const providerKind = semanticProviderKind(project, settings, params.providerKind);
-  const endpoint = params.endpoint || project.assistantPolicy.endpoint || defaultEndpointForProviderKind(providerKind);
-  const model = params.model || settings.model || project.assistantPolicy.modelName;
-  if (!endpoint) {
-    throw new Error("No AI provider endpoint configured. Set assistantPolicy.endpoint or pass endpoint.");
+): AiProviderConfig & { endpoint: string; model: string; providerKind: string } {
+  const configuredProviderKind = semanticProviderKind(project, settings);
+  if (params.providerKind && normalizeProviderKind(params.providerKind) !== normalizeProviderKind(configuredProviderKind)) {
+    throw new Error("Provider check cannot override the project provider kind.");
+  }
+  const providerKind = configuredProviderKind;
+  const configuredEndpoint = project.assistantPolicy.endpoint || defaultEndpointForProviderKind(providerKind);
+  if (!configuredEndpoint) {
+    throw new Error("No AI provider endpoint configured for this project.");
+  }
+  const endpoint = exactProviderEndpoint(configuredEndpoint);
+  if (params.endpoint && exactProviderEndpoint(params.endpoint) !== endpoint) {
+    throw new Error("Provider check cannot override the configured endpoint.");
+  }
+  const model = settings.model || project.assistantPolicy.modelName;
+  if (!model) {
+    throw new Error("No AI provider model configured for this project.");
+  }
+  if (params.model && params.model !== model) {
+    throw new Error("Provider check cannot override the configured model.");
+  }
+  if (!settings.remoteProvidersEnabled && !isLocalProviderEndpoint(endpoint)) {
+    throw new Error("Remote semantic graph providers are disabled for this project.");
   }
 
   return {
     providerKind,
     endpoint,
     model,
-    apiKey: params.apiKey,
-    timeoutMs: params.timeoutMs || 30000,
-    maxOutputTokens: params.maxOutputTokens || 128,
+    timeoutMs: Math.min(Math.max(1, params.timeoutMs || 30000), 60_000),
+    maxOutputTokens: Math.min(Math.max(1, params.maxOutputTokens || 128), 512),
     temperature: 0,
     jsonMode: params.jsonMode
   };
+}
+
+function exactProviderEndpoint(value: string): string {
+  const parsed = new URL(value);
+  if (
+    (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error("Provider endpoint must be a credential-free HTTP(S) base URL.");
+  }
+  return parsed.toString();
+}
+
+function normalizeProviderKind(value: string): string {
+  return PROVIDER_KIND_ALIASES[value] || value;
 }
 
 function semanticProviderKind(

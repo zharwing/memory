@@ -1,4 +1,5 @@
 export * from "./fs.js";
+export * from "./domain-effects.js";
 export * from "./markdown.js";
 export * from "./templates.js";
 export * from "./registry.js";

@@ -1,118 +1,105 @@
-# Developer Preview Boundary
+# Developer preview boundary
 
-Zharwing Memory is being prepared as a **standalone personal developer
-preview**. This preview is useful for developers who want a local, inspectable
-memory layer for AI-assisted coding, but it is not a production, multi-user, or
-hardened agent-management release.
+Status as of 2026-08-12: the repository contains source implementations for
+the `personal-preview` compatibility profile and the `hardened-local` security
+profile. This does **not** mean a release candidate, installer, device matrix,
+or hardened deployment has been qualified.
 
-Preparing this preview does not publish the repository, create a release, or
-change any private memory store. Those are separate owner-approved actions.
+Zharwing Memory remains a local, single-user developer preview. It is not a
+multi-tenant service, remote collaboration server, public data host, or
+general-purpose agent sandbox. Publishing, signing, deployment, store
+migration, and credential rotation require separate operator actions.
 
-## Preview Baseline
+## Implemented profile boundary
 
-- Release branch and upstream: `main` on `origin`
-- Source candidate: the exact `main` commit associated with the validation and
-  release evidence; do not infer it from an older hash in this document
-- Runtime/filesystem owner: Windows-native
-- Node.js: `22.21.0` (the repository also declares the supported Node 24 range)
-- pnpm: `9.0.0`
-- Canonical execution-plan fingerprint: record the value returned by
-  `python EXECUTION/orchestrate.py validate` for the candidate being reviewed
+| Area | `personal-preview` | `hardened-local` |
+| --- | --- | --- |
+| Intended use | One trusted local developer; explicit compatibility | Target least-privilege local model |
+| Daemon binding | Exact loopback; `none` or token according to explicit configuration | Exact loopback and token/session authentication required |
+| Browser | Explicit no-auth preview session only for `personal-preview + none`, otherwise trusted one-shot bootstrap | Trusted one-shot bootstrap, HttpOnly cookie, memory-only CSRF |
+| Native desktop | Not the packaged native authority profile | Rust owns daemon lifecycle and a one-shot desktop credential; webview never sees it |
+| Agent | Compatibility surface may remain enabled explicitly | Distinct project-bound agent credential and registered agent operations |
+| Missing visibility | Historical compatibility default may remain AI-eligible | Withheld as `review-required`; never silently promoted |
+| Provider secrets | Never browser-readable; legacy project plaintext must not be reintroduced | Write-only daemon envelope and destination policy |
 
-The source candidate starts from a clean baseline. Generated output,
-dependencies, private stores, credentials, and machine-specific evidence are
-not release source.
+The runtime default remains `personal-preview` until a separately governed
+migration changes it. The Tauri native composition deliberately launches its
+owned daemon as `hardened-local`. Browser and Tauri composition roots do not
+fall back to one another.
 
-## Product Profile Decision
+## Source capabilities present
 
-The standalone personal preview and the future hardened harness integration
-are separate profiles.
+- runtime-decoded typed operation registry and closed public errors;
+- project-generation guards, cancellation, idempotency, and outcome-unknown
+  reconciliation boundaries;
+- browser cookie/CSRF sessions and native Rust-owned desktop authority;
+- privacy projection over agent-visible entities and operation results;
+- write-only provider secrets, constrained provider egress, and revision-bound
+  secret rotation;
+- prepare/commit/cancel destructive intents for permanent/global effects;
+- semantic tokens, accessible primitives, responsive/reduced-motion/
+  forced-colors source contracts;
+- typed routing with owned invalid-link recovery and an accessible structured
+  graph fallback; and
+- secretless build, budget, source-artifact, evidence, and SBOM/checksum
+  scripts.
 
-The preview preserves the current personal workflow:
+These are source facts, not evidence that every integrated gate passed for a
+particular commit or artifact.
 
-- **Authentication:** token authentication remains the default. Explicit
-  no-auth mode is limited to a loopback-bound personal daemon.
-- **Visibility:** selected-project memory is AI-eligible by default. Explicit
-  visibility exclusions, never-send patterns, secret detection, redaction, and
-  high-risk blocking remain enforced.
-- **Durable writes:** routine agent writes are allowed when project review mode
-  is off. Review mode and Memory Inbox proposals remain available when the user
-  wants approval or when a change is risky or uncertain.
-- **Browser authority:** the browser and desktop UI are the human interface.
-  The browser uses the authenticated daemon and does not gain arbitrary
-  local filesystem access. Destructive and administrative operations are not
-  part of the eleven-tool MCP daily-memory surface.
-- **Compatibility:** the current CLI, daemon, browser/desktop UI, pointer-file
-  format, Markdown store, and eleven MCP tools remain compatible for this
-  preview. Existing stores are not silently migrated to a different policy.
-- **Migration and rollback:** the preview performs no profile-policy migration.
-  A future hardened profile must be opt-in, versioned, preceded by a verified
-  backup, and reversible to the standalone profile without rewriting canonical
-  memory content.
+## Compatibility and migration
 
-The future hardened harness profile must add project-scoped least-privilege
-credentials, import-safe visibility, proposal-only durable knowledge changes,
-browser session credentials, and explicit migration and rollback behavior. It
-must not silently change the standalone preview's behavior.
+Frontend V2 is a compatibility-preserving internal refactor, not a breaking
+API release. Supported operation names and canonical Markdown/project data are
+unchanged at the external boundary. Dated client aliases, registered URLs, and
+local preview paths remain available while their explicit removal conditions
+are evaluated.
 
-## Product Screenshots
+Canonical Markdown project content is not rewritten merely to select a
+profile. Back up first, provision role-specific credentials, review visibility,
+and let only non-sensitive preferences/layout caches reset. The dated residual
+paths and their removal conditions are recorded in
+[Frontend V2 compatibility register](migration/frontend-v2-compatibility-register.md).
+The full procedure and rollback are in
+[Frontend V2 migration](migration/frontend-v2-migration.md).
 
-The screenshots below use a disposable demonstration store and repository.
-They contain no private project memory, credentials, or personal paths.
+## Qualification boundary
 
-![Project dashboard](assets/zharwing-memory-dashboard.png)
+Source implementation may be described as complete only after the integrated
+source pass is reviewed and all locally reproducible required gates pass for
+one bound candidate. Release/device qualification additionally requires the
+declared browser, packaged WebView, assistive-technology, physical-device,
+installer, signing, and rollback evidence.
 
-![Active work session](assets/zharwing-memory-current-work.png)
+Local validation of the uncommitted 2026-08-12 working tree passed the
+workspace typecheck, 333 automated tests with zero failures and two intentional
+Windows symlink-safety skips, the browser build and unchanged budgets, isolated
+secret-canary, fixture, source-artifact, accessibility-source, and public-doc
+checks, plus headless Edge startup recovery. Six Rust unit tests and the Tauri
+compile/package mechanics passed with an inert sidecar fixture. No candidate
+digest or release artifact was bound, and the real packaged daemon/runtime
+qualification remains open. Use the live
+[frontend qualification matrix](qualification/frontend-qualification-matrix.md)
+and an artifact evidence manifest; never carry forward an older workspace's
+green result.
 
-## Preview Limitations
+Unsupported or unobserved combinations must be recorded as
+`deferred_platform_validation`, not pass. In particular, NVDA/Edge, packaged
+Windows WebView, touch/coarse-pointer hardware, physical small-screen browser,
+installer/signing, live provider targets, and rollback rehearsal remain
+release/device obligations until exact evidence exists.
 
-- Intended for a trusted developer operating a local, single-user environment.
-- Not qualified for multi-tenant, shared-host, or untrusted-network use.
-- Broad end-to-end coverage across every desktop workflow is still incomplete.
-- Optional live-provider compatibility requires opt-in testing with each
-  provider; normal memory, search, graph, and context workflows do not require
-  a model.
-- Installer generation and installer-level smoke testing remain outstanding.
-  A packaged Windows executable has been built, but it is not being published
-  as part of this source preview.
-- The hardened harness profile and its security/data-integrity qualification
-  remain future work and are not implied by this preview.
+## Candidate gate order
 
-## Local Preview Gates
+From a clean checkout with the frozen lockfile and supported toolchain:
 
-Run the following commands from a clean Windows checkout of the exact candidate
-commit using Node.js `22.21.0` and pnpm `9.0.0`:
+1. validate execution state and review the candidate diff;
+2. run source-artifact, type, deterministic test, and accessibility checks;
+3. build public docs and reject generated drift;
+4. build browser assets and run budget, fixture, source-map, and secret scans;
+5. generate the artifact-bound evidence manifest and SBOM/checksums;
+6. run available browser, Rust, and packaged desktop gates; and
+7. record every manual or unavailable matrix row explicitly.
 
-```powershell
-corepack pnpm install --frozen-lockfile
-corepack pnpm check:source-artifacts
-corepack pnpm typecheck
-corepack pnpm test
-corepack pnpm test:coverage
-corepack pnpm build
-corepack pnpm test:desktop-browser
-cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
-```
-
-The release evidence must record the candidate commit, branch, upstream, OS,
-Node and pnpm versions, command, exit code, timestamp, and any intentional skip.
-It must also include:
-
-1. `git status --short --branch` before and after validation.
-2. A clean-clone or fresh-checkout result using only tracked source and the
-   frozen lockfile.
-3. A screenshot made only from disposable demonstration data.
-4. An independently reviewed diff with no secrets, private memory, generated
-   source artifacts, or machine-specific paths.
-
-Installer generation and installer-level smoke testing are explicitly outside
-this developer-preview source release and must not be reported as passed.
-
-The default GitHub Actions workflow runs the normal deterministic test suite,
-not `test:coverage`, and does not run `zharwing-memory mcp doctor`. Record those
-two explicit release checks separately when they are required for a candidate.
-
-Remote CI and repository visibility changes happen only after a separate
-owner approval. If preview validation fails, keep the repository private,
-retain the current installation, and revert only the preview-specific source
-and documentation changes.
+The exact commands are maintained in [Testing](TESTING.md) and
+[Frontend release controls](release/frontend-release-controls.md).

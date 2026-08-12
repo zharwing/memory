@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { MoreHorizontal, X } from "lucide-react";
 import { useStore } from "../stores/store-context.js";
@@ -6,6 +6,8 @@ import { Modal } from "./Modal.js";
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton.js";
 import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
 import { formatShortDateTime } from "../utils/format.js";
+import { IconButton } from "./IconButton.js";
+import { StatusNotice } from "./AccessibleStatus.js";
 
 const SUMMARY_CLAMP_CHARS = 260;
 
@@ -35,6 +37,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
   const summary = String(session.summary || "");
   const summaryIsLong = summary.length > SUMMARY_CLAMP_CHARS;
   const topics: string[] = session.topics || [];
+  const clipboardAvailable = typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
 
   function generateSummary() {
     void store.sessions.generateSummary(session.id, true);
@@ -82,8 +85,13 @@ export const SessionDetailModal = observer(function SessionDetailModal({
             <OverflowMenu label="More session actions">
               {(closeMenu) => (
                 <>
+                  {!clipboardAvailable ? (
+                    <p className="overflow-menu-help">Clipboard actions are unavailable in this environment.</p>
+                  ) : null}
                   <button
                     type="button"
+                    disabled={!clipboardAvailable}
+                    title={clipboardAvailable ? undefined : "Clipboard access is unavailable in this environment"}
                     onClick={() => {
                       void navigator.clipboard?.writeText(window.location.href);
                       closeMenu();
@@ -94,6 +102,8 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                   {session.branch ? (
                     <button
                       type="button"
+                      disabled={!clipboardAvailable}
+                      title={clipboardAvailable ? undefined : "Clipboard access is unavailable in this environment"}
                       onClick={() => {
                         void navigator.clipboard?.writeText(session.branch);
                         closeMenu();
@@ -130,20 +140,18 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                 </>
               )}
             </OverflowMenu>
-            <button
-              type="button"
-              className="icon-button icon-only"
+            <IconButton
+              className="icon-only"
               onClick={onClose}
-              title="Close"
-              aria-label="Close"
+              label="Close session details"
             >
               <X size={16} aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
         </header>
 
         <div className="session-reader-body">
-          <main className="session-reader-main">
+          <section className="session-reader-main" aria-label="Session work log">
             {session.closedReason ? <p className="session-close-reason">{session.closedReason}</p> : null}
             {body === undefined ? (
               <div className="rendered-markdown empty-preview">Loading session body…</div>
@@ -152,7 +160,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
             ) : (
               <div className="rendered-markdown empty-preview">No session body recorded.</div>
             )}
-          </main>
+          </section>
 
           <aside className="session-inspector">
             <section className="inspector-section">
@@ -260,29 +268,44 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
   const store = useStore();
   const [summary, setSummary] = useState("");
   const [includeInGraph, setIncludeInGraph] = useState(Boolean(session.includeInGraph));
+  const [operationFailed, setOperationFailed] = useState(false);
 
   async function closeSession() {
-    if (includeInGraph !== Boolean(session.includeInGraph)) {
-      await store.sessions.updateGraphVisibility(session.id, includeInGraph);
+    if (store.sessions.loading) return;
+    setOperationFailed(false);
+    try {
+      if (includeInGraph !== Boolean(session.includeInGraph)) {
+        await store.sessions.updateGraphVisibility(session.id, includeInGraph);
+      }
+      await store.sessions.closeSession(session.id, summary);
+      const latest = store.sessions.list.find((candidate) => candidate.id === session.id);
+      if (latest && latest.status !== "active") {
+        onCancel();
+        return;
+      }
+    } catch {
+      // The owned notice below intentionally avoids exposing raw exception text.
     }
-    await store.sessions.closeSession(session.id, summary);
-    onCancel();
+    setOperationFailed(true);
   }
 
   return (
     <Modal
-      ariaLabel={title}
+      title={title}
+      description="Optionally describe the final outcome or what is still open. A TL;DR is generated either way."
       backdropClassName="modal-backdrop session-closeout-backdrop"
       className="session-closeout-dialog"
-      onClose={onCancel}
+      onClose={() => { if (!store.sessions.loading) onCancel(); }}
     >
-      <h3>{title}</h3>
-      <p className="panel-help">
-        Optionally describe the final outcome or what is still open. A TL;DR is generated either way.
-      </p>
-      <label className="stacked-field">
+      {operationFailed ? (
+        <StatusNotice tone="danger" assertive title="Session not closed">
+          Your closeout text is still here. Review the current session and try again.
+        </StatusNotice>
+      ) : null}
+      <label className="stacked-field" htmlFor="session-closeout-summary">
         <span>Closeout summary</span>
         <textarea
+          id="session-closeout-summary"
           rows={4}
           value={summary}
           autoFocus
@@ -299,9 +322,9 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
         <span>Include this session in the project graph</span>
       </label>
       <div className="session-closeout-actions">
-        <button type="button" onClick={onCancel}>Cancel</button>
-        <button type="button" className="icon-text-button primary" disabled={store.sessions.loading} onClick={() => void closeSession()}>
-          {confirmLabel}
+        <button type="button" data-dialog-cancel disabled={store.sessions.loading} onClick={onCancel}>Cancel</button>
+        <button type="button" className="icon-text-button primary" disabled={store.sessions.loading} aria-busy={store.sessions.loading} onClick={() => void closeSession()}>
+          {store.sessions.loading ? "Closing…" : confirmLabel}
         </button>
       </div>
     </Modal>
@@ -327,6 +350,7 @@ function OverflowMenu({
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const controlsId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -339,6 +363,7 @@ function OverflowMenu({
       if (event.key !== "Escape") return;
       event.preventDefault();
       setOpen(false);
+      containerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     }
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -351,18 +376,17 @@ function OverflowMenu({
 
   return (
     <div className="overflow-menu" ref={containerRef}>
-      <button
-        type="button"
-        className={`icon-button icon-only ${open ? "selected" : ""}`}
+      <IconButton
+        className={`icon-only ${open ? "selected" : ""}`}
         onClick={() => setOpen((current) => !current)}
-        title={label}
-        aria-label={label}
+        label={label}
         aria-expanded={open}
+        aria-controls={controlsId}
       >
         <MoreHorizontal size={16} aria-hidden="true" />
-      </button>
+      </IconButton>
       {open ? (
-        <div className="overflow-menu-items" role="menu">
+        <div id={controlsId} className="overflow-menu-items" role="group" aria-label={label}>
           {children(() => setOpen(false))}
         </div>
       ) : null}

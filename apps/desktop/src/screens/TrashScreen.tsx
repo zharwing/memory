@@ -8,6 +8,7 @@ import { ListRow } from "../components/ListRow.js";
 export const TrashScreen = observer(function TrashScreen() {
   const store = useStore();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const trashState = store.system.trashResource.state;
 
   useEffect(() => {
     void store.system.loadTrash();
@@ -26,7 +27,7 @@ export const TrashScreen = observer(function TrashScreen() {
   }
 
   return (
-    <Screen title="Trash" actions={<button onClick={() => store.system.loadTrash()}>Refresh</button>}>
+    <Screen title="Trash" actions={<button type="button" onClick={() => store.system.loadTrash()}>Refresh</button>}>
       <Panel title="Trash Controls">
         <div className="button-row">
           <button type="button" disabled={!store.system.trashItems.length} onClick={selectAll}>Select All</button>
@@ -46,7 +47,9 @@ export const TrashScreen = observer(function TrashScreen() {
         </p>
       </Panel>
       <Panel title="Deleted Items">
-        {store.system.trashItems.length ? (
+        {trashState.status === "idle" || trashState.status === "loading" ? (
+          <p className="panel-help" role="status">Loading trash...</p>
+        ) : store.system.trashItems.length ? (
           <div className="repo-list">
             {store.system.trashItems.map((item) => (
               <ListRow
@@ -85,9 +88,9 @@ export const TrashScreen = observer(function TrashScreen() {
               />
             ))}
           </div>
-        ) : (
+        ) : trashState.status === "empty" ? (
           <Empty text="Trash is empty." />
-        )}
+        ) : null}
       </Panel>
     </Screen>
   );

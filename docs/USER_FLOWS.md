@@ -139,7 +139,7 @@ No deep codebase scan happens during project creation.
 
 1. User deletes a project, linked repo entry, workstream, session, doc, inbox proposal, or backup.
 2. Critical deletes show a confirmation dialog.
-3. User can choose `Do not ask again for this type of item` to skip future prompts for that item type.
+3. App always presents the owned confirmation; no persisted preference may bypass it.
 4. App moves the item to Trash instead of permanently deleting it.
 5. User opens Trash to restore the item, permanently delete one item, select multiple items, or empty all trash.
 6. Permanent delete cannot be undone.

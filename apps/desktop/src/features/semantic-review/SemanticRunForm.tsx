@@ -19,7 +19,7 @@ export interface SemanticRunFieldSpec {
 
 interface FieldDefaults {
   label: string;
-  input: "text" | "password" | "number" | "select" | "checkbox";
+  input: "text" | "number" | "select" | "checkbox";
   min?: string;
   step?: string;
   options?: Array<{ value: string; label: string }>;
@@ -35,9 +35,6 @@ const FIELD_DEFAULTS: Record<SemanticRunFieldKey, FieldDefaults> = {
       { value: "auto", label: "Auto" }
     ]
   },
-  endpoint: { label: "Endpoint override", input: "text" },
-  model: { label: "Model override", input: "text" },
-  apiKey: { label: "API key", input: "password" },
   maxDocuments: { label: "Max docs", input: "number", min: "1", step: "1" },
   maxCandidates: { label: "Max candidates", input: "number", min: "1", step: "1" },
   maxCandidatesPerDocument: { label: "Per doc", input: "number", min: "1", step: "1" },

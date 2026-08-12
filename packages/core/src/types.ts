@@ -7,12 +7,54 @@ export type ContextBundleId = string;
 export type ProposedUpdateId = string;
 export type WorkstreamId = string;
 
+export type PrincipalAudience =
+  | "browser"
+  | "desktop"
+  | "agent"
+  | "admin"
+  | "provider"
+  | "backup";
+
+export type PrincipalId = string;
+export type PrincipalSessionId = string;
+export type AuthorityEpoch = number;
+export type PolicyDigest = string;
+export type RotationId = string;
+export type RevocationId = string;
+
+/**
+ * Claims produced by a trusted authority after credential verification. The
+ * operation set and project binding are part of the signed/opaque authority,
+ * not caller-provided request metadata.
+ */
+export interface PrincipalClaims<Operation extends string = string> {
+  readonly principalId: PrincipalId;
+  readonly sessionId: PrincipalSessionId;
+  readonly sessionOwner: string;
+  readonly audience: PrincipalAudience;
+  readonly operations: readonly Operation[];
+  readonly projectId: ProjectId | null;
+  readonly issuedAt: ISODateString;
+  readonly expiresAt: ISODateString;
+  readonly authorityEpoch: AuthorityEpoch;
+  readonly policyDigest: PolicyDigest;
+  readonly rotationId: RotationId;
+  readonly revocationId: RevocationId;
+}
+
+/** A registrar-only proof that the claims crossed credential verification. */
+export type AuthenticatedPrincipal<Operation extends string = string> =
+  Readonly<PrincipalClaims<Operation>> & { readonly authenticated: true };
+
 export type Visibility =
   | "ai-eligible"
   | "ai-pinned"
+  | "review-required"
   | "human-only"
   | "private"
   | "never-send";
+
+export type PrivacyProfile = "personal-preview" | "hardened-local";
 
 export type DocumentStatus =
   | "draft"
@@ -63,6 +105,7 @@ export interface RepoLink {
   description?: string;
   role: string;
   defaultBranch?: string;
+  visibility?: Visibility;
   created: ISODateString;
   updated: ISODateString;
 }
@@ -106,6 +149,7 @@ export interface MemoryWritePolicy {
 
 export interface Project {
   id: ProjectId;
+  visibility?: Visibility;
   name: string;
   slug: string;
   memoryRoot: string;
@@ -128,6 +172,7 @@ export interface SessionCheckpoint {
   blockers: string[];
   touchedFiles: string[];
   proposedUpdateIds: ProposedUpdateId[];
+  visibility?: Visibility;
   stateFields?: Array<"nextSteps" | "blockers">;
 }
 
@@ -140,6 +185,7 @@ export interface Session {
   agent?: string;
   client?: string;
   status: SessionStatus;
+  visibility?: Visibility;
   started: ISODateString;
   updated: ISODateString;
   closed?: ISODateString;
@@ -174,6 +220,7 @@ export interface SessionSummary {
   id: SessionId;
   projectId: ProjectId;
   status: SessionStatus;
+  visibility?: Visibility;
   taskTitle: string;
   goal?: string;
   branch?: string;
@@ -262,6 +309,7 @@ export interface Workstream {
   name: string;
   slug: string;
   status: WorkstreamStatus;
+  visibility?: Visibility;
   summary?: string;
   goal?: string;
   topics: string[];
@@ -383,6 +431,7 @@ export interface ProposedMemoryUpdate {
   projectId: ProjectId;
   type: ProposedUpdateType;
   status: ProposedUpdateStatus;
+  visibility?: Visibility;
   sourceSession?: SessionId;
   sourceAgent?: string;
   sourceKind: "external-ai" | "memory-assistant" | "manual";
@@ -441,6 +490,7 @@ export interface Redaction {
 export interface ContextBundle {
   id: ContextBundleId;
   projectId: ProjectId;
+  visibility?: Visibility;
   sessionId?: SessionId;
   created: ISODateString;
   requestedBy?: string;
@@ -480,6 +530,7 @@ export interface ProjectCreationPreview {
 
 export interface StartupProjectSummary {
   id: ProjectId;
+  visibility?: Visibility;
   name: string;
   updated: ISODateString;
   repoCount: number;
@@ -488,6 +539,7 @@ export interface StartupProjectSummary {
 
 export interface StartupWorkstreamSummary {
   id: WorkstreamId;
+  visibility?: Visibility;
   name: string;
   slug: string;
   status: WorkstreamStatus;
@@ -499,6 +551,7 @@ export interface StartupWorkstreamSummary {
 
 export interface StartupStateSnapshot {
   schema: "zharwing.memory.startup.v2";
+  visibility?: Visibility;
   notModified?: false;
   revision: string;
   projectStatus: "resolved" | "unregistered" | "ambiguous";
@@ -529,6 +582,7 @@ export interface StartupStateSnapshot {
 
 export interface StartupStateNotModified {
   schema: "zharwing.memory.startup.v2";
+  visibility?: Visibility;
   notModified: true;
   projectId?: ProjectId;
   sessionId?: SessionId;
@@ -563,6 +617,7 @@ export interface TrashItem {
   id: string;
   type: TrashItemType;
   projectId?: ProjectId;
+  visibility?: Visibility;
   projectName?: string;
   itemId: string;
   title: string;
@@ -629,6 +684,7 @@ export interface GraphEdge {
     | "related"
     | "duplicates"
     | "contradicts";
+  visibility?: Visibility;
   reason: string;
   sourceKind?: "deterministic" | "semantic" | "deterministic+semantic";
   semanticEdgeId?: string;
@@ -667,6 +723,7 @@ export interface GraphExtractionRule {
 
 export interface ProjectGraph {
   projectId: ProjectId;
+  visibility?: Visibility;
   nodes: GraphNode[];
   edges: GraphEdge[];
   generated: ISODateString;
@@ -759,6 +816,7 @@ export interface SemanticGraphRun {
   id: string;
   projectId: ProjectId;
   status: SemanticGraphRunStatus;
+  visibility?: Visibility;
   mode: SemanticGraphMode;
   scope: SemanticGraphScope;
   providerId?: string;
@@ -778,6 +836,7 @@ export interface SemanticGraphEvidence {
   quote: string;
   location?: string;
   sourcePath?: string;
+  visibility?: Visibility;
 }
 
 export interface SemanticGraphEdgeSource {
@@ -797,6 +856,7 @@ export interface SemanticGraphEdge {
   to: string;
   type: SemanticGraphEdgeType;
   status: SemanticGraphEdgeStatus;
+  visibility?: Visibility;
   confidence: number;
   reason: string;
   evidence: SemanticGraphEvidence[];

@@ -11,7 +11,9 @@ server.listen(config.port, config.host, () => {
         event: "zharwing-memory-daemon-started",
         host: config.host,
         port: config.port,
-        memoryRoot: config.memoryRoot
+        profile: config.profile,
+        agentSurface: config.agentSurfaceEnabled ? "enabled" : "disabled",
+        nativeDesktop: config.desktopCredential ? "bound" : "not-bound"
       },
       null,
       2

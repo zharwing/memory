@@ -302,14 +302,14 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-popover);
   display: grid;
   min-width: 208px;
   padding: 6px;
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  z-index: 20;
+  z-index: var(--layer-popover);
 }
 
 .overflow-menu-items button {
@@ -328,6 +328,14 @@
   background: var(--surface-2);
 }
 
+.overflow-menu-help {
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  line-height: var(--line-body);
+  margin: var(--space-1) var(--space-2) var(--space-2);
+  max-width: 12rem;
+}
+
 .overflow-menu-danger button {
   color: var(--danger);
 }
@@ -343,7 +351,7 @@
 /* Two class names so this wins over `.modal-backdrop`'s z-index regardless of
    rule order: the closeout sheet stacks above the reader it opened from. */
 .modal-backdrop.session-closeout-backdrop {
-  z-index: 25;
+  z-index: var(--layer-nested-dialog);
 }
 
 .session-closeout-dialog {

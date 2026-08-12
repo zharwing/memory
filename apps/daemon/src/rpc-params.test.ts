@@ -3,28 +3,20 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { REQUIRED_PARAMS, requireParams, RpcValidationError } from "./rpc-params.js";
+import { OPERATION_REGISTRY } from "@zharwing/memory-core";
+import { requireParams, RpcValidationError } from "./rpc-params.js";
 
 const RPC_SOURCE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "daemon", "src", "rpc.ts");
 
-test("every RPC method that validates params has a registry entry (no drift)", async () => {
+test("the daemon switch and operation registry have exact parity", async () => {
   const source = await fs.readFile(RPC_SOURCE, "utf8");
-  const methods = [...new Set([...source.matchAll(/case "(memory\.[a-z_]+)"/g)].map((m) => m[1]))];
+  const methods = [...new Set([
+    ...source.matchAll(/case "(memory\.[a-z_]+)"/g),
+    ...source.matchAll(/invocation\.name === "(memory\.[a-z_]+)"/g)
+  ].map((match) => match[1]))].sort();
+  const registered = Object.keys(OPERATION_REGISTRY).sort();
   assert.ok(methods.length > 50, `expected the full inventory, found ${methods.length}`);
-
-  // Methods that take no params object or construct params inline are exempt;
-  // every method that flows params through requireParams must be registered.
-  const exempt = new Set([
-    "memory.health",
-    "memory.list_projects",
-    "memory.get_project",
-    "memory.detect_project",
-    "memory.get_startup_state",
-    "memory.list_import_profiles",
-    "memory.list_trash"
-  ]);
-  const unregistered = methods.filter((m) => !exempt.has(m) && !(m in REQUIRED_PARAMS));
-  assert.deepEqual(unregistered, [], `unregistered RPC methods: ${unregistered.join(", ")}`);
+  assert.deepEqual(methods, registered, "rpc.ts and the core operation authority drifted");
 });
 
 test("the RPC boundary no longer uses unchecked as-never casts", async () => {
@@ -54,7 +46,7 @@ test("requireParams accepts params carrying every required key", () => {
 });
 
 test("methods with no required params accept an empty object", () => {
-  assert.doesNotThrow(() => requireParams({}, "memory.empty_trash"));
+  assert.doesNotThrow(() => requireParams({}, "memory.health"));
 });
 
 test("project-only creation does not require a working directory", () => {
@@ -74,21 +66,26 @@ test("project-only creation does not require a working directory", () => {
 test("agent tool methods enforce their full input schema, not just presence", () => {
   assert.throws(
     () => requireParams({ projectId: "p1", limit: "5" }, "memory.get_recent_sessions"),
-    (error: unknown) => error instanceof RpcValidationError && /params\.limit/.test((error as Error).message)
+    (error: unknown) => error instanceof RpcValidationError && /input\.limit/.test((error as Error).message)
   );
   assert.throws(
     () => requireParams({ projectId: "p1", sessionId: "s1", autoSummarize: "yes" }, "memory.close_session"),
-    (error: unknown) => error instanceof RpcValidationError && /params\.autoSummarize must be a boolean/.test((error as Error).message)
+    (error: unknown) => error instanceof RpcValidationError && /input\.autoSummarize must be a boolean/.test((error as Error).message)
   );
   assert.doesNotThrow(() => requireParams({ projectId: "p1", limit: 5 }, "memory.get_recent_sessions"));
 });
 
-test("schema validation allows unknown extra keys (open params)", () => {
-  assert.doesNotThrow(() => requireParams({ projectId: "p1", query: "q", extra: "ignored" }, "memory.search"));
+test("registered operation schemas reject unknown extra keys", () => {
+  assert.throws(
+    () => requireParams({ projectId: "p1", query: "q", extra: "ignored" }, "memory.search"),
+    (error: unknown) => error instanceof RpcValidationError && /input\.extra/.test((error as Error).message)
+  );
 });
 
-test("control-plane methods without a tool schema keep presence-only checks", () => {
-  // memory.get_project has no MCP schema; a non-string projectId still passes
-  // requireParams and is coerced at the call site.
-  assert.doesNotThrow(() => requireParams({ projectId: 42 }, "memory.get_project"));
+test("control-plane methods receive the same complete runtime validation", () => {
+  assert.throws(
+    () => requireParams({ projectId: 42 }, "memory.get_project"),
+    (error: unknown) => error instanceof RpcValidationError && /input\.projectId must be a string/.test((error as Error).message)
+  );
+  assert.doesNotThrow(() => requireParams({ projectId: "p1" }, "memory.get_project"));
 });

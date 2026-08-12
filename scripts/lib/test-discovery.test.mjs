@@ -90,6 +90,30 @@ test("discovery fails when a noEmit workspace contains tests", () => {
   }
 });
 
+test("discovery routes desktop TS and TSX tests only to the explicit source lane", () => {
+  const root = makeFixtureRepo();
+  try {
+    const dir = addWorkspace(root, "apps/desktop", { noEmit: true });
+    writeFileSync(path.join(dir, "src", "store.test.ts"), "");
+    writeFileSync(path.join(dir, "src", "view.test.tsx"), "");
+
+    const discovery = discoverWorkspaceTests(root);
+
+    assert.deepEqual(
+      discovery.frontendSourceTests.map((file) => path.relative(root, file).split(path.sep).join("/")),
+      ["apps/desktop/src/store.test.ts", "apps/desktop/src/view.test.tsx"]
+    );
+    assert.deepEqual(discovery.expectedCompiled, []);
+    assert.deepEqual(discovery.noEmitViolations, []);
+    assert.deepEqual(discovery.sourceTests, [
+      "apps/desktop/src/store.test.ts",
+      "apps/desktop/src/view.test.tsx"
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("runner executes discovered compiled tests and propagates child failure", () => {
   const root = makeFixtureRepo();
   try {

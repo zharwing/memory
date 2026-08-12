@@ -6,7 +6,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { isForbiddenArtifact, scanSourceArtifacts } from "./artifact-scan.mjs";
+import {
+  artifactInventoryDigest,
+  inventoryArtifacts,
+  isForbiddenArtifact,
+  scanSourceArtifacts
+} from "./artifact-scan.mjs";
 
 const GUARD_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "check-source-artifacts.mjs");
 
@@ -78,6 +83,21 @@ test("guard CLI exits zero on a clean tree", () => {
     writeFileSync(path.join(src, "index.ts"), "export {};");
     const result = spawnSync(process.execPath, [GUARD_PATH, "--root", root], { encoding: "utf8" });
     assert.equal(result.status, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("artifact identity binds paths, sizes, and bytes deterministically", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "zharwing-artifact-identity-"));
+  try {
+    writeFileSync(path.join(root, "a.js"), "one");
+    writeFileSync(path.join(root, "b.css"), "two");
+    const first = artifactInventoryDigest(inventoryArtifacts(root));
+    const second = artifactInventoryDigest(inventoryArtifacts(root));
+    assert.equal(first, second);
+    writeFileSync(path.join(root, "a.js"), "changed");
+    assert.notEqual(artifactInventoryDigest(inventoryArtifacts(root)), first);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

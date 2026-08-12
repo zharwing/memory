@@ -1,19 +1,63 @@
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
 import { MemoryService } from "../memory-service.js";
+import { sanitizeSemanticProviderCheckResult } from "./semantic-graph-service.js";
+
+test("provider-check output is closed, bounded, and never forwards provider prose or URL credentials", () => {
+  const result = sanitizeSemanticProviderCheckResult({
+    ok: true,
+    endpoint: "https://user:PASS_CANARY@example.test/v1?token=QUERY_CANARY#FRAGMENT_CANARY",
+    model: "sk-proj-123456789012345678901234567890",
+    modelDisplayName: "Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    availableModels: [
+      "safe-model",
+      "glpat-12345678901234567890",
+      "x".repeat(500)
+    ],
+    latencyMs: Number.POSITIVE_INFINITY,
+    message: "PROVIDER_MESSAGE_CANARY"
+  }, {
+    endpoint: "https://configured.example.test/v1",
+    model: "configured-model"
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    endpoint: "https://configured.example.test/v1",
+    model: "configured-model",
+    latencyMs: 0,
+    message: "Provider connection check succeeded."
+  });
+  const serialized = JSON.stringify(result);
+  for (const canary of [
+    "PASS_CANARY",
+    "QUERY_CANARY",
+    "FRAGMENT_CANARY",
+    "PROVIDER_MESSAGE_CANARY",
+    "sk-proj-",
+    "Bearer ",
+    "glpat-"
+  ]) assert.equal(serialized.includes(canary), false, canary);
+});
 
 test("semantic graph analysis uses an OpenAI-compatible provider and writes review proposals", async (t) => {
   const memoryRoot = await tempMemoryRoot(t);
-  const provider = installFakeOpenAiProvider(t);
+  const provider = await installFakeOpenAiProvider(t);
   const service = new MemoryService({ memoryRoot });
   const preview = await service.prepareProjectCreation({
     projectName: "Semantic Provider",
     createPointerFile: false
   });
   const project = await service.createProject({ preview });
+  await service.updateAssistantPolicy({
+    projectId: project.id,
+    endpoint: provider.endpoint,
+    modelName: "fake-semantic-model"
+  });
 
   await service.createDocument({
     projectId: project.id,
@@ -34,6 +78,13 @@ test("semantic graph analysis uses an OpenAI-compatible provider and writes revi
     body: "Runtime details for services/billing.ts and invoice processing."
   });
 
+  await assert.rejects(
+    service.checkSemanticGraphProvider({
+      projectId: project.id,
+      model: "caller-selected-model"
+    }),
+    /cannot override the configured model/
+  );
   const check = await service.checkSemanticGraphProvider({
     projectId: project.id,
     endpoint: provider.endpoint,
@@ -46,8 +97,6 @@ test("semantic graph analysis uses an OpenAI-compatible provider and writes revi
 
   const result = await service.analyzeSemanticGraph({
     projectId: project.id,
-    endpoint: provider.endpoint,
-    model: "fake-semantic-model",
     mode: "review",
     maxDocuments: 2,
     maxCandidates: 4,
@@ -105,45 +154,54 @@ test("semantic graph proposals deduplicate inverse related docs and cap metadata
   assert.equal(patch.edges.filter((edge) => edge.from === "doc:overview" && (edge.to.startsWith("file:") || edge.to.startsWith("topic:"))).length, 1);
 });
 
-function installFakeOpenAiProvider(t: TestContext): {
+async function installFakeOpenAiProvider(t: TestContext): Promise<{
   endpoint: string;
   calls: Array<{ kind: FakeProviderCallKind; content: string }>;
-} {
+}> {
   const calls: Array<{ kind: FakeProviderCallKind; content: string }> = [];
-  const originalFetch = globalThis.fetch;
-
-  globalThis.fetch = (async (_input, init) => {
-    const raw = String(init?.body || "{}");
-    const payload = JSON.parse(raw) as {
-      messages?: Array<{ role: string; content: string }>;
-      model?: string;
-    };
-    const content = payload.messages?.map((message) => message.content).join("\n") || "";
-    const kind = content.includes('{"ok":true,"message":"ready"}')
-      ? "provider-check"
-      : content.includes("reviewer-facing summary")
-        ? "summary"
-      : content.includes("Allowed relationship values")
-        ? "judgement"
-        : "extraction";
-    calls.push({ kind, content });
-
-    const responseContent = JSON.stringify(responseFor(kind));
-    return new Response(JSON.stringify({
-      model: payload.model || "fake-semantic-model",
-      choices: [{ message: { content: responseContent } }]
-    }), {
-      status: 200,
-      headers: { "content-type": "application/json" }
+  const server = http.createServer((request, response) => {
+    let raw = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => {
+      raw += chunk;
     });
-  }) as typeof fetch;
-
-  t.after(() => {
-    globalThis.fetch = originalFetch;
+    request.on("end", () => {
+      const payload = JSON.parse(raw || "{}") as {
+        messages?: Array<{ role: string; content: string }>;
+        model?: string;
+      };
+      const content = payload.messages?.map((message) => message.content).join("\n") || "";
+      const kind = content.includes('{"ok":true,"message":"ready"}')
+        ? "provider-check"
+        : content.includes("reviewer-facing summary")
+          ? "summary"
+        : content.includes("Allowed relationship values")
+          ? "judgement"
+          : "extraction";
+      calls.push({ kind, content });
+      response.statusCode = 200;
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({
+        model: payload.model || "fake-semantic-model",
+        choices: [{ message: { content: JSON.stringify(responseFor(kind)) } }]
+      }));
+    });
   });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  t.after(() => new Promise<void>((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  }));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Expected provider TCP address.");
 
   return {
-    endpoint: "http://127.0.0.1:11434/v1",
+    endpoint: `http://127.0.0.1:${address.port}/v1`,
     calls
   };
 }

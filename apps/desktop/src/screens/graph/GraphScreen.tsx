@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Link } from "react-router-dom";
 import { CircleHelp, FlaskConical, Play, RotateCcw, Settings2, X } from "lucide-react";
-import { PROVIDER_DEFAULTS, type AssistantPolicy } from "@zharwing/memory-core";
+import type { AssistantPolicy, SemanticGraphScope } from "@zharwing/memory-core";
 import { useStore } from "../../stores/store-context.js";
 import type { GraphRelationshipMode } from "../../stores/graph-store.js";
 import { Empty, KeyValue, Screen } from "../../components/layout.js";
@@ -18,11 +18,26 @@ import {
   enhanceGraphForDisplay,
   getGraphFocusOptions,
   getGraphStats,
+  graphDocumentIdForGraphNode,
   graphEdgeLabel,
+  isGraphFocusableNodeId,
 } from "./graph-display.js";
 import { GraphMap, graphNodeVisualStyle, removeStoredGraphNodePositions } from "./GraphMap.js";
 import { buildGraphFlowElements, graphNodeVisualKind, type GraphMapEdge, type GraphMapNode, RawStorageAudit } from "./graph-flow.js";
-import { projectPath } from "../../utils/routes.js";
+import { parseBoundedSearchParam, routePath } from "../../utils/routes.js";
+import { StructuredGraphView } from "../../features/graph/accessible/StructuredGraphView.js";
+import { graphRenderCapability } from "../../features/graph/visual/graph-render-capability.js";
+import {
+  durableSemanticEdgeId,
+  proposedSemanticEdgeTarget,
+  semanticScopeKey,
+  semanticScopeLabel,
+  semanticScopeSummary
+} from "../../features/graph/semantic/semantic-review-adapter.js";
+import {
+  reconcileGraphNodeSelection,
+  transitionGraphFocus
+} from "../../features/graph/application/graph-interaction-state.js";
 
 const GRAPH_POSITION_STORAGE_PREFIX = "aimem.graph.positions.d3.v2";
 const GRAPH_LEGEND_PRIORITY = [
@@ -72,20 +87,28 @@ type SemanticPreviewState = {
 
 export const GraphScreen = observer(function GraphScreen() {
   const store = useStore();
+  const graphState = store.graph.graphResource.state;
+  const graphCompleteness = store.graph.graphResource.completeness;
+  const graphObservationComplete =
+    (graphState.status === "success" || graphState.status === "empty") &&
+    graphCompleteness?.kind === "complete";
+  const graphObservationPartial =
+    (graphState.status === "success" || graphState.status === "refreshing") &&
+    graphCompleteness?.kind === "partial";
   const [searchParams, patchSearchParams] = useSearchParamsPatch();
   const graph = useMemo(() => enhanceGraphForDisplay(store.graph.data, store.docs.list), [store.graph.data, store.docs.list]);
-  const graphViewMode: GraphViewMode = searchParams.get("view") === "all" ? "all" : "context";
-  const rawRelationshipModeParam = searchParams.get("relationships");
-  const focusedNodeId = graphViewMode === "all" ? "" : searchParams.get("focus") || "";
-  const editingDocId = searchParams.get("doc") || "";
-  const selectedGraphEdgeId = searchParams.get("edge") || "";
+  const rawViewParam = parseBoundedSearchParam(searchParams, "view", { maximumLength: 16 });
+  const graphViewMode: GraphViewMode = rawViewParam === "all" ? "all" : "context";
+  const rawRelationshipModeParam = parseBoundedSearchParam(searchParams, "relationships", { maximumLength: 32 });
+  const focusedNodeId = graphViewMode === "all" ? "" : parseBoundedSearchParam(searchParams, "focus") || "";
+  const editingDocId = parseBoundedSearchParam(searchParams, "doc") || "";
+  const selectedGraphEdgeId = parseBoundedSearchParam(searchParams, "edge", { maximumLength: 320 }) || "";
   const [focusHistory, setFocusHistory] = useState<string[]>([]);
   const [showGraphHelp, setShowGraphHelp] = useState(false);
   const [showGraphDetails, setShowGraphDetails] = useState(false);
   const {
     draft: semanticRunDraft,
     patchDraft: updateSemanticRunDraft,
-    setDraft: setSemanticRunDraft,
     toPayload: semanticRunPayloadFor
   } = useSemanticRunDraft({ scopeKind: "focused" });
   const [showSemanticAdvanced, setShowSemanticAdvanced] = useState(false);
@@ -95,6 +118,8 @@ export const GraphScreen = observer(function GraphScreen() {
     status: "idle"
   });
   const [layoutVersion, setLayoutVersion] = useState(0);
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState("");
+  const visualGraphAvailable = graphRenderCapability().available;
   const graphStats = useMemo(() => getGraphStats(graph), [graph]);
   const focusOptions = useMemo(() => getGraphFocusOptions(graph), [graph]);
   const graphElements = useMemo(() => buildGraphFlowElements(graph, graphViewMode, focusedNodeId), [graph, graphViewMode, focusedNodeId]);
@@ -132,7 +157,9 @@ export const GraphScreen = observer(function GraphScreen() {
   const graphScopeLabel = isRawGraph ? "Import audit" : focusedNodeId ? `Focused: ${graphElements.focusLabel || "selected node"}` : "Context map";
   const graphNodeCount = isRawGraph ? graphStats.nodes : graphElements.nodes.length;
   const graphLinkCount = isRawGraph ? graphStats.relationships : graphElements.edges.length;
-  const graphHiddenCount = isRawGraph ? graphStats.memberships : graphElements.hiddenMemberships + graphElements.hiddenLeafNodes;
+  const graphHiddenCount = isRawGraph
+    ? graphStats.memberships
+    : graphElements.hiddenMemberships + graphElements.hiddenLeafNodes + graphElements.omittedNodeCount;
   const graphGeneratedLabel = graph?.generated ? `${graph.displayProjected ? "Projected" : "Generated"} ${formatShortDateTime(graph.generated)}` : "";
   const semanticEdgeCounts = store.semantic.edgeCounts;
   const semanticLatestRun = store.semantic.status?.runCounts?.latest;
@@ -140,8 +167,8 @@ export const GraphScreen = observer(function GraphScreen() {
   const semanticLatestRunStatusLabel = semanticLatestRun?.status || "No runs";
   const semanticResult = store.semantic.analysisResult;
   const assistantPolicy: Partial<AssistantPolicy> = store.projects.summary?.project?.assistantPolicy || store.projects.selectedProject?.assistantPolicy || {};
-  const semanticProviderEndpoint = semanticRunDraft.endpoint.trim() || assistantPolicy.endpoint || "";
-  const semanticProviderModel = semanticRunDraft.model.trim() || store.semantic.settings?.model || assistantPolicy.modelName || "";
+  const semanticProviderEndpoint = assistantPolicy.endpoint || "";
+  const semanticProviderModel = store.semantic.settings?.model || assistantPolicy.modelName || "";
   const semanticProviderReady = Boolean(semanticProviderEndpoint && semanticProviderModel);
   const semanticSelectedScope = semanticAnalysisScope();
   const semanticSelectedScopeKey = semanticScopeKey(semanticSelectedScope);
@@ -156,15 +183,30 @@ export const GraphScreen = observer(function GraphScreen() {
     : undefined;
 
   useEffect(() => {
-    if (rawRelationshipModeParam && !graphRelationshipModeFromSearchParam(rawRelationshipModeParam)) {
-      patchSearchParams({ relationships: null }, { replace: true });
+    const nodeIds = new Set(graphElements.nodes.map((node) => node.id));
+    setSelectedGraphNodeId((currentNodeId) =>
+      reconcileGraphNodeSelection(nodeIds, currentNodeId, focusedNodeId)
+    );
+  }, [focusedNodeId, graphElements.nodes]);
+
+  useEffect(() => {
+    const invalidPatch: Record<string, null> = {};
+    if (searchParams.has("view") && rawViewParam !== "all") invalidPatch.view = null;
+    if (searchParams.has("relationships") && !graphRelationshipModeFromSearchParam(rawRelationshipModeParam ?? null)) {
+      invalidPatch.relationships = null;
+    }
+    if (searchParams.has("focus") && !focusedNodeId) invalidPatch.focus = null;
+    if (searchParams.has("doc") && !editingDocId) invalidPatch.doc = null;
+    if (searchParams.has("edge") && !selectedGraphEdgeId) invalidPatch.edge = null;
+    if (Object.keys(invalidPatch).length) {
+      patchSearchParams(invalidPatch, { replace: true });
       return;
     }
     const nextGraphRelationshipMode = graphRelationshipModeFromSearchParam(rawRelationshipModeParam) || "ai-reviewed";
     if (nextGraphRelationshipMode !== store.graph.relationshipMode) {
       void store.graph.setRelationshipMode(nextGraphRelationshipMode);
     }
-  }, [searchParams]);
+  }, [editingDocId, focusedNodeId, rawRelationshipModeParam, rawViewParam, searchParams, selectedGraphEdgeId, store.graph]);
 
   useCloseWhenMissing(
     focusedNodeId,
@@ -186,14 +228,6 @@ export const GraphScreen = observer(function GraphScreen() {
     graphElementEdgeIds.size > 0 && !graphElementEdgeIds.has(selectedGraphEdgeId),
     () => updateGraphSearchParams({ edge: null }, true)
   );
-
-  useEffect(() => {
-    setSemanticRunDraft((current) => ({
-      ...current,
-      endpoint: current.endpoint || assistantPolicy.endpoint || "",
-      model: current.model || store.semantic.settings?.model || assistantPolicy.modelName || ""
-    }));
-  }, [store.projects.selectedProjectId, store.semantic.settings?.model, assistantPolicy.endpoint, assistantPolicy.modelName]);
 
   useEffect(() => {
     if (!focusedNodeId && semanticRunDraft.scopeKind === "focused") {
@@ -231,33 +265,16 @@ export const GraphScreen = observer(function GraphScreen() {
 
   function navigateGraphFocus(nextNodeId: string) {
     const nextNode = graphNodeById.get(nextNodeId);
-    if (!nextNodeId || String(nextNode?.type || "") === "project") {
-      resetGraphFocus();
-      return;
-    }
-
-    if (nextNodeId === focusedNodeId) {
-      const previousFocusedNodeId = focusHistory[focusHistory.length - 1] || "";
-      if (previousFocusedNodeId) {
-        const nextHistory = focusHistory.slice(0, -1);
-        setFocusHistory(nextHistory);
-        updateGraphSearchParams({ viewMode: "context", focus: previousFocusedNodeId });
-        return;
-      }
-
-      resetGraphFocus();
-      return;
-    }
-
-    const existingHistoryIndex = focusHistory.indexOf(nextNodeId);
-    if (existingHistoryIndex !== -1) {
-      setFocusHistory(focusHistory.slice(0, existingHistoryIndex));
-      updateGraphSearchParams({ viewMode: "context", focus: nextNodeId });
-      return;
-    }
-
-    setFocusHistory(focusedNodeId ? [...focusHistory, focusedNodeId] : []);
-    updateGraphSearchParams({ viewMode: "context", focus: nextNodeId });
+    const nextState = transitionGraphFocus(
+      { focusedNodeId, history: focusHistory },
+      nextNodeId,
+      String(nextNode?.type || "") === "project"
+    );
+    setFocusHistory([...nextState.history]);
+    updateGraphSearchParams({
+      viewMode: "context",
+      focus: nextState.focusedNodeId || null
+    });
   }
 
   function openGraphDocument(documentId: string) {
@@ -282,7 +299,7 @@ export const GraphScreen = observer(function GraphScreen() {
     setLayoutVersion((currentVersion) => currentVersion + 1);
   }, [graphPositionKey]);
 
-  function semanticAnalysisScope() {
+  function semanticAnalysisScope(): SemanticGraphScope {
     if (semanticRunDraft.scopeKind === "changed-docs") return { kind: "changed-docs" };
     if (semanticRunDraft.scopeKind === "focused" && focusedNodeId && !isRawGraph) {
       return { kind: "focused-graph-node", nodeId: focusedNodeId };
@@ -308,7 +325,7 @@ export const GraphScreen = observer(function GraphScreen() {
 
   function runSemanticAnalysis() {
     void store.semantic.analyze(semanticRunPayloadFor({
-      scope: semanticAnalysisScope(),
+      scope: { ...semanticAnalysisScope() },
       fallbackMode: "dry-run"
     }));
   }
@@ -543,7 +560,10 @@ export const GraphScreen = observer(function GraphScreen() {
                       {selectedProposedSemanticEdge ? (
                         <Link
                           className="button-link"
-                          to={projectPath(store.projects.selectedProjectId, `/inbox?proposal=${encodeURIComponent(selectedProposedSemanticEdge.proposalId)}`)}
+                          to={routePath("inbox", {
+                            projectId: store.projects.selectedProjectId,
+                            search: { proposal: selectedProposedSemanticEdge.proposalId }
+                          })}
                           title="Open the Inbox proposal that contains this suggested relationship."
                         >
                           Open Inbox
@@ -578,7 +598,7 @@ export const GraphScreen = observer(function GraphScreen() {
                     <span>{semanticProviderReady ? `${semanticProviderModel} at ${semanticProviderEndpoint}` : "Provider not configured"}</span>
                     <Link
                       className="button-link compact-link"
-                      to={projectPath(store.projects.selectedProjectId, "/assistant")}
+                      to={routePath("assistant", { projectId: store.projects.selectedProjectId })}
                       title="Open Assistant settings to configure the provider and model used by AI relationship review."
                     >
                       Assistant
@@ -642,9 +662,6 @@ export const GraphScreen = observer(function GraphScreen() {
                         onPatch={updateSemanticRunDraft}
                         fields={[
                           { key: "mode" },
-                          { key: "endpoint", placeholder: assistantPolicy.endpoint || PROVIDER_DEFAULTS["lm-studio"].endpoint },
-                          { key: "model", placeholder: store.semantic.settings?.model || assistantPolicy.modelName || "local model" },
-                          { key: "apiKey", placeholder: "optional" },
                           { key: "maxDocuments", placeholder: "all" },
                           { key: "maxCandidates", placeholder: "all" },
                           { key: "maxCandidatesPerDocument" },
@@ -733,33 +750,70 @@ export const GraphScreen = observer(function GraphScreen() {
             </div>
           ) : null}
         </div>
-        {isRawGraph ? (
-          <RawStorageAudit graph={graph} />
-        ) : graphElements.edges.length ? (
-          <GraphMap
-            nodes={graphElements.nodes}
-            edges={graphElements.edges}
-            focusedNodeId={focusedNodeId}
-            storageKey={graphPositionKey}
-            layoutVersion={layoutVersion}
-            onOpenDocument={openGraphDocument}
-            onFocusNode={navigateGraphFocus}
-            onSelectEdge={selectGraphEdge}
-          />
-        ) : focusedNodeId && graphStats.relationships > 0 ? (
-          <Empty
-            className="graph-empty-state"
-            title="No links for this focus"
-            body="This item has no visible saved links in the current graph view. Reset focus to see the accepted relationship map."
-            action={<button type="button" onClick={resetGraphFocus}>Show full graph</button>}
-          />
+        {graphState.status === "idle" || graphState.status === "loading" ? (
+          <p className="panel-help" role="status">Loading saved relationships...</p>
+        ) : graphState.status === "failure" ? (
+          <p className="panel-help" role="alert">The graph could not be loaded. Refresh to try again.</p>
         ) : (
-          <Empty
-            className="graph-empty-state"
-            title="No saved relationships yet"
-            body="AI may have suggestions waiting, but the graph only shows relationships after you accept them. Review the Inbox first; accepted links will appear here."
-            action={<Link className="button-link" to={projectPath(store.projects.selectedProjectId, "/inbox")}>Review Inbox</Link>}
-          />
+          <>
+            {graphState.status === "refreshing" ? (
+              <p className="panel-help" role="status">Refreshing saved relationships; showing the last accepted result.</p>
+            ) : graphObservationPartial ? (
+              <p className="panel-help" role="status">Showing a partial graph result; more relationships may exist.</p>
+            ) : null}
+            {isRawGraph ? (
+              <RawStorageAudit graph={graph} />
+            ) : graphElements.nodes.length ? (
+              <>
+                <GraphMap
+                  nodes={graphElements.nodes}
+                  edges={graphElements.edges}
+                  focusedNodeId={focusedNodeId}
+                  selectedNodeId={selectedGraphNodeId}
+                  storageKey={graphPositionKey}
+                  layoutVersion={layoutVersion}
+                  onOpenDocument={openGraphDocument}
+                  onSelectNode={setSelectedGraphNodeId}
+                  onFocusNode={navigateGraphFocus}
+                  onSelectEdge={selectGraphEdge}
+                />
+                <StructuredGraphView
+                  nodes={graphElements.nodes}
+                  edges={graphElements.edges}
+                  focusedNodeId={focusedNodeId}
+                  selectedNodeId={selectedGraphNodeId}
+                  selectedEdgeId={selectedGraphEdgeId}
+                  visualAvailable={visualGraphAvailable}
+                  omittedNodeCount={graphElements.omittedNodeCount}
+                  omittedEdgeCount={graphElements.omittedEdgeCount}
+                  documentIdForNode={(node) => graphDocumentIdForGraphNode(node.id, node.graphNode)}
+                  canFocusNode={(node) => isGraphFocusableNodeId(node.id)}
+                  edgeTypeLabel={graphEdgeLabel}
+                  onOpenDocument={openGraphDocument}
+                  onSelectNode={setSelectedGraphNodeId}
+                  onFocusNode={navigateGraphFocus}
+                  onSelectEdge={selectGraphEdge}
+                />
+              </>
+            ) : graphState.status === "refreshing" || graphObservationPartial ? null
+            : graphObservationComplete && focusedNodeId && graphStats.relationships > 0 ? (
+              <Empty
+                className="graph-empty-state"
+                title="No links for this focus"
+                body="This item has no visible saved links in the current graph view. Reset focus to see the accepted relationship map."
+                action={<button type="button" onClick={resetGraphFocus}>Show full graph</button>}
+              />
+            ) : graphObservationComplete ? (
+              <Empty
+                className="graph-empty-state"
+                title="No saved relationships yet"
+                body="AI may have suggestions waiting, but the graph only shows relationships after you accept them. Review the Inbox first; accepted links will appear here."
+                action={<Link className="button-link" to={routePath("inbox", { projectId: store.projects.selectedProjectId })}>Review Inbox</Link>}
+              />
+            ) : (
+              <p className="panel-help" role="status">Loading saved relationships...</p>
+            )}
+          </>
         )}
       </div>
       {editingDoc ? (
@@ -796,70 +850,11 @@ function graphLegendLabel(kind: string, node: GraphMapNode): string {
   return GRAPH_LEGEND_LABELS[kind] || node.typeLabel || titleCaseSlug(kind) || "Node";
 }
 
-function graphRelationshipModeFromSearchParam(input: string | null): GraphRelationshipMode | undefined {
+function graphRelationshipModeFromSearchParam(input: string | null | undefined): GraphRelationshipMode | undefined {
   return input === "ai-reviewed" || input === "deterministic" ? input : undefined;
 }
 
 function graphRelationshipModeLabel(mode: GraphRelationshipMode): string {
   if (mode === "ai-reviewed") return "Saved relationships";
   return "Metadata links";
-}
-
-function semanticScopeKey(scope: any): string {
-  const kind = String(scope?.kind || "all-docs");
-  if (kind === "focused-graph-node") return `${kind}:${String(scope?.nodeId || "")}`;
-  if (kind === "selected-docs") {
-    const documentIds = Array.isArray(scope?.documentIds) ? scope.documentIds : [];
-    return `${kind}:${documentIds.join(",")}`;
-  }
-  if (kind === "workstream") return `${kind}:${String(scope?.workstreamId || "")}`;
-  if (kind === "repo") return `${kind}:${String(scope?.repoPath || "")}`;
-  return kind;
-}
-
-function semanticScopeLabel(scope: any, focusLabel?: string): string {
-  const kind = String(scope?.kind || "all-docs");
-  if (kind === "focused-graph-node") return focusLabel ? `Focused: ${focusLabel}` : "Focused node";
-  if (kind === "changed-docs") return "Changed docs";
-  if (kind === "selected-docs") return "Selected docs";
-  if (kind === "workstream") return "Workstream";
-  if (kind === "repo") return "Repo";
-  return "Project";
-}
-
-function semanticScopeSummary(scope: any, focusLabel?: string): { title: string; detail: string } {
-  const kind = String(scope?.kind || "all-docs");
-  if (kind === "focused-graph-node") {
-    return {
-      title: semanticScopeLabel(scope, focusLabel),
-      detail: "Run review uses docs directly linked to this graph node."
-    };
-  }
-  if (kind === "changed-docs") {
-    return {
-      title: "Changed docs",
-      detail: "Run review skips docs that already have a current extraction cache."
-    };
-  }
-  return {
-    title: semanticScopeLabel(scope, focusLabel),
-    detail: "Run review uses all eligible project docs and reuses cached extractions."
-  };
-}
-
-function durableSemanticEdgeId(input?: string): string | undefined {
-  if (!input || input.startsWith("proposal:")) return undefined;
-  return input;
-}
-
-function proposedSemanticEdgeTarget(input?: string): { proposalId: string; edgeIndex: number } | undefined {
-  if (!input?.startsWith("proposal:")) return undefined;
-  const payload = input.slice("proposal:".length);
-  const separatorIndex = payload.lastIndexOf(":");
-  if (separatorIndex <= 0) return undefined;
-
-  const proposalId = payload.slice(0, separatorIndex);
-  const edgeIndex = Number(payload.slice(separatorIndex + 1));
-  if (!proposalId || !Number.isInteger(edgeIndex) || edgeIndex < 0) return undefined;
-  return { proposalId, edgeIndex };
 }

@@ -58,11 +58,28 @@ Role:
 
 Implementation:
 
-- Tauri shell
-- React UI
-- MobX store
-- Graphite + Copper CSS theme
-- daemon API client
+- mutually exclusive browser and Tauri composition roots
+- React UI with a generated typed route registry
+- MobX domain stores behind typed operation ports and project-generation guards
+- statically emitted Graphite + Copper semantic tokens and accessible primitives
+- browser cookie/CSRF transport or Rust-owned Tauri transport; never a shared
+  frontend bearer
+
+The browser composition consumes a one-shot fragment bootstrap or the explicit
+loopback `personal-preview + authMode=none` compatibility session. The Tauri
+composition invokes one Rust command; Rust launches and owns the hardened
+daemon, retains the desktop credential in native memory, and rotates it when
+the project binding changes.
+
+Route definitions, builders, navigation, parameter decoding, redirects,
+wildcard recovery, and route-heading focus derive from one registry. URL
+project changes are accepted only after the matching project generation is
+current, preventing a stale route/project screen from mounting.
+
+Graph layout, render capability, persistence, interaction state,
+virtualization, semantic review, and structured accessibility are separate
+adapters. The visual and structured views consume the same bounded projection;
+the structured view remains functional when visual rendering is unavailable.
 
 ### Daemon
 
@@ -76,7 +93,17 @@ Role:
 - writes Markdown storage
 - coordinates search, graph, backup, and assistant jobs
 
-The daemon currently uses Node built-ins for HTTP and JSON-RPC so the source is present without dependency installation.
+The daemon uses Node built-ins for HTTP and JSON-RPC. Its admission boundary
+checks the registered operation, principal audience, project/resource scope,
+compatibility version, runtime-decoded input, cancellation/deadline,
+idempotency/effect class, and projected output. It exposes only closed public
+errors; raw provider/daemon prose and stacks are not frontend output.
+
+`personal-preview` remains the explicit compatibility default during the
+migration window. `hardened-local` requires exact loopback and token/session
+authentication, separate agent authority, browser cookie/CSRF sessions, and
+native Rust-owned desktop authority. See
+[Frontend V2 migration](migration/frontend-v2-migration.md).
 
 ### CLI
 
@@ -240,14 +267,18 @@ owns that opt-in; the focused MCP tool surface does not expose it.
 
 ## Current Validation Boundary
 
-The TypeScript workspace typechecks and the root test command runs a
-deterministic spine covering privacy gates, Markdown storage round-trips,
-context privacy integration, daemon lifecycle, graph overlays, semantic graph
-policy, and fake-provider semantic graph analysis. Desktop contracts, bundle
-budgets, a real Edge app-shell smoke, Rust tests, and a packaged Windows
-executable have also passed. Runtime validation remains narrower than the full
-product surface: broad desktop end-to-end coverage and configured live-provider
-smokes are still opt-in work.
+The uncommitted 2026-08-12 working tree passed the TypeScript workspace build,
+333 automated tests with zero failures and two intentional Windows
+symlink-safety skips, desktop contracts, the production web build and unchanged
+bundle budgets, the isolated secret-canary build, fixture and source-artifact
+guards, the accessibility source contract, generated public docs, and a
+headless Edge startup-recovery smoke with the daemon deliberately absent. These
+are local implementation results, not commit-bound release evidence. Six Rust
+unit tests and the Tauri compile/package mechanics passed with an inert
+external-binary fixture; the real daemon sidecar and packaged native runtime
+remain unqualified. Broad desktop journeys, configured live
+providers, assistive devices, installation/signing, and rollback also remain
+release obligations.
 
 Vite build validation depends on native Rollup/esbuild optional packages being
 installed for the operating system running the command. Shared Windows/WSL
@@ -256,15 +287,17 @@ treating build failures as product regressions.
 
 ## Remaining Productization Work
 
-The dependency install, typecheck, test, production web build, daemon/CLI smoke
-workflow, Rust check, and MCP doctor flow have been completed in the shared
-Windows checkout. Remaining productization work is narrower:
+The dependency install, workspace typecheck, deterministic tests, production
+web build, source checks, public-doc checks, accessibility source checks, and
+truthful no-daemon browser recovery smoke have been completed locally in the
+shared Windows checkout. Remaining productization work includes:
 
-1. Extend browser-level desktop UI coverage from the app-shell smoke to
-   critical workflows.
+1. Extend browser-level desktop UI coverage from startup recovery to critical
+   workflows with a live daemon.
 2. Run the opt-in live-provider smoke for each supported deployment profile.
-3. Add and smoke-test a Windows installer if distribution requires one; the
-   release executable build already passes.
+3. Supply the governed daemon sidecar, run Rust tests, build and smoke-test the
+   packaged Windows application, and validate installer/signing if distribution
+   requires them.
 4. Decide whether the rebuildable JSON index remains sufficient or should be
    supplemented by SQLite/FTS5.
 5. Treat app-managed llama.cpp download/launch as an optional future runtime,

@@ -1,4 +1,11 @@
 import { PROVIDER_DEFAULTS } from "@zharwing/memory-core";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { lookup } from "node:dns/promises";
+import http from "node:http";
+import https from "node:https";
+import { isIP } from "node:net";
+
+const MAX_PROVIDER_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 export type AiChatRole = "system" | "user" | "assistant";
 
@@ -56,6 +63,261 @@ export interface ProviderCheckResult {
   availableModels?: string[];
   latencyMs: number;
   message: string;
+}
+
+interface AuthorizedProviderTarget {
+  readonly url: URL;
+  readonly protocol: "http:" | "https:";
+  readonly hostname: string;
+  readonly address: string;
+  readonly family: 4 | 6;
+  readonly port: string;
+  readonly origin: string;
+}
+
+export interface AuthorizedProviderRequestTarget {
+  readonly url: string;
+  readonly protocol: "http:" | "https:";
+  readonly hostname: string;
+  readonly address: string;
+  readonly family: 4 | 6;
+  readonly port: string;
+}
+
+export type AuthorizedProviderRequest = (
+  target: AuthorizedProviderRequestTarget,
+  init: RequestInit
+) => Promise<Response>;
+
+const authorizedProviderRequestContext = new AsyncLocalStorage<AuthorizedProviderRequest>();
+
+/**
+ * Scopes a native-request substitute to one async test flow. Endpoint parsing,
+ * DNS/address authorization, response limits, and redirect denial remain in
+ * the production path around the substitute.
+ */
+export function runWithAuthorizedProviderRequestForTesting<T>(
+  request: AuthorizedProviderRequest,
+  invoke: () => T
+): T {
+  return authorizedProviderRequestContext.run(request, invoke);
+}
+
+/**
+ * Provider egress is authorized for one exact destination. Redirects are
+ * surfaced rather than followed so a provider cannot bounce credentials or
+ * private content to a second host. The native request connects to the exact vetted address
+ * while preserving the original Host/TLS server name, so DNS cannot be
+ * resolved a second time between authorization and the socket connection.
+ */
+async function authorizedProviderFetch(
+  input: string | URL,
+  init: RequestInit
+): Promise<Response> {
+  const target = await authorizeProviderTarget(input);
+  const request = authorizedProviderRequestContext.getStore();
+  const response = request
+    ? await request(Object.freeze({
+        url: target.url.href,
+        protocol: target.protocol,
+        hostname: target.hostname,
+        address: target.address,
+        family: target.family,
+        port: target.port
+      }), init)
+    : await requestAuthorizedProviderTarget(target, init);
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
+    if (location) {
+      const redirected = new URL(location, target.origin);
+      const redirectTarget = await authorizeProviderTarget(redirected);
+      if (
+        redirectTarget.protocol !== target.protocol ||
+        redirectTarget.hostname !== target.hostname ||
+        redirectTarget.port !== target.port
+      ) {
+        throw new Error("Provider redirect changed the authorized destination.");
+      }
+    }
+    throw new Error("Provider redirects are not followed.");
+  }
+  return response;
+}
+
+async function authorizeProviderTarget(input: string | URL): Promise<AuthorizedProviderTarget> {
+  const url = input instanceof URL ? new URL(input.toString()) : new URL(input);
+  if (
+    (url.protocol !== "http:" && url.protocol !== "https:") ||
+    url.username ||
+    url.password ||
+    url.hash
+  ) {
+    throw new Error("Provider target must be a credential-free HTTP(S) URL.");
+  }
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").toLocaleLowerCase();
+  if (isForbiddenProviderHostname(hostname)) {
+    throw new Error("Provider target resolves to a forbidden private or metadata address.");
+  }
+  let address = hostname;
+  const literalFamily = isIP(hostname);
+  let family: 4 | 6;
+  if (literalFamily === 4 || literalFamily === 6) {
+    family = literalFamily;
+  } else {
+    const addresses = await lookup(hostname, { all: true, verbatim: true });
+    if (
+      addresses.length === 0 ||
+      addresses.some(({ address }) => isForbiddenProviderHostname(address.toLocaleLowerCase()))
+    ) {
+      throw new Error("Provider DNS resolved to a forbidden private or metadata address.");
+    }
+    const selected = addresses[0]!;
+    if (selected.family !== 4 && selected.family !== 6) {
+      throw new Error("Provider DNS returned an unsupported address family.");
+    }
+    address = selected.address;
+    family = selected.family;
+  }
+  return {
+    url,
+    protocol: url.protocol,
+    hostname,
+    address,
+    family,
+    port: url.port || (url.protocol === "https:" ? "443" : "80"),
+    origin: url.origin
+  };
+}
+
+function requestAuthorizedProviderTarget(
+  target: AuthorizedProviderTarget,
+  init: RequestInit
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const requestHeaders = new Headers(init.headers);
+    requestHeaders.set("host", target.url.host);
+    const body = providerRequestBody(init.body);
+    if (body && !requestHeaders.has("content-length")) {
+      requestHeaders.set("content-length", String(body.byteLength));
+    }
+    const nodeHeaders: Record<string, string> = {};
+    requestHeaders.forEach((value, name) => {
+      nodeHeaders[name] = value;
+    });
+    const client = target.protocol === "https:" ? https : http;
+    const request = client.request({
+      protocol: target.protocol,
+      hostname: target.address,
+      family: target.family,
+      port: Number(target.port),
+      path: `${target.url.pathname}${target.url.search}`,
+      method: init.method || "GET",
+      headers: nodeHeaders,
+      ...(target.protocol === "https:" ? { servername: target.hostname } : {})
+    }, (incoming) => {
+      const chunks: Buffer[] = [];
+      let total = 0;
+      incoming.on("data", (chunk: Buffer) => {
+        total += chunk.byteLength;
+        if (total > MAX_PROVIDER_RESPONSE_BYTES) {
+          incoming.destroy(new Error("Provider response exceeded the byte limit."));
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      });
+      incoming.on("end", () => {
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(incoming.headers)) {
+          if (Array.isArray(value)) value.forEach((entry) => headers.append(name, entry));
+          else if (value !== undefined) headers.set(name, String(value));
+        }
+        resolve(new Response(Buffer.concat(chunks), {
+          status: incoming.statusCode || 500,
+          statusText: incoming.statusMessage,
+          headers
+        }));
+      });
+      incoming.on("error", reject);
+    });
+    request.on("error", reject);
+    if (init.signal) {
+      const abort = () => request.destroy(new Error("Provider request aborted."));
+      if (init.signal.aborted) abort();
+      else init.signal.addEventListener("abort", abort, { once: true });
+      request.once("close", () => init.signal?.removeEventListener("abort", abort));
+    }
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+function providerRequestBody(body: BodyInit | null | undefined): Buffer | undefined {
+  if (body === undefined || body === null) return undefined;
+  if (typeof body === "string") return Buffer.from(body, "utf8");
+  if (body instanceof Uint8Array) return Buffer.from(body);
+  if (body instanceof ArrayBuffer) return Buffer.from(body);
+  if (ArrayBuffer.isView(body)) return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
+  throw new Error("Provider request body type is unsupported.");
+}
+
+function isForbiddenProviderHostname(hostname: string): boolean {
+  if (["metadata.google.internal", "metadata", "instance-data"].includes(hostname)) return true;
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
+  if (ipv4) {
+    const octets = ipv4.slice(1).map(Number);
+    if (octets.some((value) => value > 255)) return true;
+    const [a, b] = octets;
+    // Loopback is intentionally allowed for local providers; all other
+    // non-routable/metadata literal ranges are denied.
+    return a === 0 || a === 10 || a === 100 && b >= 64 && b <= 127 ||
+      a === 169 && b === 254 || a === 172 && b >= 16 && b <= 31 ||
+      a === 192 && b === 168 || a >= 224;
+  }
+  const normalizedIpv6 = hostname.replace(/^\[|\]$/g, "");
+  if (normalizedIpv6 === "::1") return false;
+  const mappedIpv4 = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(normalizedIpv6);
+  if (mappedIpv4) return isForbiddenProviderHostname(mappedIpv4[1]!);
+  return normalizedIpv6.includes(":") && (
+    normalizedIpv6 === "::" ||
+    normalizedIpv6.startsWith("ff") ||
+    normalizedIpv6.startsWith("fe8") || normalizedIpv6.startsWith("fe9") ||
+    normalizedIpv6.startsWith("fea") || normalizedIpv6.startsWith("feb") ||
+    normalizedIpv6.startsWith("fc") || normalizedIpv6.startsWith("fd")
+  );
+}
+
+async function readBoundedProviderText(response: Response): Promise<string> {
+  const lengthHeader = response.headers.get("content-length");
+  if (lengthHeader) {
+    const declaredLength = Number(lengthHeader);
+    if (!Number.isSafeInteger(declaredLength) || declaredLength < 0 || declaredLength > MAX_PROVIDER_RESPONSE_BYTES) {
+      throw new Error("Provider response exceeded the byte limit.");
+    }
+  }
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_PROVIDER_RESPONSE_BYTES) {
+        throw new Error("Provider response exceeded the byte limit.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
 interface OpenAiChatCompletionResponse {
@@ -316,13 +578,13 @@ async function fetchProviderModels(
     const headers: Record<string, string> = {};
     if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
 
-    const response = await fetch(url, {
+    const response = await authorizedProviderFetch(url, {
       method: "GET",
       headers,
       signal: controller.signal
     });
 
-    const raw = await response.text();
+    const raw = await readBoundedProviderText(response);
     if (!response.ok) {
       throw new Error(`Provider models request failed ${response.status}: ${raw.slice(0, 500)}`);
     }
@@ -345,7 +607,7 @@ async function fetchAnthropicModels(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs || 10000);
   try {
-    const response = await fetch(anthropicApiUrl(config.endpoint, "models"), {
+    const response = await authorizedProviderFetch(anthropicApiUrl(config.endpoint, "models"), {
       method: "GET",
       headers: {
         "x-api-key": apiKey,
@@ -354,7 +616,7 @@ async function fetchAnthropicModels(
       signal: controller.signal
     });
 
-    const raw = await response.text();
+    const raw = await readBoundedProviderText(response);
     if (!response.ok) {
       throw new Error(`Provider models request failed ${response.status}: ${raw.slice(0, 500)}`);
     }
@@ -427,13 +689,13 @@ async function fetchLmStudioNativeModels(
     const headers: Record<string, string> = {};
     if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
 
-    const response = await fetch(url, {
+    const response = await authorizedProviderFetch(url, {
       method: "GET",
       headers,
       signal: controller.signal
     });
 
-    const raw = await response.text();
+    const raw = await readBoundedProviderText(response);
     if (!response.ok) {
       throw new Error(`Provider models request failed ${response.status}: ${raw.slice(0, 500)}`);
     }
@@ -706,7 +968,7 @@ async function callOllamaText(
   signal?.addEventListener("abort", abort, { once: true });
 
   try {
-    const response = await fetch(ollamaApiUrl(config.endpoint, "chat"), {
+    const response = await authorizedProviderFetch(ollamaApiUrl(config.endpoint, "chat"), {
       method: "POST",
       headers: {
         "content-type": "application/json"
@@ -724,7 +986,7 @@ async function callOllamaText(
       signal: controller.signal
     });
 
-    const raw = await response.text();
+    const raw = await readBoundedProviderText(response);
     if (!response.ok) {
       throw new Error(`Provider request failed ${response.status}: ${raw.slice(0, 500)}`);
     }
@@ -762,7 +1024,7 @@ async function callAnthropicText(
   signal?.addEventListener("abort", abort, { once: true });
 
   try {
-    const response = await fetch(anthropicApiUrl(config.endpoint, "messages"), {
+    const response = await authorizedProviderFetch(anthropicApiUrl(config.endpoint, "messages"), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -778,7 +1040,7 @@ async function callAnthropicText(
       signal: controller.signal
     });
 
-    const raw = await response.text();
+    const raw = await readBoundedProviderText(response);
     if (!response.ok) {
       throw new Error(`Provider request failed ${response.status}: ${raw.slice(0, 500)}`);
     }
@@ -844,7 +1106,7 @@ async function callOpenAiCompatibleText(
     };
     if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
 
-    const response = await fetch(openAiChatCompletionsUrl(config.endpoint), {
+    const response = await authorizedProviderFetch(openAiChatCompletionsUrl(config.endpoint), {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -857,7 +1119,7 @@ async function callOpenAiCompatibleText(
       signal: controller.signal
     });
 
-    const raw = await response.text();
+    const raw = await readBoundedProviderText(response);
     if (!response.ok) {
       throw new Error(`Provider request failed ${response.status}: ${raw.slice(0, 500)}`);
     }

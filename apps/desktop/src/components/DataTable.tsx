@@ -7,7 +7,8 @@ export function DataTable({
   renderers,
   selectedRowId,
   onRowClick,
-  rowActions
+  rowActions,
+  ariaLabel = "Results"
 }: {
   columns: string[];
   columnLabels?: Record<string, string>;
@@ -17,14 +18,15 @@ export function DataTable({
   selectedRowId?: string;
   onRowClick?: (row: any) => void;
   rowActions?: (row: any) => ReactNode;
+  ariaLabel?: string;
 }) {
   return (
     <div className="table-wrap">
-      <table>
+      <table aria-label={ariaLabel}>
         <thead>
           <tr>
-            {columns.map((column) => <th key={column}>{columnLabels?.[column] || column}</th>)}
-            {rowActions ? <th aria-label="Actions">actions</th> : null}
+            {columns.map((column) => <th key={column} scope="col">{columnLabels?.[column] || column}</th>)}
+            {rowActions ? <th scope="col">Actions</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -33,6 +35,14 @@ export function DataTable({
               key={row.id || rowIndex}
               className={`${onRowClick ? "clickable-row" : ""} ${selectedRowId && row.id === selectedRowId ? "selected-row" : ""}`}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              aria-current={selectedRowId && row.id === selectedRowId ? "true" : undefined}
+              onKeyDown={onRowClick ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onRowClick(row);
+                }
+              } : undefined}
             >
               {columns.map((column) => (
                 <td key={column}>{renderers?.[column] ? renderers[column](row) : String(row[column] ?? "")}</td>

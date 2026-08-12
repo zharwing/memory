@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#100f0d" />
+    <meta name="description" content="Understand projects, sessions, documents, graph data, and storage." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Data model — Zharwing Memory documentation" />
+    <meta property="og:description" content="Understand projects, sessions, documents, graph data, and storage." />
+    <meta property="og:url" content="https://zharwing.barbutsa.com/memory/docs/data-model/" />
+    <meta property="og:image" content="https://zharwing.barbutsa.com/memory/assets/dashboard.png" />
+    <link rel="canonical" href="https://zharwing.barbutsa.com/memory/docs/data-model/" />
+    <link rel="icon" href="/memory/assets/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/memory/styles.css?v=4" />
+    <link rel="stylesheet" href="/memory/docs/docs.css?v=2" />
+    <title>Data model — Zharwing Memory documentation</title>
+  </head>
+  <body class="docs-page" data-search-index="/memory/docs/search-index.json">
+    <a class="skip-link" href="#docs-content">Skip to documentation</a>
+    <header class="site-header scrolled"><div class="header-inner"><a class="brand" href="/memory/"><span>Zharwing</span><span class="brand-product">Memory</span></a><nav class="site-nav docs-primary-nav" aria-label="Primary navigation"><a href="/memory/">Overview</a><a href="/memory/#quick-start">Quick start</a><a class="active" href="/memory/docs/">Documentation</a><a class="nav-github" href="https://github.com/zharwing/memory">GitHub</a></nav></div></header>
+    <details class="docs-mobile-navigation"><summary>Browse documentation</summary><nav aria-label="Documentation navigation"><section class="docs-nav-group"><h2>Start here</h2><a href="/memory/docs/project-overview/" data-search-title="Project overview What Memory does, how it is organized, and the fastest way to start.">Project overview</a><a href="/memory/docs/setup/" data-search-title="Setup Choose a supported local profile and start the daemon, browser UI, desktop app, or agent connection.">Setup</a><a href="/memory/docs/frontend-v2-status/" data-search-title="Frontend V2 status Separate implemented source boundaries from candidate and release/device qualification.">Frontend V2 status</a><a href="/memory/docs/developer-preview/" data-search-title="Developer preview What is ready today, current limitations, and the project boundary.">Developer preview</a><a href="/memory/docs/mvp-walkthrough/" data-search-title="First walkthrough Create a project, start a session, save context, and resume work.">First walkthrough</a><a href="/memory/docs/browser-ui/" data-search-title="Browser UI Run the frequently used local interface in a browser.">Browser UI</a><a href="/memory/docs/desktop-ui/" data-search-title="Desktop UI Use the native application, navigation, and folder selection workflows.">Desktop UI</a></section><section class="docs-nav-group"><h2>Use Memory</h2><a href="/memory/docs/user-flows/" data-search-title="User flows Understand setup, daily sessions, context, review, and recovery flows.">User flows</a><a href="/memory/docs/repositories/" data-search-title="Repositories Connect one or several code repositories to a Memory project.">Repositories</a><a href="/memory/docs/workstreams/" data-search-title="Workstreams Group sessions and knowledge around long-running areas of work.">Workstreams</a><a href="/memory/docs/importing/" data-search-title="Import existing memory Preview and import existing Markdown documents and session history.">Import existing memory</a><a href="/memory/docs/graph-rules/" data-search-title="Graph rules Shape useful graph hubs with deterministic project rules.">Graph rules</a><a href="/memory/docs/semantic-graph/" data-search-title="Semantic graph Add locally reviewed semantic relationships to the context graph.">Semantic graph</a></section><section class="docs-nav-group"><h2>Connect AI agents</h2><a href="/memory/docs/mcp-setup/" data-search-title="MCP setup Connect Codex, Claude, or another MCP-compatible client.">MCP setup</a><a href="/memory/docs/agent-automation/" data-search-title="Agent automation Bootstrap repositories and make session memory part of agent work.">Agent automation</a><a href="/memory/docs/agent-protocol/" data-search-title="Agent protocol Follow the shared startup, checkpoint, and closeout contract.">Agent protocol</a><a href="/memory/docs/generic-mcp-adapter/" data-search-title="Generic MCP adapter Use the project-neutral MCP integration pattern.">Generic MCP adapter</a><a href="/memory/docs/cli-adapter/" data-search-title="CLI adapter Use Memory through command-line workflows.">CLI adapter</a><a href="/memory/docs/json-rpc-adapter/" data-search-title="JSON-RPC adapter Integrate directly with the local daemon API.">JSON-RPC adapter</a></section><section class="docs-nav-group"><h2>Architecture and decisions</h2><a href="/memory/docs/architecture/" data-search-title="Architecture See the local daemon, adapters, packages, and trust boundaries.">Architecture</a><a href="/memory/docs/data-model/" aria-current="page" class="active" data-search-title="Data model Understand projects, sessions, documents, graph data, and storage.">Data model</a><a href="/memory/docs/api-reference/" data-search-title="API reference Reference the local HTTP, JSON-RPC, and MCP surfaces.">API reference</a><a href="/memory/docs/diagrams/" data-search-title="System diagrams Review the main component, data, and interaction diagrams.">System diagrams</a><a href="/memory/docs/source-context/" data-search-title="Source and context boundary Understand which sources become public documentation and how private context stays excluded.">Source and context boundary</a><a href="/memory/docs/architecture-decisions/" data-search-title="Architecture decisions Read the decision log and the rules for changing durable system boundaries.">Architecture decisions</a><a href="/memory/docs/adr-local-first/" data-search-title="ADR 0001: Local-first project boundary Keep application source, private memory, and public documentation in separate ownership domains.">ADR 0001: Local-first project boundary</a><a href="/memory/docs/adr-progressive-docs/" data-search-title="ADR 0002: Progressive public documentation Generate directly addressable pages whose content and navigation do not depend on JavaScript.">ADR 0002: Progressive public documentation</a><a href="/memory/docs/adr-agent-authority/" data-search-title="ADR 0003: Project-bound agent authority Use explicit project-bound agent authority and centralized privacy projection.">ADR 0003: Project-bound agent authority</a></section><section class="docs-nav-group"><h2>Security and contracts</h2><a href="/memory/docs/security/" data-search-title="Security Understand the local trust model and report vulnerabilities.">Security</a><a href="/memory/docs/principal-model/" data-search-title="Principal model Review audiences, project binding, expiry, revocation, and operation authority.">Principal model</a><a href="/memory/docs/browser-session-security/" data-search-title="Browser session security Review local browser bootstrap, CSRF, rotation, revocation, and project binding.">Browser session security</a><a href="/memory/docs/native-desktop-security/" data-search-title="Native desktop authority Review the Rust-owned daemon and credential boundary outside the webview.">Native desktop authority</a><a href="/memory/docs/provider-security/" data-search-title="Provider secrets and egress Operate write-only credentials and constrained provider destinations.">Provider secrets and egress</a><a href="/memory/docs/privacy-projection/" data-search-title="Privacy projection Understand centralized agent and provider projection, visibility, and completeness.">Privacy projection</a><a href="/memory/docs/operation-admission/" data-search-title="Operation admission Trace requests through exact decoding, authority, idempotency, and dispatch.">Operation admission</a></section><section class="docs-nav-group"><h2>Operate and contribute</h2><a href="/memory/docs/operations/" data-search-title="Operations Run, package, back up, restore, and troubleshoot Memory.">Operations</a><a href="/memory/docs/ai-testing/" data-search-title="AI provider testing Test local and external model-backed workflows safely.">AI provider testing</a><a href="/memory/docs/testing-plan/" data-search-title="Testing plan See the testing strategy and expected coverage.">Testing plan</a><a href="/memory/docs/frontend-accessibility/" data-search-title="Frontend accessibility Review the responsive, keyboard, focus, contrast, motion, and manual qualification contract.">Frontend accessibility</a><a href="/memory/docs/frontend-v2-migration/" data-search-title="Frontend V2 migration Migrate profiles, credentials, visibility, preferences, and layout caches with rollback.">Frontend V2 migration</a><a href="/memory/docs/frontend-v2-compatibility/" data-search-title="Compatibility register See retained and removed compatibility paths, callers, dates, and removal proof.">Compatibility register</a><a href="/memory/docs/frontend-qualification/" data-search-title="Frontend qualification Separate source observations from candidate, browser, WebView, assistive-device, and release evidence.">Frontend qualification</a><a href="/memory/docs/contributing/" data-search-title="Contributing Set up the repository and follow the contribution workflow.">Contributing</a></section></nav></details>
+    <div class="docs-layout">
+      <aside class="docs-sidebar" aria-label="Documentation"><div class="docs-sidebar-inner"><a class="docs-home-link" href="/memory/docs/">Documentation home</a><div class="docs-search" role="search"><label for="docs-search-input">Search documentation</label><input id="docs-search-input" type="search" autocomplete="off" data-docs-search /><p data-search-status aria-live="polite"></p><div class="docs-search-results" data-search-results></div></div><nav class="docs-nav" aria-label="All guides"><section class="docs-nav-group"><h2>Start here</h2><a href="/memory/docs/project-overview/" data-search-title="Project overview What Memory does, how it is organized, and the fastest way to start.">Project overview</a><a href="/memory/docs/setup/" data-search-title="Setup Choose a supported local profile and start the daemon, browser UI, desktop app, or agent connection.">Setup</a><a href="/memory/docs/frontend-v2-status/" data-search-title="Frontend V2 status Separate implemented source boundaries from candidate and release/device qualification.">Frontend V2 status</a><a href="/memory/docs/developer-preview/" data-search-title="Developer preview What is ready today, current limitations, and the project boundary.">Developer preview</a><a href="/memory/docs/mvp-walkthrough/" data-search-title="First walkthrough Create a project, start a session, save context, and resume work.">First walkthrough</a><a href="/memory/docs/browser-ui/" data-search-title="Browser UI Run the frequently used local interface in a browser.">Browser UI</a><a href="/memory/docs/desktop-ui/" data-search-title="Desktop UI Use the native application, navigation, and folder selection workflows.">Desktop UI</a></section><section class="docs-nav-group"><h2>Use Memory</h2><a href="/memory/docs/user-flows/" data-search-title="User flows Understand setup, daily sessions, context, review, and recovery flows.">User flows</a><a href="/memory/docs/repositories/" data-search-title="Repositories Connect one or several code repositories to a Memory project.">Repositories</a><a href="/memory/docs/workstreams/" data-search-title="Workstreams Group sessions and knowledge around long-running areas of work.">Workstreams</a><a href="/memory/docs/importing/" data-search-title="Import existing memory Preview and import existing Markdown documents and session history.">Import existing memory</a><a href="/memory/docs/graph-rules/" data-search-title="Graph rules Shape useful graph hubs with deterministic project rules.">Graph rules</a><a href="/memory/docs/semantic-graph/" data-search-title="Semantic graph Add locally reviewed semantic relationships to the context graph.">Semantic graph</a></section><section class="docs-nav-group"><h2>Connect AI agents</h2><a href="/memory/docs/mcp-setup/" data-search-title="MCP setup Connect Codex, Claude, or another MCP-compatible client.">MCP setup</a><a href="/memory/docs/agent-automation/" data-search-title="Agent automation Bootstrap repositories and make session memory part of agent work.">Agent automation</a><a href="/memory/docs/agent-protocol/" data-search-title="Agent protocol Follow the shared startup, checkpoint, and closeout contract.">Agent protocol</a><a href="/memory/docs/generic-mcp-adapter/" data-search-title="Generic MCP adapter Use the project-neutral MCP integration pattern.">Generic MCP adapter</a><a href="/memory/docs/cli-adapter/" data-search-title="CLI adapter Use Memory through command-line workflows.">CLI adapter</a><a href="/memory/docs/json-rpc-adapter/" data-search-title="JSON-RPC adapter Integrate directly with the local daemon API.">JSON-RPC adapter</a></section><section class="docs-nav-group"><h2>Architecture and decisions</h2><a href="/memory/docs/architecture/" data-search-title="Architecture See the local daemon, adapters, packages, and trust boundaries.">Architecture</a><a href="/memory/docs/data-model/" aria-current="page" class="active" data-search-title="Data model Understand projects, sessions, documents, graph data, and storage.">Data model</a><a href="/memory/docs/api-reference/" data-search-title="API reference Reference the local HTTP, JSON-RPC, and MCP surfaces.">API reference</a><a href="/memory/docs/diagrams/" data-search-title="System diagrams Review the main component, data, and interaction diagrams.">System diagrams</a><a href="/memory/docs/source-context/" data-search-title="Source and context boundary Understand which sources become public documentation and how private context stays excluded.">Source and context boundary</a><a href="/memory/docs/architecture-decisions/" data-search-title="Architecture decisions Read the decision log and the rules for changing durable system boundaries.">Architecture decisions</a><a href="/memory/docs/adr-local-first/" data-search-title="ADR 0001: Local-first project boundary Keep application source, private memory, and public documentation in separate ownership domains.">ADR 0001: Local-first project boundary</a><a href="/memory/docs/adr-progressive-docs/" data-search-title="ADR 0002: Progressive public documentation Generate directly addressable pages whose content and navigation do not depend on JavaScript.">ADR 0002: Progressive public documentation</a><a href="/memory/docs/adr-agent-authority/" data-search-title="ADR 0003: Project-bound agent authority Use explicit project-bound agent authority and centralized privacy projection.">ADR 0003: Project-bound agent authority</a></section><section class="docs-nav-group"><h2>Security and contracts</h2><a href="/memory/docs/security/" data-search-title="Security Understand the local trust model and report vulnerabilities.">Security</a><a href="/memory/docs/principal-model/" data-search-title="Principal model Review audiences, project binding, expiry, revocation, and operation authority.">Principal model</a><a href="/memory/docs/browser-session-security/" data-search-title="Browser session security Review local browser bootstrap, CSRF, rotation, revocation, and project binding.">Browser session security</a><a href="/memory/docs/native-desktop-security/" data-search-title="Native desktop authority Review the Rust-owned daemon and credential boundary outside the webview.">Native desktop authority</a><a href="/memory/docs/provider-security/" data-search-title="Provider secrets and egress Operate write-only credentials and constrained provider destinations.">Provider secrets and egress</a><a href="/memory/docs/privacy-projection/" data-search-title="Privacy projection Understand centralized agent and provider projection, visibility, and completeness.">Privacy projection</a><a href="/memory/docs/operation-admission/" data-search-title="Operation admission Trace requests through exact decoding, authority, idempotency, and dispatch.">Operation admission</a></section><section class="docs-nav-group"><h2>Operate and contribute</h2><a href="/memory/docs/operations/" data-search-title="Operations Run, package, back up, restore, and troubleshoot Memory.">Operations</a><a href="/memory/docs/ai-testing/" data-search-title="AI provider testing Test local and external model-backed workflows safely.">AI provider testing</a><a href="/memory/docs/testing-plan/" data-search-title="Testing plan See the testing strategy and expected coverage.">Testing plan</a><a href="/memory/docs/frontend-accessibility/" data-search-title="Frontend accessibility Review the responsive, keyboard, focus, contrast, motion, and manual qualification contract.">Frontend accessibility</a><a href="/memory/docs/frontend-v2-migration/" data-search-title="Frontend V2 migration Migrate profiles, credentials, visibility, preferences, and layout caches with rollback.">Frontend V2 migration</a><a href="/memory/docs/frontend-v2-compatibility/" data-search-title="Compatibility register See retained and removed compatibility paths, callers, dates, and removal proof.">Compatibility register</a><a href="/memory/docs/frontend-qualification/" data-search-title="Frontend qualification Separate source observations from candidate, browser, WebView, assistive-device, and release evidence.">Frontend qualification</a><a href="/memory/docs/contributing/" data-search-title="Contributing Set up the repository and follow the contribution workflow.">Contributing</a></section></nav></div></aside>
+      <main class="docs-main" id="docs-content"><article class="doc-article"><header class="article-header"><p class="article-kicker">Architecture and decisions</p><h1>Data model</h1><p class="article-lede">Understand projects, sessions, documents, graph data, and storage.</p><div class="article-meta"><span>5 min read</span><a href="https://github.com/zharwing/memory/blob/main/docs/DATA_MODEL.md" target="_blank" rel="noreferrer">View source on GitHub ↗</a></div></header><details class="mobile-toc"><summary>On this page</summary><nav><a class="toc-level-2" href="#entity-overview">Entity Overview</a><a class="toc-level-2" href="#project">Project</a><a class="toc-level-2" href="#workstream">Workstream</a><a class="toc-level-2" href="#session">Session</a><a class="toc-level-2" href="#document">Document</a><a class="toc-level-2" href="#import">Import</a><a class="toc-level-2" href="#trash">Trash</a><a class="toc-level-2" href="#proposed-memory-update">Proposed Memory Update</a><a class="toc-level-2" href="#context-bundle">Context Bundle</a><a class="toc-level-2" href="#graph-model">Graph Model</a><a class="toc-level-2" href="#semantic-graph-model">Semantic Graph Model</a><a class="toc-level-2" href="#index-model">Index Model</a></nav></details><div class="markdown-body"><p>Zharwing Memory stores durable project memory in Markdown and JSON files. The domain model is defined in <code>packages/core/src/types.ts</code>.</p>
+<h2 id="entity-overview">Entity Overview<a class="heading-anchor" href="#entity-overview" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>Entity</th><th>Purpose</th><th>Source</th></tr></thead><tbody><tr><td>Project</td><td>Registered memory workspace and linked repos</td><td><code>project.json</code>, registry</td></tr><tr><td>RepoLink</td><td>Repo/worktree attached to a project</td><td><code>project.json</code></td></tr><tr><td>Workstream</td><td>Multi-day topic/epic grouping</td><td><code>workstreams/*.md</code></td></tr><tr><td>Session</td><td>Project-scoped AI coding session</td><td><code>sessions/YYYY/MM/*.md</code></td></tr><tr><td>SessionCheckpoint</td><td>Progress point inside a session</td><td>session Markdown</td></tr><tr><td>MemoryDocument</td><td>Project knowledge document</td><td><code>docs/**/*.md</code> and default root docs</td></tr><tr><td>Diagram</td><td>Specialized document with diagram metadata</td><td><code>docs/diagrams/*.md</code></td></tr><tr><td>ProposedMemoryUpdate</td><td>Reviewable memory proposal</td><td><code>inbox/proposed-updates/*.json</code></td></tr><tr><td>ContextBundle</td><td>Exact AI context package</td><td><code>generated/context-bundles/*.md</code></td></tr><tr><td>AuditRecord</td><td>Bundle metadata without raw secrets</td><td><code>audit/context-bundles/*.json</code></td></tr><tr><td>ProjectGraph</td><td>Derived metadata graph</td><td>generated from project/docs and opted-in sessions</td></tr><tr><td>SearchIndex</td><td>Rebuildable metadata/search projection</td><td><code>generated/index.json</code></td></tr><tr><td>ImportPlan</td><td>Preview of a source-folder import before commit</td><td>daemon/RPC result</td></tr><tr><td>ImportCandidate</td><td>One proposed imported file</td><td>import plan</td></tr><tr><td>TrashItem</td><td>Recoverable deleted item metadata and payload</td><td><code>global/trash/items/&lt;trash-id&gt;/</code></td></tr></tbody></table></div>
+<h2 id="project">Project<a class="heading-anchor" href="#project" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>yaml</span><button type="button" data-copy-code>Copy</button></div><pre><code>id: project-slug
+name: My App
+slug: my-app
+memoryRoot: &lt;memory-root&gt;/projects/my-app
+repos:
+  - path: &lt;repo-root&gt;
+    name: Product Runtime
+    description: Active product app and shared UI runtime
+    role: product-runtime
+    defaultBranch: main
+created: 2026-06-08T00:00:00.000Z
+updated: 2026-06-08T00:00:00.000Z
+lastOpened: 2026-06-08T00:00:00.000Z
+privacyPolicy:
+  defaultVisibility: ai-eligible
+  ignorePatterns: [&lt;default-ignore-patterns&gt;]
+  neverSendPatterns: [&lt;default-never-send-patterns&gt;]
+  redactSecrets: true
+  blockOnHighRiskSecrets: true
+  allowCrossProjectContext: false
+  requireApprovalBeforeServingContext: false
+contextPolicy: {}
+assistantPolicy: {}
+memoryWritePolicy:
+  allowAgentDirectWrites: true
+  reviewMode: off
+graphRules:
+  - match: apps/*
+    nodeType: package
+    topic: frontend
+  - match: services/*
+    nodeType: service
+    topic: backend</code></pre></div>
+<p>Repo <code>role</code> is free-form category metadata. Examples include <code>service</code>, <code>worker</code>, <code>docs</code>, <code>product-runtime</code>, <code>codex-wrapper</code>, and <code>worktree</code>, but the app does not restrict the value.</p>
+<p><code>memoryWritePolicy.reviewMode</code> controls whether durable memory updates are written directly or routed to Memory Inbox. The default is <code>off</code>, which allows direct agent writes. <code>risky-only</code> keeps routine updates direct and reserves the inbox for risky or uncertain updates. <code>all</code> disables direct document writes and routes durable memory changes through proposals.</p>
+<p>The default privacy policy makes memory inside the selected project AI-visible (<code>ai-eligible</code>) and does not require approval before serving context. The remaining fields are scope and secret-safety controls: they keep context inside the selected project, honor explicit exclusions, and avoid passing credential-shaped content to an agent.</p>
+<p><code>graphRules</code> is optional project configuration for deriving useful context graph nodes from imported folder layouts. It belongs in <code>project.json</code>, not in application code. See <a href="/memory/docs/graph-rules/">Graph Rules</a>.</p>
+<h2 id="workstream">Workstream<a class="heading-anchor" href="#workstream" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>yaml</span><button type="button" data-copy-code>Copy</button></div><pre><code>id: workstream-uuid
+project_id: my-app
+name: Huddle
+slug: huddle
+status: active
+summary: Multi-day Huddle runtime and service work
+goal: Ship the Huddle feature across repos
+topics:
+  - huddle
+  - realtime
+repo_roles:
+  - product-runtime
+  - service
+related_tasks: []
+related_files: []
+pinned_doc_ids: []
+created: 2026-06-08T00:00:00.000Z
+updated: 2026-06-08T00:00:00.000Z
+closed:
+body: Full Markdown body after frontmatter.</code></pre></div>
+<p>Workstreams live under <code>workstreams/&lt;slug&gt;.md</code>. Sessions and documents can link explicitly through <code>workstream_ids</code>; the workstream detail view also finds related items from matching topics, tasks, names, summaries, and body text.</p>
+<h2 id="session">Session<a class="heading-anchor" href="#session" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>yaml</span><button type="button" data-copy-code>Copy</button></div><pre><code>id: session-uuid
+project_id: my-app
+repo_path: &lt;repo-root&gt;
+working_directory: &lt;repo-root&gt;
+branch: main
+agent: codex
+client: zharwing-memory-cli
+status: active
+started: 2026-06-08T00:00:00.000Z
+updated: 2026-06-08T00:00:00.000Z
+closed:
+closed_reason:
+task_title: Fix settings page save bug
+include_in_graph: false
+goal: Make settings save reliably
+summary:
+next_steps: []
+blockers: []
+touched_files: []
+workstream_ids: []
+related_docs: []
+related_tasks: []
+context_bundle_id:
+body: Full Markdown body after frontmatter; preserved and used for raw session context.
+import_source_path:
+import_source_hash:
+imported_at:
+import_profile:</code></pre></div>
+<p><code>closed_reason</code> is set only when the daemon closed the session on its own. A session left <code>active</code> on an earlier local day is auto-closed the next time a session is started for that project, because agents routinely exit without an explicit close. The auto-close keeps <code>updated</code> at the last real activity, fills a missing TLDR deterministically (never through an AI provider), and appends a <code>Close reason</code> line to the session body. See <a href="/memory/docs/agent-protocol/">Agent Protocol</a>.</p>
+<p><code>include_in_graph</code> defaults to <code>false</code>, including for older session files where the field is absent. Every session remains available in Session History, project search, and context selection. Only sessions explicitly marked <code>true</code> appear as graph nodes; task, file, repo, workstream, and document relationships derived from those sessions follow the same opt-in rule.</p>
+<p>Filename format:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>YYYY-MM-DD__agent__branch__short-task.md</code></pre></div>
+<p>Example:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>2026-06-08__codex__main__settings-save-bug.md</code></pre></div>
+<h2 id="document">Document<a class="heading-anchor" href="#document" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>yaml</span><button type="button" data-copy-code>Copy</button></div><pre><code>---
+id: doc-uuid
+title: Auth Refactor Plan
+type: plan
+status: active
+visibility: ai-eligible
+project: my-app
+topics:
+  - auth
+  - sessions
+workstream_ids:
+  - workstream-uuid
+related_tasks:
+  - task-2026-0003
+related_files:
+  - src/auth/session.ts
+related_sessions:
+  - session-uuid
+related_diagrams: []
+created: 2026-06-08T00:00:00.000Z
+updated: 2026-06-08T00:00:00.000Z
+last_verified: 2026-06-08T00:00:00.000Z
+confidence: medium
+import_source_path:
+import_source_hash:
+imported_at:
+import_profile:
+---</code></pre></div>
+<p>Document types:</p>
+<ul><li><code>plan</code></li><li><code>investigation</code></li><li><code>research</code></li><li><code>architecture-note</code></li><li><code>decision-record</code></li><li><code>architecture-decision-record</code></li><li><code>design-requirements-document</code></li><li><code>technical-spec</code></li><li><code>requirement</code></li><li><code>user-flow</code></li><li><code>diagram</code></li><li><code>command-note</code></li><li><code>gotcha</code></li><li><code>meeting-note</code></li><li><code>external-reference</code></li><li><code>scratch-note</code></li><li><code>overview</code></li><li><code>commands</code></li><li><code>glossary</code></li><li><code>privacy</code></li></ul>
+<p>Statuses:</p>
+<ul><li><code>draft</code></li><li><code>active</code></li><li><code>accepted</code></li><li><code>superseded</code></li><li><code>stale</code></li><li><code>archived</code></li></ul>
+<p>Visibility:</p>
+<ul><li><code>ai-eligible</code></li><li><code>ai-pinned</code></li><li><code>human-only</code></li><li><code>private</code></li><li><code>never-send</code></li></ul>
+<h2 id="import">Import<a class="heading-anchor" href="#import" aria-label="Link to this section">#</a></h2>
+<p>An import plan previews how a source folder will be transformed into native AI Memory files.</p>
+<div class="code-block"><div class="code-label"><span>json</span><button type="button" data-copy-code>Copy</button></div><pre><code>{
+  &quot;id&quot;: &quot;import-uuid&quot;,
+  &quot;projectId&quot;: &quot;my-app&quot;,
+  &quot;sourceRoot&quot;: &quot;&lt;source-memory-folder&gt;&quot;,
+  &quot;profileName&quot;: &quot;markdown-memory&quot;,
+  &quot;created&quot;: &quot;2026-06-15T00:00:00.000Z&quot;,
+  &quot;counts&quot;: {
+    &quot;total&quot;: 123,
+    &quot;documents&quot;: 123,
+    &quot;sessions&quot;: 0,
+    &quot;skipped&quot;: 0,
+    &quot;warnings&quot;: 0
+  },
+  &quot;candidates&quot;: []
+}</code></pre></div>
+<p>Candidate kinds:</p>
+<ul><li><code>document</code></li><li><code>session</code></li><li><code>skip</code></li></ul>
+<p>Conflict strategies:</p>
+<ul><li><code>skip</code></li><li><code>overwrite</code></li><li><code>duplicate</code></li></ul>
+<p>Imported documents are written below <code>docs/imported/&lt;profile&gt;/...</code>. Imported sessions are written below <code>sessions/imported/&lt;profile&gt;/...</code>. Both preserve the source Markdown body and add import provenance metadata.</p>
+<h2 id="trash">Trash<a class="heading-anchor" href="#trash" aria-label="Link to this section">#</a></h2>
+<p>Delete operations move recoverable items to global Trash before permanent purge. Trash is global to the memory root so deleted projects can still be listed and restored after they are removed from the active project registry.</p>
+<p>Trash item types:</p>
+<ul><li><code>project</code></li><li><code>repo</code></li><li><code>workstream</code></li><li><code>session</code></li><li><code>document</code></li><li><code>inbox-proposal</code></li><li><code>backup</code></li></ul>
+<p>Trash metadata:</p>
+<div class="code-block"><div class="code-label"><span>json</span><button type="button" data-copy-code>Copy</button></div><pre><code>{
+  &quot;id&quot;: &quot;trash-uuid&quot;,
+  &quot;type&quot;: &quot;session&quot;,
+  &quot;projectId&quot;: &quot;my-app&quot;,
+  &quot;projectName&quot;: &quot;My App&quot;,
+  &quot;itemId&quot;: &quot;session-uuid&quot;,
+  &quot;title&quot;: &quot;Fix settings page save bug&quot;,
+  &quot;deletedAt&quot;: &quot;2026-06-18T00:00:00.000Z&quot;,
+  &quot;originalPath&quot;: &quot;&lt;project-memory-root&gt;/sessions/2026/06/file.md&quot;,
+  &quot;metadataPath&quot;: &quot;&lt;memory-root&gt;/global/trash/items/trash-uuid/trash-item.json&quot;,
+  &quot;critical&quot;: false,
+  &quot;canRestore&quot;: true
+}</code></pre></div>
+<p>Storage shape:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>&lt;memory-root&gt;/
+  global/
+    trash/
+      items/
+        &lt;trash-id&gt;/
+          trash-item.json
+          payload.json
+          payload/</code></pre></div>
+<p>Path-backed items, such as projects, workstreams, sessions, documents, inbox proposals, and backups, move their original file or directory into the trash item directory. JSON-backed items, such as linked repo entries, store their payload in <code>payload.json</code>.</p>
+<p>Restore moves recoverable items back to their original active location and removes the trash metadata. Purge permanently deletes the trash item directory.</p>
+<h2 id="proposed-memory-update">Proposed Memory Update<a class="heading-anchor" href="#proposed-memory-update" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>json</span><button type="button" data-copy-code>Copy</button></div><pre><code>{
+  &quot;id&quot;: &quot;proposal-uuid&quot;,
+  &quot;projectId&quot;: &quot;my-app&quot;,
+  &quot;type&quot;: &quot;decision&quot;,
+  &quot;status&quot;: &quot;pending&quot;,
+  &quot;sourceSession&quot;: &quot;session-uuid&quot;,
+  &quot;sourceAgent&quot;: &quot;codex&quot;,
+  &quot;sourceKind&quot;: &quot;external-ai&quot;,
+  &quot;created&quot;: &quot;2026-06-08T00:00:00.000Z&quot;,
+  &quot;confidence&quot;: &quot;medium&quot;,
+  &quot;affectedFiles&quot;: [&quot;src/settings/save.ts&quot;],
+  &quot;targetDocument&quot;: &quot;decisions.md&quot;,
+  &quot;proposedPatch&quot;: &quot;...&quot;,
+  &quot;reason&quot;: &quot;The session established a durable save-flow decision.&quot;
+}</code></pre></div>
+<p>Proposal statuses:</p>
+<ul><li><code>pending</code></li><li><code>accepted</code></li><li><code>rejected</code></li><li><code>deferred</code></li><li><code>edited</code></li></ul>
+<h2 id="context-bundle">Context Bundle<a class="heading-anchor" href="#context-bundle" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>yaml</span><button type="button" data-copy-code>Copy</button></div><pre><code>id: bundle-uuid
+projectId: my-app
+sessionId: session-uuid
+created: 2026-06-08T00:00:00.000Z
+requestedBy: codex
+includedItems: []
+excludedItems: []
+redactions: []
+tokenEstimate: 18200
+safetyStatus: clean
+auditLogPath: audit/context-bundles/bundle-uuid.json</code></pre></div>
+<p>Safety statuses:</p>
+<ul><li><code>clean</code></li><li><code>needs-review</code></li><li><code>blocked</code></li><li><code>index-stale</code></li></ul>
+<h2 id="graph-model">Graph Model<a class="heading-anchor" href="#graph-model" aria-label="Link to this section">#</a></h2>
+<p>Graph nodes:</p>
+<ul><li>project</li><li>repo</li><li>workstream</li><li>topic</li><li>service</li><li>package</li><li>diagram group</li><li>task</li><li>session</li><li>decision</li><li>doc</li><li>diagram</li><li>code area</li><li>file</li><li>command</li><li>gotcha</li><li>external reference</li></ul>
+<p>Graph edges:</p>
+<ul><li><code>works-on</code></li><li><code>touched</code></li><li><code>referenced</code></li><li><code>produced</code></li><li><code>affects</code></li><li><code>supersedes</code></li><li><code>supports</code></li><li><code>explains</code></li><li><code>mentions</code></li><li><code>uses</code></li><li><code>contains</code></li><li><code>depends-on</code></li><li><code>blocked-by</code></li><li><code>belongs-to</code></li><li><code>related</code></li></ul>
+<p>The graph is derived from project/document metadata and opted-in session metadata. It is not the source of truth. Graph rules contribute extra context nodes and relationships during projection.</p>
+<p>Graph rule shape:</p>
+<div class="code-block"><div class="code-label"><span>yaml</span><button type="button" data-copy-code>Copy</button></div><pre><code>match: apps/*
+nodeType: package
+label:
+segment:
+slugFromSegment:
+labelFromSegment:
+edgeType: supports
+topic: frontend</code></pre></div>
+<h2 id="semantic-graph-model">Semantic Graph Model<a class="heading-anchor" href="#semantic-graph-model" aria-label="Link to this section">#</a></h2>
+<p>Semantic graph analysis is optional. It stores reviewed AI-assisted relationships as structured project metadata while Markdown docs remain the human-readable source of truth.</p>
+<p>Durable semantic graph files:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>semantic-graph/settings.json
+semantic-graph/edges.json</code></pre></div>
+<p>Generated, rebuildable semantic graph files:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>generated/semantic/runs/&lt;run-id&gt;.json
+generated/semantic/doc-extractions/&lt;doc-id&gt;/&lt;content-hash&gt;.json
+generated/semantic/candidate-index.json</code></pre></div>
+<p>Semantic edge fields:</p>
+<ul><li><code>from</code></li><li><code>to</code></li><li><code>type</code></li><li><code>status</code>: <code>proposed</code>, <code>accepted</code>, <code>rejected</code>, or <code>auto-accepted</code></li><li><code>confidence</code></li><li><code>reason</code></li><li><code>evidence</code></li><li><code>source</code></li></ul>
+<p>Semantic document extractions may include chunk metadata:</p>
+<ul><li><code>chunkId</code></li><li><code>index</code></li><li><code>headingPath</code></li><li><code>startLine</code></li><li><code>endLine</code></li><li>per-chunk summary, entities, concepts, mentions, and candidate hints</li></ul>
+<p>Large documents are split into bounded Markdown/line-aware chunks. The model extracts facts per chunk, then llm-memory merges those chunk facts into a single document-level <code>SemanticDocumentExtraction</code> cached by document content hash. This keeps semantic graph standalone and avoids sending full huge documents to a small local model.</p>
+<p>Pending review edges are stored as Memory Inbox <code>graph-update</code> proposals until the user accepts them. Accepted and auto-accepted semantic edges become saved relationships in the Graph context map. Rejected edges stay in durable metadata so a user decision is not lost on rebuild.</p>
+<p>The semantic candidate index is deterministic by default. It is built from project metadata, graph rules, imported paths, extracted mentions, and existing graph links. A vector store is not required for semantic relationships and is not part of the default data model. Vector candidates can be added later as a rebuildable optional source if users need similarity discovery for weakly structured or very large document sets.</p>
+<h2 id="index-model">Index Model<a class="heading-anchor" href="#index-model" aria-label="Link to this section">#</a></h2>
+<p>The current implementation writes a versioned, dependency-free JSON project manifest:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>generated/index.json</code></pre></div>
+<p>It contains compact projections of:</p>
+<ul><li>schema version, generation timestamp, and collection counts</li><li>sessions</li><li>documents</li><li>workstreams</li><li>proposals</li></ul>
+<p>This is the supported rebuildable index for normal project sizes. Search still operates over Markdown-backed records, so deleting the index never loses source data. SQLite/FTS5 can be added later as an optional acceleration layer for very large stores without changing the source-of-truth model.</p></div><nav class="article-pagination" aria-label="Documentation pages"><a href="/memory/docs/architecture/"><span>Previous</span><strong>← Architecture</strong></a><a class="next" href="/memory/docs/api-reference/"><span>Next</span><strong>API reference →</strong></a></nav></article></main>
+      <aside class="docs-toc" aria-label="On this page"><div><h2>On this page</h2><nav><a class="toc-level-2" href="#entity-overview">Entity Overview</a><a class="toc-level-2" href="#project">Project</a><a class="toc-level-2" href="#workstream">Workstream</a><a class="toc-level-2" href="#session">Session</a><a class="toc-level-2" href="#document">Document</a><a class="toc-level-2" href="#import">Import</a><a class="toc-level-2" href="#trash">Trash</a><a class="toc-level-2" href="#proposed-memory-update">Proposed Memory Update</a><a class="toc-level-2" href="#context-bundle">Context Bundle</a><a class="toc-level-2" href="#graph-model">Graph Model</a><a class="toc-level-2" href="#semantic-graph-model">Semantic Graph Model</a><a class="toc-level-2" href="#index-model">Index Model</a></nav><a class="toc-github" href="https://github.com/zharwing/memory/blob/main/docs/DATA_MODEL.md" target="_blank" rel="noreferrer">View source on GitHub ↗</a></div></aside>
+    </div>
+    <footer class="site-footer docs-site-footer"><div class="page-width footer-grid"><div><a class="brand" href="/memory/">Zharwing Memory</a><p>Local-first project memory for AI-assisted coding workflows.</p></div><div class="footer-links"><a href="/memory/">Overview</a><a href="/memory/docs/">Documentation</a><a href="/memory/docs/security/">Security</a><a href="https://github.com/zharwing/memory">GitHub</a></div><div class="footer-meta"><p class="footer-note">Public documentation never includes a private memory store.</p></div></div></footer>
+    <script src="/memory/docs/docs.js?v=2" defer></script>
+  </body>
+</html>

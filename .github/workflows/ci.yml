@@ -37,7 +37,12 @@ jobs:
       - run: pnpm check:source-artifacts
       - run: pnpm typecheck
       - run: node scripts/run-tests.mjs
+      - run: pnpm docs:site
+      - run: pnpm check:docs-site
+      - run: pnpm check:frontend-accessibility
+      - run: node scripts/check-frontend-fixtures.mjs
       - run: pnpm check:source-artifacts
+      - run: git diff --exit-code -- website/memory/docs
 
   platform:
     name: Platform / ${{ matrix.os }}
@@ -63,10 +68,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - name: Isolated synthetic-canary secretless build
+        run: pnpm check:secretless-build
       - if: runner.os == 'Windows'
         run: pnpm test:desktop-browser
+      - name: Build CI-only Tauri sidecar fixture
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: rustc apps/desktop/src-tauri/tests/fixtures/daemon-sidecar.rs -o "$env:RUNNER_TEMP/zharwing-memory-daemon-ci.exe"
       - if: runner.os == 'Windows'
+        env:
+          ZHARWING_MEMORY_DAEMON_SIDECAR: ${{ runner.temp }}/zharwing-memory-daemon-ci.exe
         run: pnpm build:desktop
+      - run: node scripts/check-frontend-fixtures.mjs
       - run: pnpm check:source-artifacts
       - run: git diff --exit-code -- .
 
@@ -78,5 +92,12 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9d5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .node-version
       - run: rustc --version
-      - run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - shell: pwsh
+        run: rustc apps/desktop/src-tauri/tests/fixtures/daemon-sidecar.rs -o "$env:RUNNER_TEMP/zharwing-memory-daemon-ci.exe"
+      - run: node scripts/tauri-test.mjs
+        env:
+          ZHARWING_MEMORY_DAEMON_SIDECAR: ${{ runner.temp }}/zharwing-memory-daemon-ci.exe

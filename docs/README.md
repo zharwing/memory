@@ -4,6 +4,18 @@ This folder contains product and engineering documentation for the Zharwing Memo
 
 ## Core Docs
 
+- [Setup](SETUP.md)
+  Supported runtimes, local profiles, browser/desktop startup, agent boundary,
+  and public documentation generation.
+
+- [Frontend V2 Implementation Status](FRONTEND_V2_IMPLEMENTATION_STATUS.md)
+  Current browser/desktop architecture and an explicit separation between
+  implemented source and release/device qualification.
+
+- [Developer Preview Boundary](DEVELOPER_PREVIEW.md)
+  Implemented `personal-preview` and `hardened-local` profiles, limitations,
+  migration boundary, and claim rules.
+
 - [Architecture](ARCHITECTURE.md)
   System boundaries, runtime structure, package responsibilities, and context safety flow.
 
@@ -33,8 +45,8 @@ This folder contains product and engineering documentation for the Zharwing Memo
   First-time setup, daily coding, project return, context preview, inbox review, assistant workflows, backup, and recovery.
 
 - [Browser UI](WEB_UI.md)
-  Complete local browser startup, daemon and token configuration, daily use,
-  browser-versus-desktop differences, and troubleshooting.
+  Cookie/CSRF browser authority, explicit local preview startup, hardened
+  bootstrap requirements, browser-versus-desktop differences, and recovery.
 
 - [Browser And Desktop UI](DESKTOP_UI.md)
   Shared navigation, browser and Tauri runtime modes, first-run setup, import
@@ -47,7 +59,20 @@ This folder contains product and engineering documentation for the Zharwing Memo
   Runtime assumptions, configuration, startup, backup, validation, indexing, security, and known constraints.
 
 - [Testing Plan](TESTING.md)
-  Phased plan for unit and integration tests using node:test over compiled dist output, with privacy and storage first.
+  Exact frontend commands, source coverage, integrated gate order, and the
+  boundary between CI, local source completion, and release/device evidence.
+
+- [Frontend V2 Migration](migration/frontend-v2-migration.md)
+  Profile selection, role credentials, visibility, preferences, graph layout,
+  compatibility windows, and rollback.
+
+- [Frontend V2 Compatibility Register](migration/frontend-v2-compatibility-register.md)
+  Dated retained/removed compatibility paths, active callers, removal proof,
+  and residual risk.
+
+- [Frontend Qualification Matrix](qualification/frontend-qualification-matrix.md)
+  Honest per-surface source observations, unrun candidate gates, deferred
+  device evidence, and release claim rules.
 
 - [Testing With AI Providers](AI_TESTING.md)
   Manual LM Studio/Ollama/llama.cpp-style provider checks, session TLDR tests, and semantic graph smoke tests.
@@ -66,25 +91,34 @@ This folder contains product and engineering documentation for the Zharwing Memo
 - [MVP Walkthrough](MVP_WALKTHROUGH.md)
   Quick command-oriented walkthrough of the core MVP loop.
 
+- [Source And Context Boundary](SOURCE_CONTEXT.md)
+  Explicit public-source allowlist, generated direct pages, bounded search
+  projection, synthetic evidence, and private-context exclusions.
+
+- [Architecture Decision Records](decisions/README.md)
+  Durable local-first, progressive-documentation, and project-bound-authority
+  decisions with their context and consequences.
+
 ## Reading Order
 
 1. Read the root [README](../README.md).
-2. Read [Architecture](ARCHITECTURE.md).
-3. Review [Diagrams](DIAGRAMS.md) for system shape.
-4. Use [User Flows](USER_FLOWS.md) to understand behavior.
-5. Use [Browser UI](WEB_UI.md) to run Memory in a browser.
-6. Use [Browser And Desktop UI](DESKTOP_UI.md) for the shared navigation and workflows.
-7. Use [API Reference](API_REFERENCE.md) when wiring clients.
-8. Use [Agent Protocol](AGENT_PROTOCOL.md) when wiring agents or generating agent-specific instructions.
-9. Use [MCP Setup](MCP_SETUP.md) when connecting Codex, Claude, or another MCP client.
-10. Use [Agent Automation](AGENT_AUTOMATION.md) when configuring bootstrap files or the generic skill.
-11. Use [Repositories](REPOSITORIES.md) when linking multiple repos to one memory project.
-12. Use [Workstreams](WORKSTREAMS.md) when grouping multi-day topics.
-13. Use [Importing](IMPORTING.md) when bringing in existing Markdown memory or session folders.
-14. Use [Graph Rules](GRAPH_RULES.md) when imported memory needs better graph hubs.
-15. Use [Semantic Graph Analysis](SEMANTIC_GRAPH.md) when enabling AI-reviewed relationships.
-16. Use [Testing With AI Providers](AI_TESTING.md) when checking LM Studio, session TLDR generation, or another model-backed provider.
-17. Use [Operations](OPERATIONS.md) when running or packaging the app.
+2. Use [Setup](SETUP.md) to choose a profile and start the intended surface.
+3. Read [Frontend V2 Implementation Status](FRONTEND_V2_IMPLEMENTATION_STATUS.md)
+   and [Developer Preview](DEVELOPER_PREVIEW.md) before making a readiness claim.
+4. Read [Architecture](ARCHITECTURE.md) and [Diagrams](DIAGRAMS.md).
+5. Use [Browser UI](WEB_UI.md) and [Browser And Desktop UI](DESKTOP_UI.md)
+   for human-interface setup and operation.
+6. Use [Frontend V2 Migration](migration/frontend-v2-migration.md) before
+   changing a profile, credential, visibility default, or persisted cache.
+7. Use [Testing](TESTING.md) and the
+   [Qualification Matrix](qualification/frontend-qualification-matrix.md)
+   before any source-complete or release/device claim.
+8. Continue with the domain guides below for agent, repository, import, graph,
+   provider, and operations work.
+9. Read [Source And Context Boundary](SOURCE_CONTEXT.md) before changing the
+   public website, its direct pages, or its search index.
+10. Add durable boundary decisions to the
+    [Architecture Decision Records](decisions/README.md).
 
 ## Documentation Policy
 

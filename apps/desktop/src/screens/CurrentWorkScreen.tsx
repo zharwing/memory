@@ -9,6 +9,8 @@ import { formatShortDateTime } from "../utils/format.js";
 export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
   const store = useStore();
   const active = store.sessions.list.find((session) => session.status === "active");
+  const listState = store.sessions.listState;
+  const listCompleteness = store.sessions.listCompleteness;
   const [checkpoint, setCheckpoint] = useState("");
   const [closeoutOpen, setCloseoutOpen] = useState(false);
 
@@ -16,19 +18,45 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
     return (
       <Screen title="Current Work">
         <WorkTabs />
-        <Empty text="No active session. Start or resume from the dashboard." />
+        {listState.status === "idle" || listState.status === "loading" ? (
+          <p className="panel-help" role="status">Loading current work...</p>
+        ) : listState.status === "refreshing" ? (
+          <p className="panel-help" role="status">Refreshing current work...</p>
+        ) : listState.status === "failure" ? (
+          <p className="panel-help" role="alert">Current work could not be loaded. Refresh to try again.</p>
+        ) : listCompleteness?.kind === "partial" ? (
+          <p className="panel-help" role="status">
+            No active session appears in this partial session list. More sessions may exist.
+          </p>
+        ) : listCompleteness?.kind === "complete" ? (
+          <Empty text="No active session. Start or resume from the dashboard." />
+        ) : (
+          <p className="panel-help" role="status">Loading current work...</p>
+        )}
       </Screen>
     );
   }
 
-  function saveCheckpoint() {
+  async function saveCheckpoint() {
     if (!active || !checkpoint.trim()) return;
-    void store.sessions.saveCheckpoint(active.id, checkpoint.trim()).then(() => setCheckpoint(""));
+    const previousUpdated = active.updated;
+    try {
+      await store.sessions.saveCheckpoint(active.id, checkpoint.trim());
+      const refreshed = store.sessions.list.find((session) => session.id === active.id);
+      if (refreshed?.updated !== previousUpdated) setCheckpoint("");
+    } catch {
+      // The shared operation layer owns public failure copy; retain the draft.
+    }
   }
 
   return (
     <Screen title="Current Work">
       <WorkTabs />
+      {listState.status === "refreshing" ? (
+        <p className="panel-help" role="status">Refreshing sessions; showing the last accepted result.</p>
+      ) : listCompleteness?.kind === "partial" ? (
+        <p className="panel-help" role="status">Showing a partial session list; older sessions may not be included.</p>
+      ) : null}
       <section className="panel work-card">
         <div className="work-card-heading">
           <h3>{active.taskTitle}</h3>
@@ -47,13 +75,14 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
             className="checkpoint-form"
             onSubmit={(event) => {
               event.preventDefault();
-              saveCheckpoint();
+              void saveCheckpoint();
             }}
           >
             <input
               id="checkpoint-summary"
               value={checkpoint}
               onChange={(event) => setCheckpoint(event.target.value)}
+              autoComplete="off"
               placeholder="Summarize progress, decisions, or next steps…"
             />
             <button

@@ -7,10 +7,10 @@
  * files by inserting an @import at the position their rules should occupy.
  * 99-responsive-overrides.css must stay last.
  *
- * Theme custom-property values (and color-scheme) are injected at startup by
- * src/styles/theme-tokens.ts from the @zharwing/memory-theme token objects;
- * these files only consume var(--*).
+ * Semantic theme values are static so the first paint is complete even when
+ * JavaScript is delayed or unavailable.
  */
+@import "./00-semantic-tokens.css";
 @import "./01-base.css";
 @import "./02-layout.css";
 @import "./03-panels-forms.css";
@@ -29,4 +29,5 @@
 @import "./16-semantic-runs.css";
 @import "./17-graph-board.css";
 @import "./18-dialogs.css";
+@import "./19-accessibility.css";
 @import "./99-responsive-overrides.css";

@@ -4,11 +4,18 @@ Zharwing Memory is a local-first project context manager for AI-assisted coding 
 
 The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the local browser UI or native desktop app to understand current work, inspect AI context, inspect the graph, search previous work, and enable review workflows only when wanted.
 
-> **Status: standalone personal developer preview.** The current product is
-> intended for a trusted developer using a local, single-user environment. It
-> is not presented as a production, multi-tenant, or hardened harness release.
-> See the [developer preview boundary](docs/DEVELOPER_PREVIEW.md) for the exact
-> profile, limitations, compatibility policy, and validation gates.
+> **Status: local developer preview; not release-qualified.** Source includes
+> the explicit `personal-preview` compatibility profile and the
+> `hardened-local` target security profile. Neither is a production,
+> multi-tenant, public-network, installer, or device qualification claim. See
+> [Frontend V2 status](docs/FRONTEND_V2_IMPLEMENTATION_STATUS.md), the
+> [developer preview boundary](docs/DEVELOPER_PREVIEW.md), and the
+> [qualification matrix](docs/qualification/frontend-qualification-matrix.md).
+
+Frontend V2 is a compatibility-preserving internal refactor, not a breaking
+API release. Supported operation names and canonical project data remain
+compatible, while dated adapters and aliases preserve existing clients,
+bookmarks, and local preview workflows during migration.
 
 ![Zharwing Memory project dashboard](docs/assets/zharwing-memory-dashboard.png)
 
@@ -16,8 +23,11 @@ The dependency-free [public documentation website](https://zharwing.barbutsa.com
 and its [structured documentation portal](https://zharwing.barbutsa.com/memory/docs/)
 are maintained in this repository. They explain the downloadable local
 application; they are not a hosted version of Memory and cannot access a user's
-memory store. The [website source and maintenance guide](website/memory/README.md)
-remain available in the repository.
+memory store. Every public guide has a stable direct URL, and essential content
+and navigation remain available without JavaScript. The
+[website source and maintenance guide](website/memory/README.md) and
+[source-context boundary](docs/SOURCE_CONTEXT.md) remain available in the
+repository.
 
 ## Current Implementation Status
 
@@ -71,34 +81,29 @@ creation, repository linking, imports, graph settings, backups, and destructive
 operations remain administrative UI/CLI actions by design; they are not missing
 daily-memory features.
 
-Validated in the current workspace:
+The daemon, CLI, MCP adapter, browser UI, and desktop UI are present in source.
+Optional semantic graph analysis is implemented for local OpenAI-compatible
+providers. Graph context map, context, session, docs, import, inbox, backup,
+and trash workflows do not require an AI provider.
 
-- Workspace TypeScript build-mode validation passes.
-- The root test command passes a deterministic spine covering privacy gates,
-  Markdown session/document round-trips, context privacy integration, daemon
-  lifecycle, graph overlays, semantic graph policy, and a fake
-  OpenAI-compatible semantic graph provider flow.
-- The daemon, CLI, MCP adapter, browser UI, and desktop UI are implemented.
-- Optional semantic graph analysis is implemented for local OpenAI-compatible
-  providers and can be smoke-tested manually.
-- Graph context map, context, session, docs, import, inbox, backup, and trash
-  workflows do not require an AI provider.
+The current candidate must not inherit historical workspace pass claims.
+Candidate-bound or release/device validation includes broad desktop workflow
+coverage, live-provider checks for each claimed configuration, assistive-device
+and responsive evidence, public-doc generation/drift checks, installer and
+signing checks, packaged application smoke, and rollback rehearsal.
 
-Validation still outstanding (separate from the completed Codex daily-memory
-surface):
-
-- Broad end-to-end test coverage across all desktop workflows.
-- Running the opt-in live-provider smoke against each provider configuration
-  the project intends to support.
-- Installer generation and installer-level smoke testing; the packaged Windows
-  `.exe` build itself has passed.
-
-Current CI validates TypeScript, the complete deterministic test suite, desktop
-contracts, the Vite production build with bundle budgets, a real Edge app-shell
-smoke, Rust tests, the packaged Windows executable, and source-artifact hygiene.
-The repository-wide coverage thresholds and live eleven-tool MCP doctor also
-pass as explicit release checks, but they are not currently enforced as CI
-workflow steps.
+Local validation of the uncommitted 2026-08-12 working tree passed the
+workspace typecheck, 333 automated tests with zero failures and two intentional
+Windows symlink-safety skips, the production web build and unchanged bundle
+budgets, the isolated secret-canary build, fixture and source-artifact guards,
+the accessibility source contract, generated public docs, and a truthful
+headless Edge startup-recovery smoke. Six Rust unit tests and the
+CI-equivalent Tauri compile/package mechanics passed with an explicitly inert
+sidecar fixture; this does not qualify a production daemon, signed installer,
+or packaged runtime. These local results are not commit-bound release evidence;
+assistive-device, live-provider, installer/signing, packaged application, and
+rollback evidence still require the exact release candidate. See
+[Testing](docs/TESTING.md).
 
 ## Product Principles
 
@@ -152,6 +157,9 @@ packages/
 
 docs/
   README.md         Documentation index
+  SETUP.md          Source setup, runtime profiles, and first project
+  SOURCE_CONTEXT.md Public documentation source and privacy boundary
+  decisions/        Architecture decision records
   WEB_UI.md         Local browser startup, auth, usage, and troubleshooting
   ARCHITECTURE.md   System architecture
   DATA_MODEL.md     Entities, storage, and metadata
@@ -190,15 +198,18 @@ store path.
 
 ```bash
 corepack pnpm install
-cp .env.example .env
 ```
 
-Edit `.env`:
+Create a private, untracked `.env`; do not derive browser configuration from a
+checked-in credential template. For the explicit loopback-only compatibility
+preview, set:
 
 ```text
 ZHARWING_MEMORY_ROOT=<absolute-private-store-path>
-ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
-VITE_ZHARWING_MEMORY_AUTH_TOKEN=<same-local-random-token>
+ZHARWING_MEMORY_PROFILE=personal-preview
+ZHARWING_MEMORY_AUTH_MODE=none
+ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
+ZHARWING_PUBLIC_PROFILE=personal-preview
 ```
 
 ### Local Browser UI
@@ -222,10 +233,12 @@ corepack pnpm dev:web
 Open `http://localhost:5174/`. Keep both processes running. The browser UI calls
 the daemon at `http://127.0.0.1:37841`; `dev:web` does not start it.
 
-The values of `ZHARWING_MEMORY_AUTH_TOKEN` and
-`VITE_ZHARWING_MEMORY_AUTH_TOKEN` must match. Restart `dev:web` after changing
-Vite environment variables. Browser path fields accept typed or pasted
-absolute paths because browsers cannot expose arbitrary local folders.
+This is the explicit loopback-only compatibility preview. Browser JavaScript
+uses an HttpOnly session cookie and an in-memory CSRF value; it never receives
+a daemon bearer. Authenticated preview and `hardened-local` require a trusted
+launcher to deliver a one-shot bootstrap code. Only `ZHARWING_PUBLIC_*`
+non-secret hints may enter browser bytes. Browser path fields accept typed or
+pasted absolute paths because browsers cannot expose arbitrary local folders.
 
 See the dedicated [Browser UI guide](docs/WEB_UI.md) for the full setup,
 browser-versus-desktop comparison, local authentication, and troubleshooting.
@@ -238,11 +251,12 @@ For the native Tauri app, run:
 corepack pnpm dev:desktop
 ```
 
-In a source checkout, the desktop shell starts or reuses the local daemon
-automatically. A copied release executable reuses an already-running daemon or
-uses `ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND` when configured. The native shell
-adds OS folder pickers; the core project, session, library, graph, and settings
-workflows are shared with the browser UI.
+The Rust desktop host starts and owns the exact hardened daemon it authorizes,
+refuses an unrelated listener, and keeps daemon credentials outside WebView
+bytes. A packaged application must use its bundled sidecar or an explicitly
+trusted command with the same ownership checks. The native shell adds OS folder
+pickers; the core project, session, library, graph, and settings workflows are
+shared with the browser UI.
 
 In either UI, create a project, then link repos from Repositories. For
 multi-repo products, create the project first and add each Git repo root

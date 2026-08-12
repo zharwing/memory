@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#100f0d" />
+    <meta name="description" content="Review the main component, data, and interaction diagrams." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="System diagrams — Zharwing Memory documentation" />
+    <meta property="og:description" content="Review the main component, data, and interaction diagrams." />
+    <meta property="og:url" content="https://zharwing.barbutsa.com/memory/docs/diagrams/" />
+    <meta property="og:image" content="https://zharwing.barbutsa.com/memory/assets/dashboard.png" />
+    <link rel="canonical" href="https://zharwing.barbutsa.com/memory/docs/diagrams/" />
+    <link rel="icon" href="/memory/assets/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/memory/styles.css?v=4" />
+    <link rel="stylesheet" href="/memory/docs/docs.css?v=2" />
+    <title>System diagrams — Zharwing Memory documentation</title>
+  </head>
+  <body class="docs-page" data-search-index="/memory/docs/search-index.json">
+    <a class="skip-link" href="#docs-content">Skip to documentation</a>
+    <header class="site-header scrolled"><div class="header-inner"><a class="brand" href="/memory/"><span>Zharwing</span><span class="brand-product">Memory</span></a><nav class="site-nav docs-primary-nav" aria-label="Primary navigation"><a href="/memory/">Overview</a><a href="/memory/#quick-start">Quick start</a><a class="active" href="/memory/docs/">Documentation</a><a class="nav-github" href="https://github.com/zharwing/memory">GitHub</a></nav></div></header>
+    <details class="docs-mobile-navigation"><summary>Browse documentation</summary><nav aria-label="Documentation navigation"><section class="docs-nav-group"><h2>Start here</h2><a href="/memory/docs/project-overview/" data-search-title="Project overview What Memory does, how it is organized, and the fastest way to start.">Project overview</a><a href="/memory/docs/setup/" data-search-title="Setup Choose a supported local profile and start the daemon, browser UI, desktop app, or agent connection.">Setup</a><a href="/memory/docs/frontend-v2-status/" data-search-title="Frontend V2 status Separate implemented source boundaries from candidate and release/device qualification.">Frontend V2 status</a><a href="/memory/docs/developer-preview/" data-search-title="Developer preview What is ready today, current limitations, and the project boundary.">Developer preview</a><a href="/memory/docs/mvp-walkthrough/" data-search-title="First walkthrough Create a project, start a session, save context, and resume work.">First walkthrough</a><a href="/memory/docs/browser-ui/" data-search-title="Browser UI Run the frequently used local interface in a browser.">Browser UI</a><a href="/memory/docs/desktop-ui/" data-search-title="Desktop UI Use the native application, navigation, and folder selection workflows.">Desktop UI</a></section><section class="docs-nav-group"><h2>Use Memory</h2><a href="/memory/docs/user-flows/" data-search-title="User flows Understand setup, daily sessions, context, review, and recovery flows.">User flows</a><a href="/memory/docs/repositories/" data-search-title="Repositories Connect one or several code repositories to a Memory project.">Repositories</a><a href="/memory/docs/workstreams/" data-search-title="Workstreams Group sessions and knowledge around long-running areas of work.">Workstreams</a><a href="/memory/docs/importing/" data-search-title="Import existing memory Preview and import existing Markdown documents and session history.">Import existing memory</a><a href="/memory/docs/graph-rules/" data-search-title="Graph rules Shape useful graph hubs with deterministic project rules.">Graph rules</a><a href="/memory/docs/semantic-graph/" data-search-title="Semantic graph Add locally reviewed semantic relationships to the context graph.">Semantic graph</a></section><section class="docs-nav-group"><h2>Connect AI agents</h2><a href="/memory/docs/mcp-setup/" data-search-title="MCP setup Connect Codex, Claude, or another MCP-compatible client.">MCP setup</a><a href="/memory/docs/agent-automation/" data-search-title="Agent automation Bootstrap repositories and make session memory part of agent work.">Agent automation</a><a href="/memory/docs/agent-protocol/" data-search-title="Agent protocol Follow the shared startup, checkpoint, and closeout contract.">Agent protocol</a><a href="/memory/docs/generic-mcp-adapter/" data-search-title="Generic MCP adapter Use the project-neutral MCP integration pattern.">Generic MCP adapter</a><a href="/memory/docs/cli-adapter/" data-search-title="CLI adapter Use Memory through command-line workflows.">CLI adapter</a><a href="/memory/docs/json-rpc-adapter/" data-search-title="JSON-RPC adapter Integrate directly with the local daemon API.">JSON-RPC adapter</a></section><section class="docs-nav-group"><h2>Architecture and decisions</h2><a href="/memory/docs/architecture/" data-search-title="Architecture See the local daemon, adapters, packages, and trust boundaries.">Architecture</a><a href="/memory/docs/data-model/" data-search-title="Data model Understand projects, sessions, documents, graph data, and storage.">Data model</a><a href="/memory/docs/api-reference/" data-search-title="API reference Reference the local HTTP, JSON-RPC, and MCP surfaces.">API reference</a><a href="/memory/docs/diagrams/" aria-current="page" class="active" data-search-title="System diagrams Review the main component, data, and interaction diagrams.">System diagrams</a><a href="/memory/docs/source-context/" data-search-title="Source and context boundary Understand which sources become public documentation and how private context stays excluded.">Source and context boundary</a><a href="/memory/docs/architecture-decisions/" data-search-title="Architecture decisions Read the decision log and the rules for changing durable system boundaries.">Architecture decisions</a><a href="/memory/docs/adr-local-first/" data-search-title="ADR 0001: Local-first project boundary Keep application source, private memory, and public documentation in separate ownership domains.">ADR 0001: Local-first project boundary</a><a href="/memory/docs/adr-progressive-docs/" data-search-title="ADR 0002: Progressive public documentation Generate directly addressable pages whose content and navigation do not depend on JavaScript.">ADR 0002: Progressive public documentation</a><a href="/memory/docs/adr-agent-authority/" data-search-title="ADR 0003: Project-bound agent authority Use explicit project-bound agent authority and centralized privacy projection.">ADR 0003: Project-bound agent authority</a></section><section class="docs-nav-group"><h2>Security and contracts</h2><a href="/memory/docs/security/" data-search-title="Security Understand the local trust model and report vulnerabilities.">Security</a><a href="/memory/docs/principal-model/" data-search-title="Principal model Review audiences, project binding, expiry, revocation, and operation authority.">Principal model</a><a href="/memory/docs/browser-session-security/" data-search-title="Browser session security Review local browser bootstrap, CSRF, rotation, revocation, and project binding.">Browser session security</a><a href="/memory/docs/native-desktop-security/" data-search-title="Native desktop authority Review the Rust-owned daemon and credential boundary outside the webview.">Native desktop authority</a><a href="/memory/docs/provider-security/" data-search-title="Provider secrets and egress Operate write-only credentials and constrained provider destinations.">Provider secrets and egress</a><a href="/memory/docs/privacy-projection/" data-search-title="Privacy projection Understand centralized agent and provider projection, visibility, and completeness.">Privacy projection</a><a href="/memory/docs/operation-admission/" data-search-title="Operation admission Trace requests through exact decoding, authority, idempotency, and dispatch.">Operation admission</a></section><section class="docs-nav-group"><h2>Operate and contribute</h2><a href="/memory/docs/operations/" data-search-title="Operations Run, package, back up, restore, and troubleshoot Memory.">Operations</a><a href="/memory/docs/ai-testing/" data-search-title="AI provider testing Test local and external model-backed workflows safely.">AI provider testing</a><a href="/memory/docs/testing-plan/" data-search-title="Testing plan See the testing strategy and expected coverage.">Testing plan</a><a href="/memory/docs/frontend-accessibility/" data-search-title="Frontend accessibility Review the responsive, keyboard, focus, contrast, motion, and manual qualification contract.">Frontend accessibility</a><a href="/memory/docs/frontend-v2-migration/" data-search-title="Frontend V2 migration Migrate profiles, credentials, visibility, preferences, and layout caches with rollback.">Frontend V2 migration</a><a href="/memory/docs/frontend-v2-compatibility/" data-search-title="Compatibility register See retained and removed compatibility paths, callers, dates, and removal proof.">Compatibility register</a><a href="/memory/docs/frontend-qualification/" data-search-title="Frontend qualification Separate source observations from candidate, browser, WebView, assistive-device, and release evidence.">Frontend qualification</a><a href="/memory/docs/contributing/" data-search-title="Contributing Set up the repository and follow the contribution workflow.">Contributing</a></section></nav></details>
+    <div class="docs-layout">
+      <aside class="docs-sidebar" aria-label="Documentation"><div class="docs-sidebar-inner"><a class="docs-home-link" href="/memory/docs/">Documentation home</a><div class="docs-search" role="search"><label for="docs-search-input">Search documentation</label><input id="docs-search-input" type="search" autocomplete="off" data-docs-search /><p data-search-status aria-live="polite"></p><div class="docs-search-results" data-search-results></div></div><nav class="docs-nav" aria-label="All guides"><section class="docs-nav-group"><h2>Start here</h2><a href="/memory/docs/project-overview/" data-search-title="Project overview What Memory does, how it is organized, and the fastest way to start.">Project overview</a><a href="/memory/docs/setup/" data-search-title="Setup Choose a supported local profile and start the daemon, browser UI, desktop app, or agent connection.">Setup</a><a href="/memory/docs/frontend-v2-status/" data-search-title="Frontend V2 status Separate implemented source boundaries from candidate and release/device qualification.">Frontend V2 status</a><a href="/memory/docs/developer-preview/" data-search-title="Developer preview What is ready today, current limitations, and the project boundary.">Developer preview</a><a href="/memory/docs/mvp-walkthrough/" data-search-title="First walkthrough Create a project, start a session, save context, and resume work.">First walkthrough</a><a href="/memory/docs/browser-ui/" data-search-title="Browser UI Run the frequently used local interface in a browser.">Browser UI</a><a href="/memory/docs/desktop-ui/" data-search-title="Desktop UI Use the native application, navigation, and folder selection workflows.">Desktop UI</a></section><section class="docs-nav-group"><h2>Use Memory</h2><a href="/memory/docs/user-flows/" data-search-title="User flows Understand setup, daily sessions, context, review, and recovery flows.">User flows</a><a href="/memory/docs/repositories/" data-search-title="Repositories Connect one or several code repositories to a Memory project.">Repositories</a><a href="/memory/docs/workstreams/" data-search-title="Workstreams Group sessions and knowledge around long-running areas of work.">Workstreams</a><a href="/memory/docs/importing/" data-search-title="Import existing memory Preview and import existing Markdown documents and session history.">Import existing memory</a><a href="/memory/docs/graph-rules/" data-search-title="Graph rules Shape useful graph hubs with deterministic project rules.">Graph rules</a><a href="/memory/docs/semantic-graph/" data-search-title="Semantic graph Add locally reviewed semantic relationships to the context graph.">Semantic graph</a></section><section class="docs-nav-group"><h2>Connect AI agents</h2><a href="/memory/docs/mcp-setup/" data-search-title="MCP setup Connect Codex, Claude, or another MCP-compatible client.">MCP setup</a><a href="/memory/docs/agent-automation/" data-search-title="Agent automation Bootstrap repositories and make session memory part of agent work.">Agent automation</a><a href="/memory/docs/agent-protocol/" data-search-title="Agent protocol Follow the shared startup, checkpoint, and closeout contract.">Agent protocol</a><a href="/memory/docs/generic-mcp-adapter/" data-search-title="Generic MCP adapter Use the project-neutral MCP integration pattern.">Generic MCP adapter</a><a href="/memory/docs/cli-adapter/" data-search-title="CLI adapter Use Memory through command-line workflows.">CLI adapter</a><a href="/memory/docs/json-rpc-adapter/" data-search-title="JSON-RPC adapter Integrate directly with the local daemon API.">JSON-RPC adapter</a></section><section class="docs-nav-group"><h2>Architecture and decisions</h2><a href="/memory/docs/architecture/" data-search-title="Architecture See the local daemon, adapters, packages, and trust boundaries.">Architecture</a><a href="/memory/docs/data-model/" data-search-title="Data model Understand projects, sessions, documents, graph data, and storage.">Data model</a><a href="/memory/docs/api-reference/" data-search-title="API reference Reference the local HTTP, JSON-RPC, and MCP surfaces.">API reference</a><a href="/memory/docs/diagrams/" aria-current="page" class="active" data-search-title="System diagrams Review the main component, data, and interaction diagrams.">System diagrams</a><a href="/memory/docs/source-context/" data-search-title="Source and context boundary Understand which sources become public documentation and how private context stays excluded.">Source and context boundary</a><a href="/memory/docs/architecture-decisions/" data-search-title="Architecture decisions Read the decision log and the rules for changing durable system boundaries.">Architecture decisions</a><a href="/memory/docs/adr-local-first/" data-search-title="ADR 0001: Local-first project boundary Keep application source, private memory, and public documentation in separate ownership domains.">ADR 0001: Local-first project boundary</a><a href="/memory/docs/adr-progressive-docs/" data-search-title="ADR 0002: Progressive public documentation Generate directly addressable pages whose content and navigation do not depend on JavaScript.">ADR 0002: Progressive public documentation</a><a href="/memory/docs/adr-agent-authority/" data-search-title="ADR 0003: Project-bound agent authority Use explicit project-bound agent authority and centralized privacy projection.">ADR 0003: Project-bound agent authority</a></section><section class="docs-nav-group"><h2>Security and contracts</h2><a href="/memory/docs/security/" data-search-title="Security Understand the local trust model and report vulnerabilities.">Security</a><a href="/memory/docs/principal-model/" data-search-title="Principal model Review audiences, project binding, expiry, revocation, and operation authority.">Principal model</a><a href="/memory/docs/browser-session-security/" data-search-title="Browser session security Review local browser bootstrap, CSRF, rotation, revocation, and project binding.">Browser session security</a><a href="/memory/docs/native-desktop-security/" data-search-title="Native desktop authority Review the Rust-owned daemon and credential boundary outside the webview.">Native desktop authority</a><a href="/memory/docs/provider-security/" data-search-title="Provider secrets and egress Operate write-only credentials and constrained provider destinations.">Provider secrets and egress</a><a href="/memory/docs/privacy-projection/" data-search-title="Privacy projection Understand centralized agent and provider projection, visibility, and completeness.">Privacy projection</a><a href="/memory/docs/operation-admission/" data-search-title="Operation admission Trace requests through exact decoding, authority, idempotency, and dispatch.">Operation admission</a></section><section class="docs-nav-group"><h2>Operate and contribute</h2><a href="/memory/docs/operations/" data-search-title="Operations Run, package, back up, restore, and troubleshoot Memory.">Operations</a><a href="/memory/docs/ai-testing/" data-search-title="AI provider testing Test local and external model-backed workflows safely.">AI provider testing</a><a href="/memory/docs/testing-plan/" data-search-title="Testing plan See the testing strategy and expected coverage.">Testing plan</a><a href="/memory/docs/frontend-accessibility/" data-search-title="Frontend accessibility Review the responsive, keyboard, focus, contrast, motion, and manual qualification contract.">Frontend accessibility</a><a href="/memory/docs/frontend-v2-migration/" data-search-title="Frontend V2 migration Migrate profiles, credentials, visibility, preferences, and layout caches with rollback.">Frontend V2 migration</a><a href="/memory/docs/frontend-v2-compatibility/" data-search-title="Compatibility register See retained and removed compatibility paths, callers, dates, and removal proof.">Compatibility register</a><a href="/memory/docs/frontend-qualification/" data-search-title="Frontend qualification Separate source observations from candidate, browser, WebView, assistive-device, and release evidence.">Frontend qualification</a><a href="/memory/docs/contributing/" data-search-title="Contributing Set up the repository and follow the contribution workflow.">Contributing</a></section></nav></div></aside>
+      <main class="docs-main" id="docs-content"><article class="doc-article"><header class="article-header"><p class="article-kicker">Architecture and decisions</p><h1>System diagrams</h1><p class="article-lede">Review the main component, data, and interaction diagrams.</p><div class="article-meta"><span>1 min read</span><a href="https://github.com/zharwing/memory/blob/main/docs/DIAGRAMS.md" target="_blank" rel="noreferrer">View source on GitHub ↗</a></div></header><details class="mobile-toc"><summary>On this page</summary><nav><a class="toc-level-2" href="#system-context">System Context</a><a class="toc-level-2" href="#runtime-components">Runtime Components</a><a class="toc-level-2" href="#clean-architecture-dependency-direction">Clean Architecture Dependency Direction</a><a class="toc-level-2" href="#uml-class-diagram">UML Class Diagram</a><a class="toc-level-2" href="#entity-relationship-diagram">Entity Relationship Diagram</a><a class="toc-level-2" href="#project-startup-sequence">Project Startup Sequence</a><a class="toc-level-2" href="#project-creation-sequence">Project Creation Sequence</a><a class="toc-level-2" href="#context-bundle-sequence">Context Bundle Sequence</a><a class="toc-level-2" href="#checkpoint-and-close-session-sequence">Checkpoint And Close Session Sequence</a><a class="toc-level-2" href="#memory-inbox-review-flow">Memory Inbox Review Flow</a><a class="toc-level-2" href="#session-state-machine">Session State Machine</a><a class="toc-level-2" href="#project-resolution-state-machine">Project Resolution State Machine</a><a class="toc-level-2" href="#context-safety-state-machine">Context Safety State Machine</a><a class="toc-level-2" href="#user-flow">User Flow</a><a class="toc-level-2" href="#desktop-screen-flow">Desktop Screen Flow</a><a class="toc-level-2" href="#storage-layout">Storage Layout</a><a class="toc-level-2" href="#graph-projection">Graph Projection</a><a class="toc-level-2" href="#assistant-proposal-flow">Assistant Proposal Flow</a><a class="toc-level-2" href="#backup-and-rebuild-flow">Backup And Rebuild Flow</a><a class="toc-level-2" href="#deployment-and-packaging-view">Deployment And Packaging View</a><a class="toc-level-2" href="#package-dependency-overview">Package Dependency Overview</a></nav></details><div class="markdown-body"><p>All diagrams are Mermaid source so they remain editable Markdown.</p>
+<h2 id="system-context">System Context<a class="heading-anchor" href="#system-context" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart LR
+  User[&quot;Human user&quot;]
+  Desktop[&quot;Desktop UI\nTauri + React&quot;]
+  CLI[&quot;CLI\ncommand helper&quot;]
+  Agent[&quot;External AI agent\nCodex / Claude / Gemini / local&quot;]
+  MCP[&quot;MCP adapter\nstdio or HTTP MCP&quot;]
+  Daemon[&quot;Zharwing Memory daemon\nlocalhost JSON-RPC + MCP&quot;]
+  Storage[&quot;Markdown source of truth&quot;]
+  Index[&quot;Rebuildable indexes&quot;]
+  Assistant[&quot;Optional local Memory Assistant&quot;]
+
+  User --&gt; Desktop
+  User --&gt; CLI
+  Agent --&gt; MCP
+  MCP --&gt; Daemon
+  CLI --&gt; Daemon
+  Desktop --&gt; Daemon
+  Daemon --&gt; Storage
+  Daemon --&gt; Index
+  Daemon --&gt; Assistant
+  Assistant --&gt; Daemon</code></pre></div>
+<h2 id="runtime-components">Runtime Components<a class="heading-anchor" href="#runtime-components" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart TB
+  subgraph Apps[&quot;Apps&quot;]
+    Desktop[&quot;apps/desktop\nHuman interface&quot;]
+    Daemon[&quot;apps/daemon\nMemory orchestration API&quot;]
+    CLI[&quot;apps/cli\nTerminal workflows&quot;]
+    MCPServer[&quot;apps/mcp-server\nStdio MCP adapter&quot;]
+  end
+
+  subgraph Packages[&quot;Shared packages&quot;]
+    Core[&quot;core\nTypes and policies&quot;]
+    Storage[&quot;storage\nMarkdown IO&quot;]
+    Privacy[&quot;privacy\nSafety gates&quot;]
+    Context[&quot;context-engine\nBundle builder&quot;]
+    Search[&quot;search\nKeyword retrieval&quot;]
+    Graph[&quot;graph\nRelationship projection&quot;]
+    SemanticGraph[&quot;semantic-graph\nLLM relationship analysis&quot;]
+    AssistantRuntime[&quot;assistant-runtime\nLocal assistant jobs&quot;]
+    ApiClient[&quot;api-client\nDaemon RPC client&quot;]
+    MCPTools[&quot;mcp-tools\nTool definitions&quot;]
+    Theme[&quot;theme\nGraphite + Copper&quot;]
+  end
+
+  Desktop --&gt; ApiClient
+  CLI --&gt; ApiClient
+  MCPServer --&gt; MCPTools
+  MCPTools --&gt; ApiClient
+  ApiClient --&gt; Daemon
+
+  Daemon --&gt; Core
+  Daemon --&gt; Storage
+  Daemon --&gt; Privacy
+  Daemon --&gt; Context
+  Daemon --&gt; Search
+  Daemon --&gt; Graph
+  Daemon --&gt; SemanticGraph
+  Daemon --&gt; AssistantRuntime
+  Desktop --&gt; Theme</code></pre></div>
+<h2 id="clean-architecture-dependency-direction">Clean Architecture Dependency Direction<a class="heading-anchor" href="#clean-architecture-dependency-direction" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart LR
+  Adapters[&quot;Adapters\nDesktop / CLI / MCP&quot;]
+  Daemon[&quot;Daemon service&quot;]
+  Domain[&quot;Core domain types\nPolicies&quot;]
+  Services[&quot;Shared services\nStorage / Privacy / Context / Search / Graph&quot;]
+  Files[&quot;Local files\nMarkdown / JSON / assets&quot;]
+
+  Adapters --&gt; Daemon
+  Daemon --&gt; Domain
+  Daemon --&gt; Services
+  Services --&gt; Domain
+  Services --&gt; Files</code></pre></div>
+<h2 id="uml-class-diagram">UML Class Diagram<a class="heading-anchor" href="#uml-class-diagram" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>classDiagram
+  class Project {
+    +ProjectId id
+    +string name
+    +string slug
+    +string memoryRoot
+    +RepoLink[] repos
+    +PrivacyPolicy privacyPolicy
+    +ContextPolicy contextPolicy
+    +AssistantPolicy assistantPolicy
+  }
+
+  class RepoLink {
+    +string path
+    +string role
+    +string defaultBranch
+  }
+
+  class Session {
+    +SessionId id
+    +ProjectId projectId
+    +string repoPath
+    +string workingDirectory
+    +string branch
+    +string taskTitle
+    +boolean includeInGraph
+    +SessionStatus status
+    +SessionCheckpoint[] checkpoints
+  }
+
+  class SessionCheckpoint {
+    +string id
+    +string created
+    +string summary
+    +string[] nextSteps
+    +string[] blockers
+    +string[] touchedFiles
+  }
+
+  class MemoryDocument {
+    +DocumentId id
+    +ProjectId projectId
+    +string title
+    +DocumentType type
+    +DocumentStatus status
+    +Visibility visibility
+    +string[] topics
+    +string[] relatedFiles
+    +SessionId[] relatedSessions
+    +string body
+  }
+
+  class ProposedMemoryUpdate {
+    +ProposedUpdateId id
+    +ProjectId projectId
+    +ProposedUpdateType type
+    +ProposedUpdateStatus status
+    +string proposedPatch
+    +string reason
+  }
+
+  class ContextBundle {
+    +ContextBundleId id
+    +ProjectId projectId
+    +SessionId sessionId
+    +ContextIncludedItem[] includedItems
+    +ContextExcludedItem[] excludedItems
+    +Redaction[] redactions
+    +number tokenEstimate
+    +SafetyStatus safetyStatus
+    +string markdown
+  }
+
+  class ProjectGraph {
+    +ProjectId projectId
+    +GraphNode[] nodes
+    +GraphEdge[] edges
+  }
+
+  Project &quot;1&quot; o-- &quot;*&quot; RepoLink
+  Project &quot;1&quot; o-- &quot;*&quot; Session
+  Session &quot;1&quot; o-- &quot;*&quot; SessionCheckpoint
+  Project &quot;1&quot; o-- &quot;*&quot; MemoryDocument
+  Project &quot;1&quot; o-- &quot;*&quot; ProposedMemoryUpdate
+  Project &quot;1&quot; o-- &quot;*&quot; ContextBundle
+  Project &quot;1&quot; o-- &quot;1&quot; ProjectGraph
+  ContextBundle &quot;*&quot; --&gt; &quot;*&quot; MemoryDocument
+  ContextBundle &quot;*&quot; --&gt; &quot;*&quot; Session
+  ProposedMemoryUpdate &quot;*&quot; --&gt; &quot;0..1&quot; Session</code></pre></div>
+<h2 id="entity-relationship-diagram">Entity Relationship Diagram<a class="heading-anchor" href="#entity-relationship-diagram" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>erDiagram
+  PROJECT ||--o{ REPO_LINK : has
+  PROJECT ||--o{ SESSION : owns
+  PROJECT ||--o{ DOCUMENT : owns
+  PROJECT ||--o{ PROPOSED_UPDATE : owns
+  PROJECT ||--o{ CONTEXT_BUNDLE : owns
+  PROJECT ||--o{ AUDIT_RECORD : owns
+  SESSION ||--o{ SESSION_CHECKPOINT : contains
+  SESSION ||--o{ CONTEXT_BUNDLE : uses
+  SESSION ||--o{ PROPOSED_UPDATE : sources
+  DOCUMENT ||--o{ PROPOSED_UPDATE : target
+  DOCUMENT }o--o{ SESSION : relates
+  DOCUMENT }o--o{ DOCUMENT : links
+  CONTEXT_BUNDLE ||--o{ CONTEXT_ITEM : includes
+  CONTEXT_BUNDLE ||--o{ REDACTION : records
+
+  PROJECT {
+    string id PK
+    string name
+    string slug
+    string memory_root
+    string created
+    string updated
+  }
+
+  REPO_LINK {
+    string path PK
+    string project_id FK
+    string role
+    string default_branch
+  }
+
+  SESSION {
+    string id PK
+    string project_id FK
+    string status
+    string task_title
+    boolean include_in_graph
+    string branch
+    string agent
+    string started
+    string updated
+    string closed
+  }
+
+  SESSION_CHECKPOINT {
+    string id PK
+    string session_id FK
+    string created
+    string summary
+  }
+
+  DOCUMENT {
+    string id PK
+    string project_id FK
+    string title
+    string type
+    string status
+    string visibility
+    string file_path
+  }
+
+  PROPOSED_UPDATE {
+    string id PK
+    string project_id FK
+    string source_session FK
+    string type
+    string status
+    string target_document
+    string confidence
+  }
+
+  CONTEXT_BUNDLE {
+    string id PK
+    string project_id FK
+    string session_id FK
+    string safety_status
+    int token_estimate
+    string audit_log_path
+  }
+
+  CONTEXT_ITEM {
+    string id PK
+    string bundle_id FK
+    string source_id
+    string type
+    string reason
+    string mode
+  }
+
+  REDACTION {
+    string id PK
+    string bundle_id FK
+    string item_id
+    string kind
+    string severity
+    int count
+  }
+
+  AUDIT_RECORD {
+    string id PK
+    string project_id FK
+    string bundle_id FK
+    string requested_by
+    string created
+  }</code></pre></div>
+<h2 id="project-startup-sequence">Project Startup Sequence<a class="heading-anchor" href="#project-startup-sequence" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>sequenceDiagram
+  participant Agent as External AI agent
+  participant MCP as MCP adapter
+  participant Daemon as Daemon
+  participant Registry as Project registry
+  participant Storage as Memory workspace
+
+  Agent-&gt;&gt;MCP: memory.get_startup_state(workingDirectory)
+  MCP-&gt;&gt;Daemon: RPC memory.get_startup_state
+  Daemon-&gt;&gt;Storage: find .zharwing/memory.json
+  Daemon-&gt;&gt;Registry: find project by repo path
+  alt project resolved
+    Daemon-&gt;&gt;Storage: load bounded session metadata
+    Daemon--&gt;&gt;MCP: compact summaries, revision, recommended action
+    MCP--&gt;&gt;Agent: startup state under response budget
+  else unregistered repo
+    Daemon--&gt;&gt;MCP: offer_create_project
+    MCP--&gt;&gt;Agent: ask user to create or link through UI / CLI
+  end</code></pre></div>
+<h2 id="project-creation-sequence">Project Creation Sequence<a class="heading-anchor" href="#project-creation-sequence" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>sequenceDiagram
+  participant User as User
+  participant Client as UI / CLI
+  participant Daemon as Daemon
+  participant Storage as Storage
+  participant Registry as Registry
+  participant Repo as Repo folder
+
+  User-&gt;&gt;Client: create memory project
+  Client-&gt;&gt;Daemon: memory.prepare_project_creation
+  Daemon-&gt;&gt;Repo: deterministic repo metadata discovery
+  Daemon--&gt;&gt;Client: creation preview
+  User-&gt;&gt;Client: approve
+  Client-&gt;&gt;Daemon: memory.create_project(preview)
+  Daemon-&gt;&gt;Storage: create workspace folders and default docs
+  Daemon-&gt;&gt;Repo: write .zharwing/memory.json if enabled
+  Daemon-&gt;&gt;Repo: write bootstrap files if requested
+  Daemon-&gt;&gt;Registry: register project
+  Daemon--&gt;&gt;Client: project created</code></pre></div>
+<h2 id="context-bundle-sequence">Context Bundle Sequence<a class="heading-anchor" href="#context-bundle-sequence" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>sequenceDiagram
+  participant Client as UI / CLI / MCP
+  participant Daemon as Daemon
+  participant Storage as Storage
+  participant Context as Context engine
+  participant Privacy as Privacy gate
+  participant Audit as Audit files
+
+  Client-&gt;&gt;Daemon: memory.preview_context_bundle
+  Daemon-&gt;&gt;Storage: load project, sessions, docs
+  Daemon-&gt;&gt;Context: select candidates
+  Context-&gt;&gt;Privacy: apply visibility, patterns, secret scan
+  Privacy--&gt;&gt;Context: allowed, excluded, redactions
+  Context--&gt;&gt;Daemon: bundle markdown and metadata
+  Daemon--&gt;&gt;Client: preview bundle
+
+  Client-&gt;&gt;Daemon: memory.get_context_bundle
+  Daemon-&gt;&gt;Storage: load project, sessions, docs
+  Daemon-&gt;&gt;Context: build bundle
+  Context-&gt;&gt;Privacy: apply safety gates
+  Daemon-&gt;&gt;Storage: save generated/context-bundles
+  Daemon-&gt;&gt;Audit: save audit/context-bundles
+  Daemon--&gt;&gt;Client: persisted bundle</code></pre></div>
+<h2 id="checkpoint-and-close-session-sequence">Checkpoint And Close Session Sequence<a class="heading-anchor" href="#checkpoint-and-close-session-sequence" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>sequenceDiagram
+  participant Agent as External AI agent
+  participant MCP as MCP adapter
+  participant Daemon as Daemon
+  participant SessionFile as Session Markdown
+
+  Agent-&gt;&gt;MCP: memory.save_checkpoint
+  MCP-&gt;&gt;Daemon: RPC save_checkpoint
+  Daemon-&gt;&gt;SessionFile: append checkpoint metadata/body
+  Daemon--&gt;&gt;MCP: updated session
+  MCP--&gt;&gt;Agent: checkpoint saved
+
+  Agent-&gt;&gt;MCP: memory.close_session
+  MCP-&gt;&gt;Daemon: RPC close_session
+  Daemon-&gt;&gt;SessionFile: status closed, summary, next steps
+  Daemon--&gt;&gt;MCP: closed session
+  MCP--&gt;&gt;Agent: closeout saved</code></pre></div>
+<h2 id="memory-inbox-review-flow">Memory Inbox Review Flow<a class="heading-anchor" href="#memory-inbox-review-flow" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart TD
+  Proposal[&quot;Proposed update&quot;]
+  Pending[&quot;Inbox status: pending&quot;]
+  Review[&quot;User reviews patch&quot;]
+  Accept[&quot;Accept&quot;]
+  Edit[&quot;Edit and accept&quot;]
+  Reject[&quot;Reject&quot;]
+  Defer[&quot;Defer&quot;]
+  Canonical[&quot;Canonical Markdown updated&quot;]
+  Status[&quot;Proposal status updated&quot;]
+
+  Proposal --&gt; Pending
+  Pending --&gt; Review
+  Review --&gt; Accept
+  Review --&gt; Edit
+  Review --&gt; Reject
+  Review --&gt; Defer
+  Accept --&gt; Canonical
+  Edit --&gt; Canonical
+  Reject --&gt; Status
+  Defer --&gt; Status
+  Canonical --&gt; Status</code></pre></div>
+<h2 id="session-state-machine">Session State Machine<a class="heading-anchor" href="#session-state-machine" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>stateDiagram-v2
+  [*] --&gt; Created
+  Created --&gt; Active
+  Active --&gt; Active: save checkpoint
+  Active --&gt; Closed: close session
+  Closed --&gt; Active: explicit reopen
+  Closed --&gt; Archived: archive
+  Active --&gt; Archived: archive
+  Archived --&gt; [*]</code></pre></div>
+<h2 id="project-resolution-state-machine">Project Resolution State Machine<a class="heading-anchor" href="#project-resolution-state-machine" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>stateDiagram-v2
+  [*] --&gt; HasExplicitIds
+  HasExplicitIds --&gt; Resolved: project and session IDs valid
+  HasExplicitIds --&gt; UseWorkingDirectory: IDs missing
+  UseWorkingDirectory --&gt; PointerFound: .zharwing/memory.json found
+  PointerFound --&gt; Resolved
+  UseWorkingDirectory --&gt; RegistryMatch: repo path registered
+  RegistryMatch --&gt; Resolved
+  UseWorkingDirectory --&gt; LastOpenedFallback: enabled by user
+  LastOpenedFallback --&gt; Resolved
+  UseWorkingDirectory --&gt; Unregistered: no safe match
+  Unregistered --&gt; CreationPreview
+  CreationPreview --&gt; Resolved: project created or linked
+  Unregistered --&gt; AskUser</code></pre></div>
+<h2 id="context-safety-state-machine">Context Safety State Machine<a class="heading-anchor" href="#context-safety-state-machine" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>stateDiagram-v2
+  [*] --&gt; CandidateLoaded
+  CandidateLoaded --&gt; VisibilityCheck
+  VisibilityCheck --&gt; Excluded: human-only/private/never-send
+  VisibilityCheck --&gt; PatternCheck
+  PatternCheck --&gt; Excluded: ignored or never-send pattern
+  PatternCheck --&gt; SecretScan
+  SecretScan --&gt; Blocked: high-risk secret
+  SecretScan --&gt; Redacted: redactable finding
+  SecretScan --&gt; Clean: no findings
+  Redacted --&gt; NeedsReview
+  Clean --&gt; Included
+  NeedsReview --&gt; Included
+  Blocked --&gt; Excluded</code></pre></div>
+<h2 id="user-flow">User Flow<a class="heading-anchor" href="#user-flow" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart TD
+  Open[&quot;Open app or run CLI&quot;]
+  SelectProject[&quot;Select or detect project&quot;]
+  HasProject{&quot;Project registered?&quot;}
+  CreateProject[&quot;Preview and create project&quot;]
+  Dashboard[&quot;Project dashboard&quot;]
+  HasSession{&quot;Active session?&quot;}
+  Resume[&quot;Resume latest session&quot;]
+  Start[&quot;Start new session&quot;]
+  Preview[&quot;Preview AI context&quot;]
+  Send[&quot;Send/copy context&quot;]
+  Work[&quot;External AI works&quot;]
+  Checkpoint[&quot;Save checkpoint&quot;]
+  Close[&quot;Close session&quot;]
+  Inbox[&quot;Review Memory Inbox&quot;]
+  Accept[&quot;Accept/edit/reject proposals&quot;]
+
+  Open --&gt; SelectProject
+  SelectProject --&gt; HasProject
+  HasProject --&gt;|No| CreateProject
+  CreateProject --&gt; Dashboard
+  HasProject --&gt;|Yes| Dashboard
+  Dashboard --&gt; HasSession
+  HasSession --&gt;|Yes| Resume
+  HasSession --&gt;|No| Start
+  Resume --&gt; Preview
+  Start --&gt; Preview
+  Preview --&gt; Send
+  Send --&gt; Work
+  Work --&gt; Checkpoint
+  Checkpoint --&gt; Work
+  Work --&gt; Close
+  Close --&gt; Inbox
+  Inbox --&gt; Accept</code></pre></div>
+<h2 id="desktop-screen-flow">Desktop Screen Flow<a class="heading-anchor" href="#desktop-screen-flow" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart LR
+  Switcher[&quot;Project switcher&quot;]
+  Dashboard[&quot;Dashboard&quot;]
+  Repos[&quot;Repos&quot;]
+  Work[&quot;Work&quot;]
+  Library[&quot;Library&quot;]
+  Import[&quot;Import&quot;]
+  Search[&quot;Search&quot;]
+  Trash[&quot;Trash&quot;]
+  Settings[&quot;Settings&quot;]
+
+  Projects[&quot;Projects&quot;]
+  CurrentWork[&quot;Current Work&quot;]
+  Sessions[&quot;Sessions&quot;]
+  Workstreams[&quot;Workstreams&quot;]
+  Docs[&quot;Docs&quot;]
+  Diagrams[&quot;Diagrams&quot;]
+  Inbox[&quot;Memory Inbox&quot;]
+  Graph[&quot;Graph&quot;]
+  Context[&quot;Context Preview&quot;]
+  Assistant[&quot;Memory Assistant&quot;]
+  Backups[&quot;Backups&quot;]
+  Setup[&quot;Setup&quot;]
+  ProjectSettings[&quot;Project Settings&quot;]
+
+  Switcher --&gt; Projects
+  Projects --&gt; Dashboard
+  Dashboard --&gt; Repos
+  Dashboard --&gt; Work
+  Dashboard --&gt; Library
+  Dashboard --&gt; Import
+  Dashboard --&gt; Search
+  Dashboard --&gt; Trash
+  Dashboard --&gt; Settings
+  Work --&gt; CurrentWork
+  Work --&gt; Sessions
+  Work --&gt; Workstreams
+  Library --&gt; Docs
+  Library --&gt; Diagrams
+  Library --&gt; Inbox
+  Library --&gt; Graph
+  Library --&gt; Context
+  Settings --&gt; ProjectSettings
+  Settings --&gt; Setup
+  Settings --&gt; Assistant
+  Settings --&gt; Backups
+  Search --&gt; Docs
+  Search --&gt; Sessions
+  Assistant --&gt; Inbox
+  Trash --&gt; Projects</code></pre></div>
+<h2 id="storage-layout">Storage Layout<a class="heading-anchor" href="#storage-layout" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart TB
+  Root[&quot;Zharwing Memory Root&quot;]
+  Global[&quot;global/projects.json&quot;]
+  Trash[&quot;global/trash/items&quot;]
+  Project[&quot;projects/project-slug&quot;]
+  Defaults[&quot;Default docs\noverview architecture decisions tasks gotchas commands glossary privacy&quot;]
+  Sessions[&quot;sessions/YYYY/MM/*.md&quot;]
+  Workstreams[&quot;workstreams/*.md&quot;]
+  Docs[&quot;docs/**/*.md&quot;]
+  Diagrams[&quot;docs/diagrams/*.md&quot;]
+  Assets[&quot;assets/images screenshots attachments&quot;]
+  Generated[&quot;generated/context-bundles generated/index.json&quot;]
+  Inbox[&quot;inbox/proposed-updates/*.json&quot;]
+  SemanticGraphStore[&quot;semantic-graph/edges.json&quot;]
+  Audit[&quot;audit/context-bundles/*.json&quot;]
+  Backups[&quot;backups/snapshots&quot;]
+
+  Root --&gt; Global
+  Root --&gt; Trash
+  Root --&gt; Project
+  Project --&gt; Defaults
+  Project --&gt; Sessions
+  Project --&gt; Workstreams
+  Project --&gt; Docs
+  Project --&gt; Diagrams
+  Project --&gt; Assets
+  Project --&gt; Generated
+  Project --&gt; Inbox
+  Project --&gt; SemanticGraphStore
+  Project --&gt; Audit
+  Project --&gt; Backups</code></pre></div>
+<h2 id="graph-projection">Graph Projection<a class="heading-anchor" href="#graph-projection" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart LR
+  Project[&quot;Project&quot;]
+  Repo[&quot;Repo&quot;]
+  Task[&quot;Task&quot;]
+  Session[&quot;Session&quot;]
+  File[&quot;File&quot;]
+  Doc[&quot;Document&quot;]
+  Decision[&quot;Decision&quot;]
+  Diagram[&quot;Diagram&quot;]
+  Command[&quot;Command&quot;]
+  Gotcha[&quot;Gotcha&quot;]
+
+  Repo --&gt;|belongs-to| Project
+  Session --&gt;|belongs-to| Project
+  Doc --&gt;|belongs-to| Project
+  Session --&gt;|works-on| Task
+  Session --&gt;|touched| File
+  Session --&gt;|referenced| Doc
+  Doc --&gt;|supports| Decision
+  Decision --&gt;|affects| File
+  Diagram --&gt;|explains| File
+  Command --&gt;|belongs-to| Project
+  Gotcha --&gt;|affects| File</code></pre></div>
+<h2 id="assistant-proposal-flow">Assistant Proposal Flow<a class="heading-anchor" href="#assistant-proposal-flow" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>sequenceDiagram
+  participant User as User
+  participant UI as UI / CLI
+  participant Daemon as Daemon
+  participant Assistant as Assistant runtime
+  participant Inbox as Memory Inbox
+
+  User-&gt;&gt;UI: summarize session
+  UI-&gt;&gt;Daemon: memory.summarize_session
+  Daemon-&gt;&gt;Assistant: deterministic or model-backed job
+  Assistant--&gt;&gt;Daemon: draft patch
+  Daemon-&gt;&gt;Inbox: write pending proposal
+  Daemon--&gt;&gt;UI: proposal ID
+  User-&gt;&gt;UI: review proposal</code></pre></div>
+<h2 id="backup-and-rebuild-flow">Backup And Rebuild Flow<a class="heading-anchor" href="#backup-and-rebuild-flow" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart TD
+  Request[&quot;User requests backup or rebuild&quot;]
+  Snapshot[&quot;Create backup snapshot&quot;]
+  Exclude[&quot;Exclude backups subtree&quot;]
+  Copy[&quot;Copy memory files&quot;]
+  Manifest[&quot;Write backup manifest&quot;]
+  Rebuild[&quot;Read Markdown and proposal files&quot;]
+  Index[&quot;Write generated/index.json&quot;]
+  Validate[&quot;Validate required files and folders&quot;]
+
+  Request --&gt; Snapshot
+  Snapshot --&gt; Exclude
+  Exclude --&gt; Copy
+  Copy --&gt; Manifest
+  Request --&gt; Rebuild
+  Rebuild --&gt; Index
+  Request --&gt; Validate</code></pre></div>
+<h2 id="deployment-and-packaging-view">Deployment And Packaging View<a class="heading-anchor" href="#deployment-and-packaging-view" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart TB
+  subgraph UserMachine[&quot;User machine&quot;]
+    Desktop[&quot;Tauri desktop app&quot;]
+    Daemon[&quot;Node daemon sidecar&quot;]
+    MCP[&quot;MCP stdio process or HTTP client&quot;]
+    CLI[&quot;zharwing-memory CLI&quot;]
+    MemoryRoot[&quot;Local memory root&quot;]
+    LocalModel[&quot;Optional llama.cpp sidecar&quot;]
+  end
+
+  Desktop --&gt; Daemon
+  CLI --&gt; Daemon
+  MCP --&gt; Daemon
+  Daemon --&gt; MemoryRoot
+  Daemon --&gt; LocalModel</code></pre></div>
+<h2 id="package-dependency-overview">Package Dependency Overview<a class="heading-anchor" href="#package-dependency-overview" aria-label="Link to this section">#</a></h2>
+<div class="code-block"><div class="code-label"><span>mermaid</span><button type="button" data-copy-code>Copy</button></div><pre><code>flowchart LR
+  Desktop[&quot;desktop&quot;] --&gt; ApiClient[&quot;api-client&quot;]
+  CLI[&quot;cli&quot;] --&gt; ApiClient
+  MCPServer[&quot;mcp-server&quot;] --&gt; MCPTools[&quot;mcp-tools&quot;]
+  MCPTools --&gt; ApiClient
+  ApiClient --&gt; Daemon[&quot;daemon&quot;]
+  Daemon --&gt; Core[&quot;core&quot;]
+  Daemon --&gt; Storage[&quot;storage&quot;]
+  Daemon --&gt; Context[&quot;context-engine&quot;]
+  Daemon --&gt; Search[&quot;search&quot;]
+  Daemon --&gt; Graph[&quot;graph&quot;]
+  Daemon --&gt; SemanticGraph[&quot;semantic-graph&quot;]
+  Daemon --&gt; AssistantRuntime[&quot;assistant-runtime&quot;]
+  Storage --&gt; Core
+  Context --&gt; Core
+  Context --&gt; Privacy[&quot;privacy&quot;]
+  Privacy --&gt; Core
+  Search --&gt; Core
+  Graph --&gt; Core
+  SemanticGraph --&gt; Core
+  SemanticGraph --&gt; Privacy</code></pre></div></div><nav class="article-pagination" aria-label="Documentation pages"><a href="/memory/docs/api-reference/"><span>Previous</span><strong>← API reference</strong></a><a class="next" href="/memory/docs/source-context/"><span>Next</span><strong>Source and context boundary →</strong></a></nav></article></main>
+      <aside class="docs-toc" aria-label="On this page"><div><h2>On this page</h2><nav><a class="toc-level-2" href="#system-context">System Context</a><a class="toc-level-2" href="#runtime-components">Runtime Components</a><a class="toc-level-2" href="#clean-architecture-dependency-direction">Clean Architecture Dependency Direction</a><a class="toc-level-2" href="#uml-class-diagram">UML Class Diagram</a><a class="toc-level-2" href="#entity-relationship-diagram">Entity Relationship Diagram</a><a class="toc-level-2" href="#project-startup-sequence">Project Startup Sequence</a><a class="toc-level-2" href="#project-creation-sequence">Project Creation Sequence</a><a class="toc-level-2" href="#context-bundle-sequence">Context Bundle Sequence</a><a class="toc-level-2" href="#checkpoint-and-close-session-sequence">Checkpoint And Close Session Sequence</a><a class="toc-level-2" href="#memory-inbox-review-flow">Memory Inbox Review Flow</a><a class="toc-level-2" href="#session-state-machine">Session State Machine</a><a class="toc-level-2" href="#project-resolution-state-machine">Project Resolution State Machine</a><a class="toc-level-2" href="#context-safety-state-machine">Context Safety State Machine</a><a class="toc-level-2" href="#user-flow">User Flow</a><a class="toc-level-2" href="#desktop-screen-flow">Desktop Screen Flow</a><a class="toc-level-2" href="#storage-layout">Storage Layout</a><a class="toc-level-2" href="#graph-projection">Graph Projection</a><a class="toc-level-2" href="#assistant-proposal-flow">Assistant Proposal Flow</a><a class="toc-level-2" href="#backup-and-rebuild-flow">Backup And Rebuild Flow</a><a class="toc-level-2" href="#deployment-and-packaging-view">Deployment And Packaging View</a><a class="toc-level-2" href="#package-dependency-overview">Package Dependency Overview</a></nav><a class="toc-github" href="https://github.com/zharwing/memory/blob/main/docs/DIAGRAMS.md" target="_blank" rel="noreferrer">View source on GitHub ↗</a></div></aside>
+    </div>
+    <footer class="site-footer docs-site-footer"><div class="page-width footer-grid"><div><a class="brand" href="/memory/">Zharwing Memory</a><p>Local-first project memory for AI-assisted coding workflows.</p></div><div class="footer-links"><a href="/memory/">Overview</a><a href="/memory/docs/">Documentation</a><a href="/memory/docs/security/">Security</a><a href="https://github.com/zharwing/memory">GitHub</a></div><div class="footer-meta"><p class="footer-note">Public documentation never includes a private memory store.</p></div></div></footer>
+    <script src="/memory/docs/docs.js?v=2" defer></script>
+  </body>
+</html>

@@ -1,34 +1,73 @@
-import { makeAutoObservable, runInAction } from "mobx";
-import type { ZharwingMemoryClient } from "@zharwing/memory-api-client";
-import type { ProjectGraph } from "@zharwing/memory-core";
+import { makeAutoObservable } from "mobx";
+import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { GraphExtractionRule, ProjectGraph } from "@zharwing/memory-core";
+import { OperationLedger } from "../application/operations/operation-state.js";
+import type {
+  GraphStoreCoordinator,
+  ScopedProjectPort,
+  ScopeToken,
+  StoreAsyncRuntimePort
+} from "../application/operations/store-ports.js";
+import {
+  ResourceSlot,
+  publicErrorCopy
+} from "../application/resources/resource-state.js";
 import { readString, writeString } from "../utils/storage.js";
-import type { RootStore } from "./root-store.js";
 
 export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
 
 const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
 
 export class GraphStore {
-  data: ProjectGraph | undefined = undefined;
   relationshipMode: GraphRelationshipMode = readStoredGraphRelationshipMode();
-  loading = false;
-  error = "";
+  readonly graphResource: ResourceSlot<ProjectGraph>;
+  readonly operations: OperationLedger;
 
   constructor(
-    readonly client: ZharwingMemoryClient,
-    readonly root: RootStore
+    private readonly client: MemoryClient,
+    private readonly scope: ScopedProjectPort,
+    private readonly coordinator: GraphStoreCoordinator,
+    runtime: StoreAsyncRuntimePort
   ) {
-    makeAutoObservable(this, {
+    this.graphResource = new ResourceSlot(
+      scope,
+      runtime,
+      (graph) => graph.nodes.length === 0 && graph.edges.length === 0
+    );
+    this.operations = new OperationLedger(runtime);
+    makeAutoObservable<this, "client" | "scope" | "coordinator">(this, {
       client: false,
-      root: false
+      scope: false,
+      coordinator: false,
+      graphResource: false,
+      operations: false
     });
   }
 
-  private get projectId() {
-    return this.root.projects.selectedProjectId;
+  get data(): ProjectGraph | undefined {
+    return this.graphResource.data;
   }
 
-  async setRelationshipMode(mode: GraphRelationshipMode) {
+  get loading(): boolean {
+    return this.graphResource.loading || this.operations.isBusy();
+  }
+
+  get error(): string {
+    return publicErrorCopy(this.graphResource.error ?? this.operations.error);
+  }
+
+  clear(): void {
+    this.graphResource.reset();
+    this.operations.reset();
+  }
+
+  /** Used by semantic refreshes; also invalidates an older graph request. */
+  replace(data: ProjectGraph): void {
+    const attempt = this.graphResource.begin();
+    if (attempt) this.graphResource.succeed(attempt, data);
+  }
+
+  async setRelationshipMode(mode: GraphRelationshipMode): Promise<void> {
     const nextMode = normalizeGraphRelationshipMode(mode);
     if (this.relationshipMode === nextMode) return;
     this.relationshipMode = nextMode;
@@ -36,65 +75,101 @@ export class GraphStore {
     await this.load();
   }
 
-  async load() {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      const graph = await this.client.call<ProjectGraph>("memory.get_graph", {
-        projectId: this.projectId,
-        ...graphRelationshipParams(this.relationshipMode)
-      });
-      runInAction(() => {
-        this.data = graph;
-      });
-    });
+  async load(token = this.scope.captureScope()): Promise<void> {
+    if (!token) {
+      this.graphResource.reset();
+      return;
+    }
+    await this.loadFor(token);
   }
 
-  async updateGraphRules(graphRules: any[]) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.update_graph_rules", {
-        projectId: this.projectId,
+  async updateGraphRules(graphRules: GraphExtractionRule[]): Promise<void> {
+    const token = this.scope.captureScope();
+    if (!token) return;
+    const operation = this.operations.begin("update-graph-rules", token);
+    try {
+      const result = await this.client.operation("memory.update_graph_rules", {
+        projectId: token.projectId,
         graphRules
-      });
-      await this.root.projects.load();
-      await this.root.projects.loadSummary();
-      await this.load();
-    });
+      }, { signal: token.signal });
+      if (!this.scope.isScopeCurrent(token)) {
+        this.operations.abandon(operation);
+        return;
+      }
+      this.operations.succeed(operation, result);
+      await this.refreshAfterRulesChange(token, false);
+    } catch (error) {
+      this.settleScopedFailure(operation, token, error);
+    }
   }
 
-  async applyGraphRulesProposal(proposalId: string, graphRules: any[]) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.update_graph_rules", {
-        projectId: this.projectId,
+  async applyGraphRulesProposal(
+    proposalId: string,
+    graphRules: GraphExtractionRule[]
+  ): Promise<void> {
+    const token = this.scope.captureScope();
+    if (!token) return;
+    const operation = this.operations.begin("apply-graph-rules-proposal", token);
+    try {
+      await this.client.operation("memory.update_graph_rules", {
+        projectId: token.projectId,
         graphRules
-      });
-      await this.client.call("memory.update_inbox_status", {
-        projectId: this.projectId,
+      }, { signal: token.signal });
+      if (!this.scope.isScopeCurrent(token)) {
+        this.operations.abandon(operation);
+        return;
+      }
+      const result = await this.client.operation("memory.update_inbox_status", {
+        projectId: token.projectId,
         proposalId,
         status: "accepted"
-      });
-      await this.root.projects.load();
-      await this.root.projects.loadSummary();
-      await this.root.inbox.load();
-      await this.load();
-    });
+      }, { signal: token.signal });
+      if (!this.scope.isScopeCurrent(token)) {
+        this.operations.abandon(operation);
+        return;
+      }
+      this.operations.succeed(operation, result);
+      await this.refreshAfterRulesChange(token, true);
+    } catch (error) {
+      this.settleScopedFailure(operation, token, error);
+    }
   }
 
-  private async run(work: () => Promise<void>) {
-    this.loading = true;
-    this.error = "";
+  private async loadFor(token: ScopeToken): Promise<void> {
+    const attempt = this.graphResource.begin(token);
+    if (!attempt) return;
     try {
-      await work();
+      const graph = await this.client.operation("memory.get_graph", {
+        projectId: token.projectId,
+        ...graphRelationshipParams(this.relationshipMode)
+      }, { signal: token.signal });
+      this.graphResource.succeed(attempt, graph);
     } catch (error) {
-      runInAction(() => {
-        this.error = error instanceof Error ? error.message : String(error);
-      });
-    } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      this.graphResource.fail(attempt, error);
     }
+  }
+
+  private async refreshAfterRulesChange(token: ScopeToken, refreshInbox: boolean): Promise<void> {
+    if (!this.scope.isScopeCurrent(token)) return;
+    await this.coordinator.refreshProjects();
+    if (!this.scope.isScopeCurrent(token)) return;
+    await this.coordinator.refreshProjectSummary();
+    if (refreshInbox && this.scope.isScopeCurrent(token)) {
+      await this.coordinator.refreshInbox();
+    }
+    if (this.scope.isScopeCurrent(token)) await this.loadFor(token);
+  }
+
+  private settleScopedFailure(
+    operation: ReturnType<OperationLedger["begin"]>,
+    token: ScopeToken,
+    error: unknown
+  ): void {
+    if (!this.scope.isScopeCurrent(token)) {
+      this.operations.abandon(operation);
+      return;
+    }
+    this.operations.fail(operation, error);
   }
 }
 

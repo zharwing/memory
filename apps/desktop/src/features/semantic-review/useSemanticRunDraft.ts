@@ -9,9 +9,6 @@ import { numberOrUndefined } from "../../utils/format.js";
  */
 export const SEMANTIC_RUN_DRAFT_DEFAULTS = {
   mode: "review",
-  endpoint: "",
-  model: "",
-  apiKey: "",
   maxDocuments: "",
   maxCandidates: "",
   maxCandidatesPerDocument: "8",
@@ -39,9 +36,6 @@ export function semanticRunPayload(
     mode,
     dryRun: mode === "dry-run",
     ...(options.scope !== undefined ? { scope: options.scope } : {}),
-    endpoint: draft.endpoint.trim() || undefined,
-    model: draft.model.trim() || undefined,
-    apiKey: draft.apiKey.trim() || undefined,
     maxDocuments: numberOrUndefined(draft.maxDocuments),
     maxCandidates: numberOrUndefined(draft.maxCandidates),
     maxCandidatesPerDocument: numberOrUndefined(draft.maxCandidatesPerDocument),

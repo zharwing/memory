@@ -5,6 +5,7 @@ import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
 import { DirectoryField } from "../components/DirectoryField.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
+import { ErrorSummary, type FormError } from "../components/FormField.js";
 
 export const ImportScreen = observer(function ImportScreen() {
   const store = useStore();
@@ -12,6 +13,7 @@ export const ImportScreen = observer(function ImportScreen() {
   const [profile, setProfile] = useState("generic-markdown");
   const [limit, setLimit] = useState("");
   const [conflictStrategy, setConflictStrategy] = useState("skip");
+  const [formErrors, setFormErrors] = useState<FormError[]>([]);
 
   useEffect(() => {
     if (!store.system.importProfiles.length) void store.system.loadImportProfiles();
@@ -47,12 +49,18 @@ export const ImportScreen = observer(function ImportScreen() {
       <Panel title="Prepare Import">
         <form className="stacked-form" onSubmit={(event) => {
           event.preventDefault();
+          const errors: FormError[] = [];
+          if (!sourceRoot.trim()) errors.push({ id: "import-source-folder", message: "Choose or enter a source folder." });
+          if (!profile) errors.push({ id: "import-profile", message: "Choose an import profile." });
+          setFormErrors(errors);
+          if (errors.length) return;
           void store.system.prepareImport({
             sourceRoot,
             profile,
             limit: limit ? Number(limit) : undefined
           });
         }}>
+          <ErrorSummary errors={formErrors} />
           {importPresets.length ? (
             <ToggleGroup
               className="quick-presets"
@@ -70,13 +78,20 @@ export const ImportScreen = observer(function ImportScreen() {
               }))}
             />
           ) : null}
-          <label>
-            <span>Source folder</span>
-            <DirectoryField value={sourceRoot} onChange={setSourceRoot} placeholder="<absolute-path-to-memory-or-sessions-folder>" required />
-          </label>
-          <label>
+          <label htmlFor="import-source-folder">Source folder</label>
+          <DirectoryField
+            id="import-source-folder"
+            value={sourceRoot}
+            onChange={(value) => { setSourceRoot(value); setFormErrors((current) => current.filter((error) => error.id !== "import-source-folder")); }}
+            placeholder="<absolute-path-to-memory-or-sessions-folder>"
+            describedBy={formErrors.some((error) => error.id === "import-source-folder") ? "import-source-folder-error" : undefined}
+            invalid={formErrors.some((error) => error.id === "import-source-folder")}
+            required
+          />
+          {formErrors.some((error) => error.id === "import-source-folder") ? <p id="import-source-folder-error" className="field-error">Choose or enter a source folder.</p> : null}
+          <label htmlFor="import-profile">
             <span>Profile</span>
-            <select value={profile} onChange={(event) => setProfile(event.target.value)}>
+            <select id="import-profile" value={profile} onChange={(event) => { setProfile(event.target.value); setFormErrors((current) => current.filter((error) => error.id !== "import-profile")); }} aria-invalid={formErrors.some((error) => error.id === "import-profile") || undefined} aria-describedby={formErrors.some((error) => error.id === "import-profile") ? "import-profile-error" : undefined}>
               {store.system.importProfiles.map((candidate) => (
                 <option key={candidate.name} value={candidate.name}>{candidate.name}</option>
               ))}
@@ -85,9 +100,10 @@ export const ImportScreen = observer(function ImportScreen() {
               <p className="field-help">{selectedProfile.description}</p>
             ) : null}
           </label>
-          <label>
+          {formErrors.some((error) => error.id === "import-profile") ? <p id="import-profile-error" className="field-error">Choose an import profile.</p> : null}
+          <label htmlFor="import-limit">
             <span>Limit</span>
-            <input type="number" min="1" value={limit} onChange={(event) => setLimit(event.target.value)} placeholder="optional" />
+            <input id="import-limit" type="number" min="1" inputMode="numeric" value={limit} onChange={(event) => setLimit(event.target.value)} placeholder="optional" />
             <p className="field-help">Use a small limit for a first test import. Leave empty to preview the whole folder.</p>
           </label>
           {!store.projects.selectedProjectId ? (
@@ -111,14 +127,15 @@ export const ImportScreen = observer(function ImportScreen() {
             event.preventDefault();
             void store.system.commitImport(conflictStrategy);
           }}>
-            <select value={conflictStrategy} onChange={(event) => setConflictStrategy(event.target.value)}>
+            <label htmlFor="import-conflict-strategy">When an item already exists</label>
+            <select id="import-conflict-strategy" value={conflictStrategy} onChange={(event) => setConflictStrategy(event.target.value)}>
               <option value="skip">Skip conflicts</option>
               <option value="overwrite">Overwrite conflicts</option>
               <option value="duplicate">Duplicate conflicts</option>
             </select>
             <button type="submit">Commit Reviewed Import</button>
           </form>
-          <DataTable columns={["kind", "title", "relativePath", "targetPath", "warnings"]} rows={candidates.slice(0, 40).map((candidate: any) => ({
+          <DataTable ariaLabel="Import preview candidates" columns={["kind", "title", "relativePath", "targetPath", "warnings"]} rows={candidates.slice(0, 40).map((candidate: any) => ({
             ...candidate,
             warnings: Array.isArray(candidate.warnings) ? candidate.warnings.length : 0
           }))} />

@@ -16,6 +16,7 @@ import { normalizePath } from "@zharwing/memory-store";
 export interface DaemonConfig {
   host: string;
   port: number;
+  profile: "personal-preview" | "hardened-local";
   authMode: "token" | "none";
   authToken: string;
   memoryRoot: string;
@@ -25,6 +26,14 @@ export interface DaemonConfig {
    * ZHARWING_MEMORY_AGENT_SURFACE=enabled.
    */
   agentSurfaceEnabled: boolean;
+  /** Distinct trusted-host bearer for the hardened agent audience. */
+  agentCredential?: string;
+  /** Exact project bound to agentCredential for this daemon process. */
+  agentProjectId?: string;
+  /** Rust/native-host credential exchanged through a one-shot OS temp file. */
+  desktopCredential?: string;
+  /** Exact project selected by the native host; null/absent permits global discovery only. */
+  desktopProjectId?: string;
 }
 
 const warnedLegacyEnv = new Set<string>();
@@ -50,22 +59,110 @@ export function memoryEnv(name: MemoryEnvName): string | undefined {
 
 export function loadDaemonConfig(): DaemonConfig {
   const host = memoryEnv("ZHARWING_MEMORY_HOST") || DEFAULT_DAEMON_HOST;
+  const profile = rawProfile();
   const authMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE") === "none" ? "none" : "token";
   if (authMode === "none" && !isLoopbackHost(host)) {
     throw new Error(
       "ZHARWING_MEMORY_AUTH_MODE=none is only allowed when ZHARWING_MEMORY_HOST is localhost, 127.0.0.1, or ::1."
     );
   }
+  if (profile === "hardened-local" && authMode !== "token") {
+    throw new Error("The hardened-local profile requires token/session authentication.");
+  }
+  if (profile === "hardened-local" && !isLoopbackHost(host)) {
+    throw new Error("The hardened-local profile must bind to an exact loopback host.");
+  }
+  const agentSurfaceEnabled = memoryEnv("ZHARWING_MEMORY_AGENT_SURFACE") === "enabled";
+  const agentCredential = directEnv("ZHARWING_MEMORY_AGENT_CREDENTIAL");
+  const agentProjectId = directEnv("ZHARWING_MEMORY_AGENT_PROJECT_ID");
+  if (profile === "hardened-local" && agentSurfaceEnabled && (!agentCredential || !agentProjectId)) {
+    throw new Error(
+      "Hardened agent provisioning requires both ZHARWING_MEMORY_AGENT_CREDENTIAL and ZHARWING_MEMORY_AGENT_PROJECT_ID."
+    );
+  }
+  const desktopCredentialFile = directDesktopEnv("ZHARWING_MEMORY_DESKTOP_CREDENTIAL_FILE");
+  const desktopProjectId = directDesktopEnv("ZHARWING_MEMORY_DESKTOP_PROJECT_ID");
+  if (desktopProjectId && !/^[a-z0-9][a-z0-9_-]{0,127}$/i.test(desktopProjectId)) {
+    throw new Error("The native desktop project binding is invalid.");
+  }
+  if (desktopProjectId && !desktopCredentialFile) {
+    throw new Error("A desktop project binding requires the native one-shot credential exchange.");
+  }
+  if (desktopCredentialFile && profile !== "hardened-local") {
+    throw new Error("The native desktop authority requires the hardened-local profile.");
+  }
+  const desktopCredential = desktopCredentialFile
+    ? issueDesktopCredential(desktopCredentialFile)
+    : undefined;
   return {
     host,
     port: Number(memoryEnv("ZHARWING_MEMORY_PORT") || DEFAULT_DAEMON_PORT),
+    profile,
     authMode,
     authToken: authMode === "none" ? "" : resolveAuthToken(),
     memoryRoot: normalizePath(
       memoryEnv("ZHARWING_MEMORY_ROOT") || path.join(process.cwd(), DEFAULT_MEMORY_ROOT_NAME)
     ),
-    agentSurfaceEnabled: memoryEnv("ZHARWING_MEMORY_AGENT_SURFACE") === "enabled"
+    agentSurfaceEnabled,
+    ...(agentCredential ? { agentCredential } : {}),
+    ...(agentProjectId ? { agentProjectId } : {}),
+    ...(desktopCredential ? { desktopCredential } : {}),
+    ...(desktopProjectId ? { desktopProjectId } : {})
   };
+}
+
+function directEnv(name: "ZHARWING_MEMORY_AGENT_CREDENTIAL" | "ZHARWING_MEMORY_AGENT_PROJECT_ID"): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
+function directDesktopEnv(
+  name: "ZHARWING_MEMORY_DESKTOP_CREDENTIAL_FILE" | "ZHARWING_MEMORY_DESKTOP_PROJECT_ID"
+): string | undefined {
+  const value = process.env[name]?.trim();
+  delete process.env[name];
+  return value ? value : undefined;
+}
+
+function issueDesktopCredential(exchangeFile: string): string {
+  const resolvedFile = path.resolve(exchangeFile);
+  const resolvedTemp = path.resolve(os.tmpdir());
+  if (
+    path.dirname(resolvedFile).toLocaleLowerCase() !== resolvedTemp.toLocaleLowerCase() ||
+    !/^zharwing-memory-desktop-[a-z0-9-]+\.credential$/i.test(path.basename(resolvedFile))
+  ) {
+    throw new Error("The desktop credential exchange must be a fresh file in the OS temp directory.");
+  }
+
+  const credential = crypto.randomBytes(32).toString("hex");
+  let handle: number | undefined;
+  let failed = false;
+  try {
+    handle = fs.openSync(resolvedFile, "wx", 0o600);
+    fs.writeFileSync(handle, `${credential}\n`, { encoding: "utf8" });
+    fs.fsyncSync(handle);
+  } catch {
+    failed = true;
+  } finally {
+    if (handle !== undefined) fs.closeSync(handle);
+  }
+  if (failed) {
+    try { fs.unlinkSync(resolvedFile); } catch { /* Nothing safe to retain. */ }
+    throw new Error("The desktop credential exchange could not be created safely.");
+  }
+  return credential;
+}
+
+function rawProfile(): DaemonConfig["profile"] {
+  // Profile is public configuration, not a credential. Keep the preview as
+  // the compatibility default until the separately governed migration makes
+  // hardened-local the product default.
+  const value = process.env.ZHARWING_MEMORY_PROFILE;
+  if (value === undefined || value === "" || value === "personal-preview") {
+    return "personal-preview";
+  }
+  if (value === "hardened-local") return value;
+  throw new Error("ZHARWING_MEMORY_PROFILE must be personal-preview or hardened-local.");
 }
 
 /**

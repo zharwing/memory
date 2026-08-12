@@ -14,10 +14,16 @@ the affected component (daemon, CLI, desktop, MCP server).
 
 ## Threat Model Notes
 
-- The daemon binds to `127.0.0.1` only and requires a bearer token
-  (`ZHARWING_MEMORY_AUTH_TOKEN`); it is not designed to be exposed to a
-  network. Reports that assume a remotely reachable daemon should state why
-  the exposure is realistic.
+- The daemon binds to exact loopback by default and is not designed for network
+  exposure. Browser cookie/CSRF sessions, native desktop authority,
+  project-bound agent credentials, and the compatibility administrator bearer
+  are distinct and registry-limited. Reports that assume a remotely reachable
+  daemon or cross-audience credential reuse should state why that exposure or
+  confusion is realistic.
+- Browser JavaScript must never receive a bearer. The trusted-launcher flow
+  exchanges a one-shot, Origin/Host-bound code for a short-lived HttpOnly
+  cookie and memory-only CSRF value. The credential-free browser preview exists
+  only for explicitly selected `personal-preview + authMode=none` on loopback.
 - Markdown files in the store are the source of truth. Anything that lets an
   agent or MCP client read or write outside the configured store root, bypass
   the privacy/redaction gates, or exfiltrate store content through tool

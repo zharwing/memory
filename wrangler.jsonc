@@ -1,6 +1,7 @@
 {
   // Static product documentation only. The Memory application remains local.
   "name": "zharwing-docs",
+  "account_id": "3b0dd04ccfd1ec111b40665b336e810e",
   "compatibility_date": "2026-08-08",
   "workers_dev": false,
   "assets": {

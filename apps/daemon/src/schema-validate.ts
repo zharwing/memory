@@ -1,10 +1,11 @@
 // JSON-Schema-subset validation for the daemon RPC boundary. Implements
 // exactly the keywords the MCP tool schemas in @zharwing/memory-mcp use
 // today: type (string/number/integer/boolean/array/object), enum,
-// minimum/maximum, items, properties, required. Any other keyword or type
+// minimum/maximum, items, properties, required, additionalProperties. Any other keyword or type
 // throws SchemaSupportError, so registering a schema with an unimplemented
 // keyword fails loudly at module load in tests instead of silently not
-// validating. Unknown extra keys in validated values are allowed.
+// validating. Object schemas decide explicitly whether unknown keys are
+// allowed through `additionalProperties`.
 
 export class SchemaSupportError extends Error {}
 
@@ -17,6 +18,7 @@ export interface SchemaNode {
   items?: SchemaNode;
   properties?: Record<string, SchemaNode>;
   required?: readonly string[];
+  additionalProperties?: boolean;
   description?: string;
 }
 
@@ -28,6 +30,7 @@ const SUPPORTED_KEYWORDS = new Set([
   "items",
   "properties",
   "required",
+  "additionalProperties",
   // Purely documentary; never affects validation, so tolerating it cannot
   // silently skip a constraint.
   "description"
@@ -48,6 +51,9 @@ export function assertSupportedSchema(schema: Record<string, unknown>, context: 
   }
   if (schema.type !== undefined && (typeof schema.type !== "string" || !SUPPORTED_TYPES.has(schema.type))) {
     throw new SchemaSupportError(`${context}: unsupported schema type "${String(schema.type)}"`);
+  }
+  if (schema.additionalProperties !== undefined && typeof schema.additionalProperties !== "boolean") {
+    throw new SchemaSupportError(`${context}: unsupported additionalProperties value`);
   }
   if (schema.items !== undefined) {
     assertSupportedSchema(schema.items as Record<string, unknown>, `${context}.items`);
@@ -115,6 +121,12 @@ export function validateValue(value: unknown, schema: SchemaNode, path: string):
         const propertyValue = record[key];
         if (propertyValue === undefined || propertyValue === null) continue;
         errors.push(...validateValue(propertyValue, property, `${path}.${key}`));
+      }
+      if (schema.additionalProperties === false) {
+        const ownedKeys = new Set(Object.keys(schema.properties ?? {}));
+        for (const key of Object.keys(record)) {
+          if (!ownedKeys.has(key)) errors.push(`${path}.${key} is not allowed`);
+        }
       }
       break;
     }

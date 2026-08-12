@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import fs from "node:fs/promises";
 import path from "node:path";
 import {
   DEFAULT_ASSISTANT_POLICY,
@@ -38,10 +39,14 @@ import {
   writeProjectFile
 } from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
+import { SessionAuthorityStore } from "./session-visibility.js";
 import { normalizeGraphExtractionRules } from "./graph-rules.js";
 
 export class ProjectService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(
+    private readonly registry: ProjectRegistry,
+    private readonly sessionAuthority: SessionAuthorityStore
+  ) {}
 
   async listProjects(): Promise<Project[]> {
     return this.registry.listProjects();
@@ -52,7 +57,8 @@ export class ProjectService {
   }
 
   async detectProject(params: { workingDirectory: string }) {
-    return detectProject({ workingDirectory: params.workingDirectory, registry: this.registry });
+    const workingDirectory = await resolveSelectedDirectory(params.workingDirectory);
+    return detectProject({ workingDirectory, registry: this.registry });
   }
 
   async getStartupState(params: {
@@ -61,7 +67,9 @@ export class ProjectService {
     clientName?: string;
     knownRevision?: string;
   }): Promise<StartupState> {
-    const workingDirectory = params.workingDirectory || process.cwd();
+    const workingDirectory = params.workingDirectory
+      ? await resolveSelectedDirectory(params.workingDirectory)
+      : process.cwd();
     const detected = params.projectId
       ? undefined
       : await detectProject({ workingDirectory, registry: this.registry });
@@ -91,7 +99,10 @@ export class ProjectService {
     }
 
     const project = await this.getProject(projectId);
-    const allSessionSummaries = await listProjectSessionSummaries(project);
+    const allSessionSummaries = await this.sessionAuthority.applyVisibilities(
+      project,
+      await listProjectSessionSummaries(project)
+    );
     const sessions = allSessionSummaries.map(compactStartupSession);
     const activeSession = sessions.find((session) => session.status === "active");
     const latestSession = sessions[0]?.id === activeSession?.id ? undefined : sessions[0];
@@ -150,8 +161,11 @@ export class ProjectService {
     createPointerFile?: boolean;
     bootstrapFiles?: string[];
   }): Promise<ProjectCreationPreview> {
+    const workingDirectory = params.workingDirectory
+      ? await resolveSelectedDirectory(params.workingDirectory)
+      : undefined;
     return prepareProjectCreation({
-      workingDirectory: params.workingDirectory,
+      workingDirectory,
       projectName: params.projectName,
       createPointerFile: params.createPointerFile,
       bootstrapFiles: params.bootstrapFiles,
@@ -160,8 +174,20 @@ export class ProjectService {
   }
 
   async createProject(params: { preview: ProjectCreationPreview }): Promise<Project> {
+    if (params.preview.requiresUserConfirmation !== true) {
+      throw new Error("Project creation requires an explicit preview confirmation.");
+    }
+    const authoritativePreview = await this.prepareProjectCreation({
+      workingDirectory: params.preview.repoRoot,
+      projectName: params.preview.proposedProjectName,
+      createPointerFile: params.preview.willCreatePointerFile,
+      bootstrapFiles: params.preview.willCreateBootstrapFiles
+    });
+    if (previewSecurityContract(params.preview) !== previewSecurityContract(authoritativePreview)) {
+      throw new Error("Project creation preview is stale or does not match the canonical target.");
+    }
     return createProjectFromPreview({
-      preview: params.preview,
+      preview: authoritativePreview,
       registry: this.registry,
       forceWithoutConfirmation: true
     });
@@ -394,6 +420,45 @@ export class ProjectService {
       documents: (await listProjectDocuments(project)).map(({ body, ...doc }) => doc),
       inbox: await listProposedUpdates(project)
     };
+  }
+}
+
+function previewSecurityContract(preview: ProjectCreationPreview): string {
+  return JSON.stringify({
+    proposedProjectName: preview.proposedProjectName,
+    proposedProjectId: preview.proposedProjectId,
+    repoRoot: preview.repoRoot,
+    memoryLocation: preview.memoryLocation,
+    willCreatePointerFile: preview.willCreatePointerFile,
+    pointerFilePath: preview.pointerFilePath,
+    willCreateBootstrapFiles: [...preview.willCreateBootstrapFiles].sort(),
+    discoveryLevel: preview.discoveryLevel,
+    requiresUserConfirmation: preview.requiresUserConfirmation
+  });
+}
+
+async function resolveSelectedDirectory(input: string): Promise<string> {
+  if (!input || input.length > 32_768 || input.includes("\0")) {
+    throw new Error("Selected directory is invalid.");
+  }
+  const absolute = path.resolve(input);
+  const canonical = await fs.realpath(absolute);
+  const stat = await fs.stat(canonical);
+  if (!stat.isDirectory()) throw new Error("Selected path is not a directory.");
+  await assertNoLinkComponents(absolute);
+  return canonical;
+}
+
+async function assertNoLinkComponents(absolutePath: string): Promise<void> {
+  const parsed = path.parse(absolutePath);
+  const relative = absolutePath.slice(parsed.root.length);
+  let current = parsed.root;
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    const entry = await fs.lstat(current);
+    if (entry.isSymbolicLink()) {
+      throw new Error("Selected directory cannot traverse a symbolic link or junction.");
+    }
   }
 }
 

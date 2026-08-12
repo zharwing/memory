@@ -6,22 +6,25 @@
 pnpm dev:daemon
 ```
 
-The daemon defaults to:
+The daemon listens locally at:
 
 ```text
 http://127.0.0.1:37841
-Authorization: Bearer <auth-token>
 ```
 
-The token is `ZHARWING_MEMORY_AUTH_TOKEN` when set; otherwise the daemon
-generates a per-user token on first start and stores it in the OS user state
-directory. See [API Reference](API_REFERENCE.md) for details.
+Choose an explicit runtime profile first. For this single-user browser
+walkthrough, use the loopback-only compatibility pair
+`ZHARWING_MEMORY_PROFILE=personal-preview` and
+`ZHARWING_MEMORY_AUTH_MODE=none`. The browser will still establish a bounded
+cookie/CSRF session; it does not send a bearer. See [Setup](SETUP.md).
 
 ## Start The UI
 
 Browser UI:
 
 ```text
+ZHARWING_PUBLIC_PROFILE=personal-preview
+ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
 pnpm dev:web
 ```
 
@@ -29,6 +32,10 @@ Run this in a second terminal while `pnpm dev:daemon` remains active, then open
 `http://localhost:5174/`. The local browser UI contains the complete React
 interface. See [Browser UI](WEB_UI.md) for environment setup and
 troubleshooting.
+
+For token-authenticated or hardened operation, start the browser through the
+trusted one-shot bootstrap integration instead. Never put the administrator or
+agent credential into browser configuration.
 
 Native Tauri window:
 

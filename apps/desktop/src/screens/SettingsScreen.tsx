@@ -4,6 +4,8 @@ import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
 import { useDraft } from "../hooks/useDraft.js";
+import { ErrorSummary } from "../components/FormField.js";
+import { formatShortDateTime } from "../utils/format.js";
 
 export const SettingsScreen = observer(function SettingsScreen() {
   const store = useStore();
@@ -90,7 +92,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
           <KeyValue label="Accepted edges" value={(edgeCounts.accepted || 0) + (edgeCounts["auto-accepted"] || 0)} />
           <KeyValue label="Proposed edges" value={edgeCounts.proposed || 0} />
           <KeyValue label="Rejected edges" value={edgeCounts.rejected || 0} />
-          <KeyValue label="Latest run" value={latestSemanticRun?.started || "None"} />
+          <KeyValue label="Latest run" value={latestSemanticRun?.started ? formatShortDateTime(latestSemanticRun.started) : "None"} />
         </div>
         <form className="stacked-form semantic-settings-form" onSubmit={(event) => {
           event.preventDefault();
@@ -138,6 +140,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
                 value={semanticDraft.providerId || ""}
                 onChange={(event) => updateSemanticDraft({ providerId: event.target.value })}
                 placeholder="local-llama"
+                autoComplete="off"
               />
             </label>
             <label>
@@ -163,6 +166,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
                 value={semanticDraft.model || ""}
                 onChange={(event) => updateSemanticDraft({ model: event.target.value })}
                 placeholder="model name"
+                autoComplete="off"
               />
             </label>
           </div>
@@ -289,21 +293,25 @@ export const SettingsScreen = observer(function SettingsScreen() {
             if (!Array.isArray(parsed)) throw new Error("Graph rules must be a JSON array.");
             setGraphRulesError("");
             void store.graph.updateGraphRules(parsed);
-          } catch (error) {
-            setGraphRulesError(error instanceof Error ? error.message : String(error));
+          } catch {
+            setGraphRulesError("Enter a JSON array of graph rule objects.");
           }
         }}>
-          <label>
+          <ErrorSummary errors={graphRulesError ? [{ id: "graph-rules-json", message: graphRulesError }] : []} />
+          <label htmlFor="graph-rules-json">
             <span>Rules JSON</span>
             <textarea
+              id="graph-rules-json"
               className="graph-rules-editor"
               value={graphRulesDraft}
               onChange={(event) => setGraphRulesDraft(event.target.value)}
               spellCheck={false}
+              aria-invalid={graphRulesError ? true : undefined}
+              aria-describedby={graphRulesError ? "graph-rules-json-error" : undefined}
               placeholder={'[\n  { "match": "apps/*", "nodeType": "package", "topic": "frontend" },\n  { "match": "services/*", "nodeType": "service", "topic": "backend" }\n]'}
             />
           </label>
-          {graphRulesError ? <p className="form-error">{graphRulesError}</p> : null}
+          {graphRulesError ? <p id="graph-rules-json-error" className="field-error">{graphRulesError}</p> : null}
           <div className="inline-form compact">
             <button type="submit" disabled={!store.projects.selectedProjectId || store.graph.loading}>Save Graph Rules</button>
             <button

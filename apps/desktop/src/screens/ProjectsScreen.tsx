@@ -1,17 +1,19 @@
 import { observer } from "mobx-react-lite";
 import { NavLink, useNavigate } from "react-router-dom";
+import { ResourceRecovery } from "../app/recovery/index.js";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
-import { projectPath } from "../utils/routes.js";
+import { routePath } from "../utils/routes.js";
 
 export const ProjectsScreen = observer(function ProjectsScreen() {
   const store = useStore();
   const navigate = useNavigate();
+  const projectsState = store.projects.projectsState;
 
   async function openProject(projectId: string) {
-    await store.projects.selectProject(projectId);
-    if (!store.error) navigate(projectPath(projectId, "/dashboard"));
+    const accepted = await store.projects.selectProject(projectId);
+    if (accepted) navigate(routePath("dashboard", { projectId }));
   }
 
   return (
@@ -19,30 +21,41 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
       title="Projects"
       actions={(
         <div className="button-row">
-          <NavLink className="button-link primary" to="/setup">Create Project</NavLink>
+          <NavLink className="button-link primary" to={routePath("setup")}>Create Project</NavLink>
           <button onClick={() => store.projects.load()}>Refresh</button>
         </div>
       )}
     >
-      <div className="project-grid">
-        {store.projects.list.map((project) => (
-          <div className="managed-card" key={project.id}>
-            <button className={`project-card ${store.projects.selectedProjectId === project.id ? "selected" : ""}`} onClick={() => void openProject(project.id)}>
-              <strong>{project.name}</strong>
-              <span>{project.id}</span>
-              <small>{project.memoryRoot}</small>
-            </button>
-            <ConfirmDeleteButton
-              itemType="project"
-              title={project.name}
-              critical
-              label="Move to Trash"
-              onConfirm={() => store.projects.deleteProject(project.id)}
-            />
+      <ResourceRecovery
+        state={projectsState}
+        loadingLabel="Loading projects…"
+        empty={<Empty text="No projects registered yet. Use Setup to create one." />}
+        onRetry={() => store.projects.load(store.projects.selectedProjectId || undefined)}
+      >
+        {(projects) => (
+          <div className="project-grid">
+            {projects.map((project) => (
+              <div className="managed-card" key={project.id}>
+                <button
+                  className={`project-card ${store.projects.selectedProjectId === project.id ? "selected" : ""}`}
+                  onClick={() => void openProject(project.id)}
+                >
+                  <strong>{project.name}</strong>
+                  <span>{project.id}</span>
+                  <small>{project.memoryRoot}</small>
+                </button>
+                <ConfirmDeleteButton
+                  itemType="project"
+                  title={project.name}
+                  critical
+                  label="Move to Trash"
+                  onConfirm={() => store.projects.deleteProject(project.id)}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {store.projects.list.length === 0 ? <Empty text="No projects registered yet. Use Setup to create one." /> : null}
+        )}
+      </ResourceRecovery>
     </Screen>
   );
 });

@@ -1,195 +1,291 @@
-import { makeAutoObservable, runInAction } from "mobx";
-import type { ZharwingMemoryClient } from "@zharwing/memory-api-client";
+import { makeAutoObservable } from "mobx";
+import type { MemoryClient } from "@zharwing/memory-api-client";
 import type { SessionSummary } from "@zharwing/memory-core";
-import type { RootStore } from "./root-store.js";
+import {
+  OperationLedger,
+  type OperationAttempt,
+  type OperationState
+} from "../application/operations/operation-state.js";
+import { executeConfirmedDestructiveOperation } from "../application/operations/destructive-operation.js";
+import type {
+  ScopedProjectPort,
+  ScopeToken,
+  SessionStoreCoordinator,
+  StoreAsyncRuntimePort
+} from "../application/operations/store-ports.js";
+import {
+  ResourceSlot,
+  publicErrorCopy,
+  type Completeness,
+  type ResourceState
+} from "../application/resources/resource-state.js";
 
 /** Session list rows; the daemon returns summaries and the store lazily merges the Markdown body. */
 export type SessionListItem = SessionSummary & { body?: string };
 
+const SESSION_LIMITS = [20, 50, 100, 200] as const;
+type SessionLimit = (typeof SESSION_LIMITS)[number];
+
 export class SessionStore {
-  list: SessionListItem[] = [];
-  loading = false;
-  error = "";
+  readonly listResource: ResourceSlot<SessionListItem[]>;
+  readonly detailBodiesResource: ResourceSlot<Record<string, string>>;
+  readonly operations: OperationLedger;
+  requestedLimit: SessionLimit = 20;
 
   constructor(
-    readonly client: ZharwingMemoryClient,
-    readonly root: RootStore
+    private readonly client: MemoryClient,
+    private readonly scope: ScopedProjectPort,
+    private readonly coordinator: SessionStoreCoordinator,
+    runtime: StoreAsyncRuntimePort
   ) {
-    makeAutoObservable(this, {
+    this.listResource = new ResourceSlot(scope, runtime);
+    this.detailBodiesResource = new ResourceSlot(scope, runtime, () => false);
+    this.operations = new OperationLedger(runtime);
+    makeAutoObservable<this, "client" | "scope" | "coordinator">(this, {
       client: false,
-      root: false
+      scope: false,
+      coordinator: false,
+      listResource: false,
+      detailBodiesResource: false,
+      operations: false
     });
   }
 
-  private get projectId() {
-    return this.root.projects.selectedProjectId;
+  get listState(): ResourceState<SessionListItem[]> {
+    return this.listResource.state;
   }
 
-  clear() {
-    this.list = [];
+  get list(): SessionListItem[] {
+    const bodies = this.detailBodiesResource.data ?? {};
+    return (this.listResource.data ?? []).map((session) =>
+      Object.hasOwn(bodies, session.id) ? { ...session, body: bodies[session.id] } : session
+    );
   }
 
-  async load() {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      const sessions = await this.client.call<SessionListItem[]>("memory.list_project_sessions", {
-        projectId: this.projectId,
-        limit: 20
-      });
-      runInAction(() => {
-        this.list = sessions;
-      });
-    });
+  get listCompleteness(): Completeness | undefined {
+    return this.listResource.completeness;
   }
 
-  async loadAll() {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      const sessions = await this.client.call<SessionListItem[]>("memory.list_project_sessions", {
-        projectId: this.projectId
-      });
-      runInAction(() => {
-        this.list = sessions;
-      });
-    });
+  get canLoadMore(): boolean {
+    return this.listCompleteness?.kind === "partial" && this.requestedLimit < 200;
   }
 
-  async loadDetail(sessionId: string) {
-    if (!this.projectId || !sessionId) return;
-    await this.run(async () => {
-      const detail = await this.client.call("memory.get_session_detail", {
-        projectId: this.projectId,
-        sessionId,
-        sections: ["body"]
-      }) as { body?: string };
-      runInAction(() => {
-        this.list = this.list.map((session) =>
-          session.id === sessionId ? { ...session, body: detail.body ?? "" } : session
-        );
-      });
-    });
+  get loading(): boolean {
+    return this.listResource.loading || this.detailBodiesResource.loading || this.operations.isBusy();
   }
 
-  async startSession(taskTitle = "", workstreamIds: string[] = []) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.start_session", {
-        projectId: this.projectId,
-        taskTitle: taskTitle.trim() || undefined,
-        agent: "manual",
-        client: "desktop",
-        workingDirectory: this.root.projects.selectedProject?.repos?.[0]?.path,
-        workstreamIds
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-    });
+  get error(): string {
+    return publicErrorCopy(
+      this.listResource.error ?? this.detailBodiesResource.error ?? this.operations.error
+    );
   }
 
-  async closeSession(sessionId: string, summary = "") {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.close_session", {
-        projectId: this.projectId,
-        sessionId,
-        summary: summary.trim() || undefined,
-        autoSummarize: true
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-    });
+  operationState(key: string): OperationState {
+    return this.operations.state(key);
   }
 
-  /** Closes every session left active on an earlier day, without starting a new one. */
-  async closeStaleSessions() {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.close_stale_sessions", {
-        projectId: this.projectId
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-    });
+  clear(): void {
+    this.listResource.reset();
+    this.detailBodiesResource.reset();
+    this.operations.reset();
+    this.requestedLimit = 20;
   }
 
-  async deleteSession(sessionId: string) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.delete_session", {
-        projectId: this.projectId,
-        sessionId
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-      await this.root.graph.load();
-      await this.root.system.loadTrash();
-    });
-  }
-
-  async updateGraphVisibility(sessionId: string, includeInGraph: boolean) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.update_session_graph_visibility", {
-        projectId: this.projectId,
-        sessionId,
-        includeInGraph
-      });
-      await this.load();
-      await this.root.graph.load();
-    });
-  }
-
-  async generateSummary(sessionId: string, force = true) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.generate_session_summary", {
-        projectId: this.projectId,
-        sessionId,
-        force
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-    });
-  }
-
-  async generateSummaries(mode: "missing" | "all" = "missing") {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.generate_session_summaries", {
-        projectId: this.projectId,
-        mode
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-    });
-  }
-
-  async saveCheckpoint(sessionId: string, summary: string) {
-    if (!this.projectId) return;
-    await this.run(async () => {
-      await this.client.call("memory.save_checkpoint", {
-        projectId: this.projectId,
-        sessionId,
-        summary
-      });
-      await this.load();
-      await this.root.projects.loadSummary();
-    });
-  }
-
-  private async run(work: () => Promise<void>) {
-    this.loading = true;
-    this.error = "";
+  async load(
+    limit: SessionLimit = this.requestedLimit,
+    token = this.scope.captureScope()
+  ): Promise<void> {
+    const attempt = this.listResource.begin(token);
+    if (!attempt) return;
     try {
-      await work();
+      const sessions = await this.client.operation(
+        "memory.list_project_sessions",
+        { projectId: attempt.scope.projectId, limit },
+        { signal: attempt.scope.signal }
+      );
+      const completeness: Completeness = sessions.length < limit
+        ? { kind: "complete" }
+        : { kind: "partial" };
+      if (this.listResource.succeed(attempt, sessions, completeness)) this.requestedLimit = limit;
     } catch (error) {
-      runInAction(() => {
-        this.error = error instanceof Error ? error.message : String(error);
-      });
-    } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      this.listResource.fail(attempt, error);
     }
+  }
+
+  async loadMore(): Promise<void> {
+    if (!this.canLoadMore) return;
+    const next = SESSION_LIMITS.find((limit) => limit > this.requestedLimit) ?? 200;
+    await this.load(next);
+  }
+
+  /** Compatibility alias: the service caps this query at 200 and may still be partial. */
+  async loadAll(): Promise<void> {
+    await this.load(200);
+  }
+
+  async loadDetail(sessionId: string): Promise<void> {
+    if (!sessionId) return;
+    const attempt = this.detailBodiesResource.begin();
+    if (!attempt) return;
+    const bodies = this.detailBodiesResource.data ?? {};
+    try {
+      const detail = await this.client.operation(
+        "memory.get_session_detail",
+        {
+          projectId: attempt.scope.projectId,
+          sessionId,
+          sections: ["body"]
+        },
+        { signal: attempt.scope.signal }
+      );
+      this.detailBodiesResource.succeed(
+        attempt,
+        { ...bodies, [sessionId]: detail.body ?? "" }
+      );
+    } catch (error) {
+      this.detailBodiesResource.fail(attempt, error);
+    }
+  }
+
+  async startSession(taskTitle = "", workstreamIds: string[] = []): Promise<void> {
+    await this.mutate(
+      "session:start",
+      (token, operationId) => this.client.operation(
+        "memory.start_session",
+        {
+          projectId: token.projectId,
+          taskTitle: taskTitle.trim() || undefined,
+          agent: "manual",
+          client: "desktop",
+          workingDirectory: this.scope.currentProjectWorkingDirectory(),
+          workstreamIds
+        },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshProjectSummary()])
+    );
+  }
+
+  async closeSession(sessionId: string, summary = ""): Promise<void> {
+    await this.mutate(
+      `session:close:${sessionId}`,
+      (token, operationId) => this.client.operation(
+        "memory.close_session",
+        {
+          projectId: token.projectId,
+          sessionId,
+          summary: summary.trim() || undefined,
+          autoSummarize: true
+        },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshProjectSummary()])
+    );
+  }
+
+  async closeStaleSessions(): Promise<void> {
+    await this.mutate(
+      "session:close-stale",
+      (token, operationId) => this.client.operation(
+        "memory.close_stale_sessions",
+        { projectId: token.projectId },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshProjectSummary()])
+    );
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.mutate(
+      `session:delete:${sessionId}`,
+      (token, operationId) => executeConfirmedDestructiveOperation(
+        this.client,
+        token.projectId,
+        "memory.delete_session",
+        { projectId: token.projectId, sessionId },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([
+        this.load(this.requestedLimit, token),
+        this.coordinator.refreshProjectSummary(),
+        this.coordinator.refreshGraph(),
+        this.coordinator.refreshTrash()
+      ])
+    );
+  }
+
+  async updateGraphVisibility(sessionId: string, includeInGraph: boolean): Promise<void> {
+    await this.mutate(
+      `session:visibility:${sessionId}`,
+      (token, operationId) => this.client.operation(
+        "memory.update_session_graph_visibility",
+        { projectId: token.projectId, sessionId, includeInGraph },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshGraph()])
+    );
+  }
+
+  async generateSummary(sessionId: string, force = true): Promise<void> {
+    await this.mutate(
+      `session:summary:${sessionId}`,
+      (token, operationId) => this.client.operation(
+        "memory.generate_session_summary",
+        { projectId: token.projectId, sessionId, force },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshProjectSummary()])
+    );
+  }
+
+  async generateSummaries(mode: "missing" | "all" = "missing"): Promise<void> {
+    await this.mutate(
+      `session:summaries:${mode}`,
+      (token, operationId) => this.client.operation(
+        "memory.generate_session_summaries",
+        { projectId: token.projectId, mode },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshProjectSummary()])
+    );
+  }
+
+  async saveCheckpoint(sessionId: string, summary: string): Promise<void> {
+    await this.mutate(
+      `session:checkpoint:${sessionId}`,
+      (token, operationId) => this.client.operation(
+        "memory.save_checkpoint",
+        { projectId: token.projectId, sessionId, summary },
+        { signal: token.signal, idempotencyKey: operationId }
+      ),
+      (token) => Promise.all([this.load(this.requestedLimit, token), this.coordinator.refreshProjectSummary()])
+    );
+  }
+
+  private async mutate<Result>(
+    key: string,
+    work: (token: ScopeToken, operationId: string) => Promise<Result>,
+    refresh: (token: ScopeToken) => Promise<unknown>
+  ): Promise<Result | undefined> {
+    const token = this.scope.captureScope();
+    if (!token) return undefined;
+    const attempt = this.operations.begin(key, token);
+    try {
+      const result = await work(token, attempt.operationId);
+      if (!this.scope.isScopeCurrent(token) || !this.operations.succeed(attempt, result)) {
+        this.operations.abandon(attempt);
+        return undefined;
+      }
+      await refresh(token);
+      return result;
+    } catch (error) {
+      this.settleFailure(attempt, token, error);
+      return undefined;
+    }
+  }
+
+  private settleFailure(attempt: OperationAttempt, token: ScopeToken, error: unknown): void {
+    if (this.scope.isScopeCurrent(token)) this.operations.fail(attempt, error);
+    else this.operations.abandon(attempt);
   }
 }

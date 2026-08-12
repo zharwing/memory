@@ -36,6 +36,7 @@ import { ToggleGroup } from "./ToggleGroup.js";
 import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
 import { isLikelyMermaidSource } from "./markdown/MermaidDiagramPreview.js";
 import { formatShortDateTime } from "../utils/format.js";
+import { StatusNotice } from "./AccessibleStatus.js";
 
 export function DocumentEditorModal({
   doc,
@@ -58,6 +59,7 @@ export function DocumentEditorModal({
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [editorRevision, setEditorRevision] = useState(0);
   const [localSaving, setLocalSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const isDiagramDocument = doc.type === "diagram";
   const hasMermaidDiagram = containsMermaidDiagram(body);
   const useRenderedPreview = mode === "preview" && (isDiagramDocument || hasMermaidDiagram);
@@ -72,6 +74,7 @@ export function DocumentEditorModal({
     setSavedBody(doc.body || "");
     setShowDiscardDialog(false);
     setLocalSaving(false);
+    setSaveFailed(false);
     setEditorRevision((revision) => revision + 1);
   }, [doc.id]);
 
@@ -109,9 +112,13 @@ export function DocumentEditorModal({
   async function saveDocument() {
     if (!title.trim() || saveInProgress) return;
     setLocalSaving(true);
+    setSaveFailed(false);
     try {
       const updated = await onSave({ title: title.trim(), body });
-      if (!updated) return;
+      if (!updated) {
+        setSaveFailed(true);
+        return;
+      }
       const nextTitle = updated.title || title.trim();
       const nextBody = typeof updated.body === "string" ? updated.body : body;
       const shouldResetEditor = nextBody !== body;
@@ -123,6 +130,8 @@ export function DocumentEditorModal({
       if (shouldResetEditor) {
         setEditorRevision((revision) => revision + 1);
       }
+    } catch {
+      setSaveFailed(true);
     } finally {
       setLocalSaving(false);
     }
@@ -161,6 +170,7 @@ export function DocumentEditorModal({
               onChange={(event) => setTitle(event.target.value)}
               aria-label="Document title"
               placeholder="Document title"
+              required
             />
             <div className="doc-badges">
               <span>{doc.type}</span>
@@ -183,6 +193,11 @@ export function DocumentEditorModal({
             </button>
           </div>
         </header>
+        {saveFailed ? (
+          <StatusNotice tone="danger" assertive title="Document not saved">
+            Your changes are still in the editor. Review the current document and try again.
+          </StatusNotice>
+        ) : null}
         <div className="document-modal-meta">
           <KeyValue label="Updated" value={formatShortDateTime(doc.updated)} />
           <KeyValue label="Import profile" value={doc.importProfile || "none"} />
@@ -225,18 +240,20 @@ export function DocumentEditorModal({
         </div>
         {showDiscardDialog ? (
           <Modal
-            ariaLabel="Discard document changes"
+            title="Discard unsaved changes?"
+            description={
+              <p>
+                You have unsaved changes in <strong>{title || doc.title}</strong>. Discard them and close this document?
+              </p>
+            }
             backdropClassName="dialog-backdrop"
             className="confirm-dialog"
             onClose={() => setShowDiscardDialog(false)}
             closeOnEscape={false}
+            initialFocus="least-destructive"
           >
-            <h3>Discard Unsaved Changes?</h3>
-            <p>
-              You have unsaved changes in <strong>{title || doc.title}</strong>. Discard them and close this document?
-            </p>
             <div className="button-row">
-              <button type="button" onClick={() => setShowDiscardDialog(false)}>Keep Editing</button>
+              <button type="button" data-dialog-cancel onClick={() => setShowDiscardDialog(false)}>Keep Editing</button>
               <button type="button" className="danger-button" onClick={confirmDiscardAndClose}>
                 Discard Changes
               </button>

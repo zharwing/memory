@@ -8,6 +8,7 @@ import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { WorkstreamStatusActions } from "../components/WorkstreamStatusActions.js";
 import { formatShortDateTime, splitList, timestampRenderers } from "../utils/format.js";
+import { ErrorSummary, type FormError } from "../components/FormField.js";
 
 export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   const store = useStore();
@@ -18,12 +19,15 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   const [repoRoles, setRepoRoles] = useState("");
   const [relatedTasks, setRelatedTasks] = useState("");
   const [relatedFiles, setRelatedFiles] = useState("");
+  const [formErrors, setFormErrors] = useState<FormError[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (store.projects.selectedProjectId) void store.workstreams.load();
   }, [store, store.projects.selectedProjectId]);
 
   const detail = store.workstreams.detail;
+  const listState = store.workstreams.listState;
   const repoCategoryOptions = [...new Set(store.projects.repoLinks.map((repo) => repo.role).filter(Boolean))].sort();
   const selectedRepoCategories = splitList(repoRoles);
   function toggleRepoCategory(category: string) {
@@ -34,34 +38,49 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   }
 
   return (
-    <Screen title="Workstreams" actions={<button disabled={!store.projects.selectedProjectId} onClick={() => store.workstreams.load()}>Refresh</button>}>
+    <Screen title="Workstreams" actions={<button type="button" disabled={!store.projects.selectedProjectId} onClick={() => store.workstreams.load()}>Refresh</button>}>
       <WorkTabs />
       <div className="dashboard-grid">
         <Panel title="Create Workstream">
-          <form className="stacked-form" onSubmit={(event) => {
+          <form className="stacked-form" aria-busy={submitting} onSubmit={async (event) => {
             event.preventDefault();
-            void store.workstreams.createWorkstream({
-              name,
-              summary,
-              goal,
-              topics: splitList(topics),
-              repoRoles: splitList(repoRoles),
-              relatedTasks: splitList(relatedTasks),
-              relatedFiles: splitList(relatedFiles)
-            }).then(() => {
-              setName("");
-              setSummary("");
-              setGoal("");
-              setTopics("");
-              setRepoRoles("");
-              setRelatedTasks("");
-              setRelatedFiles("");
-            });
+            const errors: FormError[] = [];
+            if (!name.trim()) errors.push({ id: "workstream-name", message: "Enter a workstream name." });
+            setFormErrors(errors);
+            if (errors.length || submitting) return;
+            const previousCount = store.workstreams.list.length;
+            setSubmitting(true);
+            try {
+              await store.workstreams.createWorkstream({
+                name,
+                summary,
+                goal,
+                topics: splitList(topics),
+                repoRoles: splitList(repoRoles),
+                relatedTasks: splitList(relatedTasks),
+                relatedFiles: splitList(relatedFiles)
+              });
+              if (store.workstreams.list.length > previousCount) {
+                setName("");
+                setSummary("");
+                setGoal("");
+                setTopics("");
+                setRepoRoles("");
+                setRelatedTasks("");
+                setRelatedFiles("");
+              }
+            } catch {
+              // The shared operation layer owns public failure copy; retain fields.
+            } finally {
+              setSubmitting(false);
+            }
           }}>
-            <label>
+            <ErrorSummary errors={formErrors} />
+            <label htmlFor="workstream-name">
               <span>Name</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Dashboard testing" required />
+              <input id="workstream-name" value={name} onChange={(event) => { setName(event.target.value); setFormErrors([]); }} placeholder="Dashboard testing" autoComplete="off" aria-invalid={formErrors.length > 0 || undefined} aria-describedby={formErrors.length ? "workstream-name-error" : undefined} required />
             </label>
+            {formErrors.length ? <p id="workstream-name-error" className="field-error">Enter a workstream name.</p> : null}
             <label>
               <span>Description</span>
               <textarea value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="What kind of work belongs here?" rows={3} />
@@ -102,16 +121,19 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                 </label>
               </div>
             </details>
-            <button type="submit" disabled={!store.projects.selectedProjectId}>Create Workstream</button>
+            <button type="submit" disabled={!store.projects.selectedProjectId || submitting} aria-busy={submitting}>{submitting ? "Creating…" : "Create Workstream"}</button>
           </form>
         </Panel>
         <Panel title="Workstream List">
-          {store.workstreams.list.length ? (
+          {listState.status === "idle" || listState.status === "loading" ? (
+            <p className="panel-help" role="status">Loading workstreams...</p>
+          ) : store.workstreams.list.length ? (
             <div className="repo-list">
               {store.workstreams.list.map((workstream) => (
                 <button
                   type="button"
                   className={`project-card compact ${store.workstreams.selectedWorkstreamId === workstream.id ? "selected" : ""}`}
+                  aria-pressed={store.workstreams.selectedWorkstreamId === workstream.id}
                   key={workstream.id}
                   onClick={() => store.workstreams.selectWorkstream(workstream.id)}
                 >
@@ -121,9 +143,9 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                 </button>
               ))}
             </div>
-          ) : (
+          ) : listState.status === "empty" ? (
             <Empty text="No workstreams yet. Create one for a multi-day topic like Huddle." />
-          )}
+          ) : null}
         </Panel>
       </div>
 

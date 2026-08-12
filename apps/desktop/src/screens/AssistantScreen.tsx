@@ -29,8 +29,9 @@ export const AssistantScreen = observer(function AssistantScreen() {
   const status = store.assistant.status;
   const providerCheck = store.assistant.providerCheck;
   const [draft, updateDraft, setDraft] = useDraft(DEFAULT_ASSISTANT_DRAFT);
-  const [testApiKey, setTestApiKey] = useState("");
+  const [providerSecret, setProviderSecret] = useState("");
   const [connectionAction, setConnectionAction] = useState<"save-test" | "test" | null>(null);
+  const selectedProvider = draft.runtimeType === "disabled" ? "lm-studio" : draft.runtimeType;
 
   useEffect(() => {
     const modelName = policy.runtimeType === "lm-studio" && policy.modelName === LEGACY_LM_STUDIO_MODEL
@@ -44,7 +45,7 @@ export const AssistantScreen = observer(function AssistantScreen() {
       modelDisplayName: policy.modelDisplayName || "",
       modelPath: policy.modelPath || ""
     });
-    setTestApiKey("");
+    setProviderSecret("");
   }, [
     store.projects.selectedProjectId,
     policy.enabled,
@@ -55,6 +56,13 @@ export const AssistantScreen = observer(function AssistantScreen() {
     policy.modelPath,
     policy.autoAcceptLowRiskMetadata
   ]);
+
+  useEffect(() => {
+    setProviderSecret("");
+    if (store.projects.selectedProjectId) {
+      void store.assistant.loadProviderSecretStatus(selectedProvider);
+    }
+  }, [store.projects.selectedProjectId, selectedProvider]);
 
   function assistantPolicyPayload(overrides: Partial<typeof draft> = {}) {
     const nextDraft = { ...draft, ...overrides };
@@ -79,11 +87,16 @@ export const AssistantScreen = observer(function AssistantScreen() {
   async function saveAndTestConnection() {
     setConnectionAction("save-test");
     try {
+      await store.assistant.updatePolicy(assistantPolicyPayload());
+      if (providerSecret.trim()) {
+        const stored = await store.assistant.saveProviderSecret(selectedProvider, providerSecret.trim());
+        setProviderSecret("");
+        if (!stored) return;
+      }
       const result = await store.assistant.checkProvider({
         providerKind: selectedProvider,
         endpoint: draft.endpoint.trim() || undefined,
         model: modelForProviderCheck(),
-        apiKey: testApiKey.trim() || undefined,
         timeoutMs: 60000,
         maxOutputTokens: 768,
         jsonMode: false
@@ -106,10 +119,6 @@ export const AssistantScreen = observer(function AssistantScreen() {
     setConnectionAction("test");
     try {
       const result = await store.assistant.checkProvider({
-        providerKind: selectedProvider,
-        endpoint: draft.endpoint.trim() || undefined,
-        model: modelForProviderCheck(),
-        apiKey: testApiKey.trim() || undefined,
         timeoutMs: 60000,
         maxOutputTokens: 768,
         jsonMode: false
@@ -156,7 +165,6 @@ export const AssistantScreen = observer(function AssistantScreen() {
   const connectionStatus = providerCheck
     ? checkOk ? "Connected" : "Connection failed"
     : status?.available ? "Available" : "Not tested";
-  const selectedProvider = draft.runtimeType === "disabled" ? "lm-studio" : draft.runtimeType;
   const autoDetectsModel = modelCanBeDetected(selectedProvider);
   const activeModel = checkOk && providerCheck?.model ? String(providerCheck.model) : draft.modelName.trim();
   const activeModelDisplayName = checkOk && providerCheck?.modelDisplayName
@@ -260,14 +268,21 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 )}
                 {providerMayUseApiKey(selectedProvider) ? (
                   <label>
-                    <span>API key for test</span>
+                    <span>Provider API key</span>
                     <input
                       type="password"
-                      value={testApiKey}
                       disabled={!store.projects.selectedProjectId || store.assistant.loading}
-                      onChange={(event) => setTestApiKey(event.target.value)}
-                      placeholder="Not saved"
+                      autoComplete="new-password"
+                      spellCheck={false}
+                      value={providerSecret}
+                      onChange={(event) => setProviderSecret(event.target.value)}
+                      placeholder={store.assistant.providerSecretStatus?.configured ? "Stored securely - enter to rotate" : "Stored by the local daemon"}
                     />
+                    <small>
+                      {store.assistant.providerSecretStatus?.configured
+                        ? "A write-only credential is configured. Its value cannot be read back."
+                        : "The value is encrypted outside the project and cleared from this form immediately."}
+                    </small>
                   </label>
                 ) : null}
               </div>
@@ -284,10 +299,10 @@ export const AssistantScreen = observer(function AssistantScreen() {
                 <p className="assistant-provider-hint">Start the llama.cpp server with OpenAI-compatible endpoints. Zharwing Memory detects the loaded model when the server lists one.</p>
               ) : null}
               {selectedProvider === "openai" ? (
-                <p className="assistant-provider-hint">Enter an OpenAI API key for the connection test. The key is not saved in project settings.</p>
+                <p className="assistant-provider-hint">Store the OpenAI key once in the local daemon. It is never written to project settings or returned to the app.</p>
               ) : null}
               {selectedProvider === "anthropic" ? (
-                <p className="assistant-provider-hint">Enter a Claude API key for the connection test. The key is not saved in project settings.</p>
+                <p className="assistant-provider-hint">Store the Claude key once in the local daemon. It is never written to project settings or returned to the app.</p>
               ) : null}
               <div className="assistant-connection-status">
                 <span>Connection status</span>
@@ -328,6 +343,16 @@ export const AssistantScreen = observer(function AssistantScreen() {
               {testingConnectionOnly ? <Loader2 className="button-spinner" size={14} /> : <PlugZap size={14} />}
               {testingConnectionOnly ? "Testing..." : "Test connection"}
             </button>
+            {providerMayUseApiKey(selectedProvider) && store.assistant.providerSecretStatus?.configured ? (
+              <button
+                type="button"
+                className="icon-text-button danger"
+                disabled={store.assistant.loading}
+                onClick={() => void store.assistant.clearProviderSecret()}
+              >
+                Clear stored key
+              </button>
+            ) : null}
           </div>
 
           <details className="advanced-fields assistant-advanced-fields">

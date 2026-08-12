@@ -5,6 +5,7 @@ import type {
   SafetyStatus,
   Visibility
 } from "@zharwing/memory-core";
+import { visibilityOrReviewRequired } from "@zharwing/memory-core";
 import { matchesAnyPattern } from "./patterns.js";
 import { redactSecrets, scanSecrets } from "./secrets.js";
 
@@ -14,7 +15,7 @@ export interface PrivacyCandidate {
   type: string;
   title: string;
   sourcePath?: string;
-  visibility: Visibility;
+  visibility?: Visibility;
   content: string;
 }
 
@@ -82,13 +83,17 @@ export function combineSafetyStatus(statuses: SafetyStatus[]): SafetyStatus {
 }
 
 function exclusionFor(candidate: PrivacyCandidate, policy: PrivacyPolicy): ContextExcludedItem | undefined {
-  if (candidate.visibility === "never-send") {
+  const visibility = visibilityOrReviewRequired(candidate.visibility);
+  if (visibility === "review-required") {
+    return excluded(candidate, "human-only");
+  }
+  if (visibility === "never-send") {
     return excluded(candidate, "never-send");
   }
-  if (candidate.visibility === "private") {
+  if (visibility === "private") {
     return excluded(candidate, "private");
   }
-  if (candidate.visibility === "human-only") {
+  if (visibility === "human-only") {
     return excluded(candidate, "human-only");
   }
   if (matchesAnyPattern(candidate.sourcePath, policy.neverSendPatterns)) {

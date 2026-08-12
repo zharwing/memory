@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node ../../scripts/check-bundle-size.mjs",
+    "build": "vite build && node ../../scripts/check-bundle-size.mjs && node ../../scripts/check-secretless-build.mjs --scan-existing",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "tauri": "tauri"
   },

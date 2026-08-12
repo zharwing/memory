@@ -34,12 +34,12 @@
 }
 
 .assistant-status-chips span.ok {
-  border-color: rgba(63, 122, 74, 0.34);
+  border-color: color-mix(in srgb, var(--success) 34%, var(--border));
   color: var(--success);
 }
 
 .assistant-status-chips span.blocked {
-  border-color: rgba(159, 63, 44, 0.36);
+  border-color: color-mix(in srgb, var(--danger) 36%, var(--border));
   color: var(--danger);
 }
 
@@ -141,11 +141,11 @@
 }
 
 .assistant-provider-check.clean {
-  border-color: rgba(72, 133, 93, 0.35);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
 }
 
 .assistant-provider-check.blocked {
-  border-color: rgba(176, 68, 68, 0.35);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
 }
 
 .assistant-provider-check-title {
