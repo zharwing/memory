@@ -120,9 +120,11 @@ export async function readBoundedJson<T>(
     ) {
       throw new Error("Bounded JSON input changed during safe open.");
     }
-    const realTarget = await fs.realpath(resolvedTarget);
-    const relative = path.relative(root, realTarget);
-    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    const [realRoot, realTarget] = await Promise.all([
+      fs.realpath(root),
+      fs.realpath(resolvedTarget)
+    ]);
+    if (!isPathContained(realRoot, realTarget)) {
       throw new Error("Bounded JSON input escaped its owner root.");
     }
     return JSON.parse(await handle.readFile("utf8")) as T;
@@ -297,17 +299,33 @@ async function releaseLease(lockPath: string, nonce: string): Promise<void> {
 async function assertSafeContainedPath(root: string, target: string): Promise<void> {
   const resolvedRoot = path.resolve(root);
   const resolvedTarget = path.resolve(target);
-  const relative = path.relative(resolvedRoot, resolvedTarget);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+  if (!isPathContained(resolvedRoot, resolvedTarget)) {
     throw new Error("Storage path escaped its owner root.");
   }
-  const realRoot = await fs.realpath(resolvedRoot);
-  const realTarget = await fs.realpath(resolvedTarget);
-  if (
-    comparablePath(realRoot) !== comparablePath(resolvedRoot) ||
-    comparablePath(realTarget) !== comparablePath(resolvedTarget)
-  ) {
-    throw new Error("Storage path traverses a filesystem link.");
+  await assertLinkFreeDirectoryPath(resolvedRoot);
+  if (comparablePath(resolvedTarget) !== comparablePath(resolvedRoot)) {
+    await assertLinkFreeDirectoryPath(resolvedTarget);
+  }
+  const [realRoot, realTarget] = await Promise.all([
+    fs.realpath(resolvedRoot),
+    fs.realpath(resolvedTarget)
+  ]);
+  if (!isPathContained(realRoot, realTarget)) {
+    throw new Error("Storage path escaped its owner root.");
+  }
+}
+
+async function assertLinkFreeDirectoryPath(target: string): Promise<void> {
+  const resolved = path.resolve(target);
+  const root = path.parse(resolved).root;
+  const relative = path.relative(root, resolved);
+  let current = root;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, component);
+    const stat = await fs.lstat(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error("Storage path traverses a filesystem link.");
+    }
   }
 }
 
@@ -358,4 +376,13 @@ function processIsAlive(pid: number): boolean {
 function comparablePath(value: string): string {
   const normalized = path.normalize(value);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isPathContained(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }

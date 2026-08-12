@@ -4,8 +4,39 @@ import {
   callAiProviderJson,
   callOpenAiCompatibleJson,
   checkAiProvider,
+  openAiChatCompletionsUrl,
+  openAiModelsUrl,
+  parseJsonObjectFromText,
   runWithAuthorizedProviderRequestForTesting
 } from "./openai-compatible.js";
+
+test("provider URL normalization handles long slash runs without regex backtracking", () => {
+  const slashes = "/".repeat(100_000);
+  assert.equal(
+    openAiChatCompletionsUrl(`http://127.0.0.1:1234/v1${slashes}`),
+    "http://127.0.0.1:1234/v1/chat/completions"
+  );
+  assert.equal(
+    openAiModelsUrl(`http://127.0.0.1:1234/v1/chat/completions${slashes}`),
+    "http://127.0.0.1:1234/v1/models"
+  );
+});
+
+test("provider JSON parser extracts fenced objects with a linear delimiter scan", () => {
+  assert.deepEqual(
+    parseJsonObjectFromText('preface\n```JSON \n {"ok":true,"ticks":"``"} \n```\nafter'),
+    { ok: true, value: { ok: true, ticks: "``" } }
+  );
+  assert.deepEqual(
+    parseJsonObjectFromText(`preface\n\`\`\`json\n${" ".repeat(100_000)}{"ok":true}\n\`\`\`\nafter`),
+    { ok: true, value: { ok: true } }
+  );
+  assert.deepEqual(
+    parseJsonObjectFromText("```json\n{\"ok\":true}"),
+    { ok: true, value: { ok: true } },
+    "an unterminated fence still falls back to balanced JSON extraction"
+  );
+});
 
 test("callOpenAiCompatibleJson accepts array-form message content", async (t) => {
   const originalFetch = globalThis.fetch;

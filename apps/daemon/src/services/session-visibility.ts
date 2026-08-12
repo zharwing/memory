@@ -59,7 +59,7 @@ export class SessionAuthorityStore {
   private appendQueue: Promise<void> = Promise.resolve();
 
   constructor(options: SessionAuthorityOptions) {
-    this.stateRoot = options.stateRoot ?? defaultAuthorityStateRoot();
+    this.stateRoot = path.resolve(options.stateRoot ?? defaultAuthorityStateRoot());
     this.namespace = options.namespace;
     if (!/^[a-f0-9]{64}$/.test(this.namespace)) throw new Error("Invalid authority namespace.");
     this.suppliedKey = options.key ? Buffer.from(options.key) : undefined;
@@ -253,14 +253,7 @@ export class SessionAuthorityStore {
   }
 
   private async requireExistingSafeDirectory(): Promise<string> {
-    const stat = await fs.lstat(this.stateRoot);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error("Session authority state directory is unsafe.");
-    }
-    const real = await fs.realpath(this.stateRoot);
-    if (comparablePath(real) !== comparablePath(path.resolve(this.stateRoot))) {
-      throw new Error("Session authority state directory traverses a link.");
-    }
+    await assertLinkFreeDirectoryPath(this.stateRoot);
     return this.stateRoot;
   }
 
@@ -390,8 +383,25 @@ async function rejectLinkIfPresent(filePath: string): Promise<void> {
 
 async function assertOpenedPathContained(directory: string, filePath: string): Promise<void> {
   const [realDirectory, realFile] = await Promise.all([fs.realpath(directory), fs.realpath(filePath)]);
-  if (path.dirname(realFile) !== realDirectory || path.basename(realFile) !== path.basename(filePath)) {
+  if (
+    comparablePath(path.dirname(realFile)) !== comparablePath(realDirectory) ||
+    comparablePath(path.basename(realFile)) !== comparablePath(path.basename(filePath))
+  ) {
     throw new Error("Authority file escaped its state directory.");
+  }
+}
+
+async function assertLinkFreeDirectoryPath(target: string): Promise<void> {
+  const resolved = path.resolve(target);
+  const root = path.parse(resolved).root;
+  const relative = path.relative(root, resolved);
+  let current = root;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, component);
+    const stat = await fs.lstat(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error("Session authority state directory traverses a link.");
+    }
   }
 }
 

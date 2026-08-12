@@ -24,6 +24,22 @@ test("installs codex HTTP MCP config without auth token in none mode", async () 
   assert.doesNotMatch(config, /bearer_token_env_var/);
 });
 
+test("normalizes a long trailing slash run in the daemon URL", async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
+  const configPath = path.join(temp, "config.toml");
+
+  await installMcpClient({
+    client: "codex",
+    transport: "http",
+    authMode: "none",
+    daemonUrl: `http://127.0.0.1:37841${"/".repeat(32_768)}`,
+    configPath
+  });
+
+  const config = await fs.readFile(configPath, "utf8");
+  assert.match(config, /url = "http:\/\/127\.0\.0\.1:37841\/mcp"/);
+});
+
 test("installs the dedicated Zharwing agent credential for Codex HTTP", async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-mcp-install-"));
   const configPath = path.join(temp, "config.toml");

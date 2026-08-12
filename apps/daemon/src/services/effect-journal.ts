@@ -362,14 +362,7 @@ export class OperationEffectJournal {
 
   private requireSafeDirectory(): string {
     fs.mkdirSync(this.stateRoot, { recursive: true, mode: 0o700 });
-    const stat = fs.lstatSync(this.stateRoot);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error("Operation effect state directory is unsafe.");
-    }
-    const real = fs.realpathSync(this.stateRoot);
-    if (comparablePath(real) !== comparablePath(this.stateRoot)) {
-      throw new Error("Operation effect state directory traverses a link.");
-    }
+    assertLinkFreeDirectoryPath(this.stateRoot);
     return this.stateRoot;
   }
 
@@ -644,9 +637,23 @@ function assertOpenedPathContained(directory: string, filePath: string): void {
   const realFile = fs.realpathSync(filePath);
   if (
     comparablePath(path.dirname(realFile)) !== comparablePath(realDirectory) ||
-    path.basename(realFile) !== path.basename(filePath)
+    comparablePath(path.basename(realFile)) !== comparablePath(path.basename(filePath))
   ) {
     throw new Error("Operation effect file escaped its state directory.");
+  }
+}
+
+function assertLinkFreeDirectoryPath(target: string): void {
+  const resolved = path.resolve(target);
+  const root = path.parse(resolved).root;
+  const relative = path.relative(root, resolved);
+  let current = root;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, component);
+    const stat = fs.lstatSync(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error("Operation effect state directory traverses a link.");
+    }
   }
 }
 

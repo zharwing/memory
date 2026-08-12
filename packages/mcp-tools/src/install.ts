@@ -511,7 +511,9 @@ async function backupFile(filePath: string, contents: string): Promise<string> {
 }
 
 function trimTrailingSlash(input: string): string {
-  return input.replace(/\/+$/, "");
+  let end = input.length;
+  while (end > 0 && input.charCodeAt(end - 1) === 47) end -= 1;
+  return end === input.length ? input : input.slice(0, end);
 }
 
 function ensureTrailingNewline(input: string): string {

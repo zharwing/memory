@@ -857,12 +857,15 @@ function openAiCompatibleDefaultEndpoint(
 }
 
 function nativeApiBase(endpoint: string | undefined, fallback: string): string {
-  const trimmed = (endpoint || fallback).trim().replace(/\/+$/g, "");
+  const trimmed = stripTrailingSlashes((endpoint || fallback).trim());
   if (!trimmed) throw new Error("Provider endpoint is required.");
-  return trimmed
-    .replace(/\/v1(?:\/.*)?$/g, "")
-    .replace(/\/api\/v1(?:\/.*)?$/g, "")
-    .replace(/\/api(?:\/.*)?$/g, "");
+  return stripPathFromSegment(
+    stripPathFromSegment(
+      stripPathFromSegment(trimmed, "/v1"),
+      "/api/v1"
+    ),
+    "/api"
+  );
 }
 
 function ollamaApiUrl(endpoint: string | undefined, route: "chat" | "tags"): string {
@@ -880,7 +883,7 @@ function requireAnthropicApiKey(apiKey: string | undefined): string {
 }
 
 export function openAiChatCompletionsUrl(endpoint: string): string {
-  const trimmed = endpoint.trim().replace(/\/+$/g, "");
+  const trimmed = stripTrailingSlashes(endpoint.trim());
   if (!trimmed) throw new Error("OpenAI-compatible endpoint is required.");
   if (trimmed.endsWith("/chat/completions")) return trimmed;
   if (trimmed.endsWith("/v1")) return `${trimmed}/chat/completions`;
@@ -888,20 +891,23 @@ export function openAiChatCompletionsUrl(endpoint: string): string {
 }
 
 export function openAiModelsUrl(endpoint: string): string {
-  const trimmed = endpoint.trim().replace(/\/+$/g, "");
+  const trimmed = stripTrailingSlashes(endpoint.trim());
   if (!trimmed) throw new Error("OpenAI-compatible endpoint is required.");
   if (trimmed.endsWith("/models")) return trimmed;
-  if (trimmed.endsWith("/chat/completions")) return `${trimmed.replace(/\/chat\/completions$/g, "")}/models`;
+  if (trimmed.endsWith("/chat/completions")) {
+    return `${trimmed.slice(0, -"/chat/completions".length)}/models`;
+  }
   if (trimmed.endsWith("/v1")) return `${trimmed}/models`;
   return `${trimmed}/v1/models`;
 }
 
 function providerModelsUrls(endpoint: string): string[] {
-  const trimmed = endpoint.trim().replace(/\/+$/g, "");
+  const trimmed = stripTrailingSlashes(endpoint.trim());
   const urls = [openAiModelsUrl(trimmed)];
-  const withoutVersion = trimmed
-    .replace(/\/v1(?:\/.*)?$/g, "")
-    .replace(/\/api\/v1(?:\/.*)?$/g, "");
+  const withoutVersion = stripPathFromSegment(
+    stripPathFromSegment(trimmed, "/v1"),
+    "/api/v1"
+  );
   if (withoutVersion) {
     urls.push(`${withoutVersion}/api/v1/models`);
     urls.push(`${withoutVersion}/v1/models`);
@@ -934,10 +940,10 @@ export function parseJsonObjectFromText(input: string): { ok: true; value: unkno
   const trimmed = input.trim();
   if (!trimmed) return { ok: false, error: "empty response" };
 
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
+  const fenced = extractMarkdownFence(trimmed);
   const candidates = [
     trimmed,
-    fenced?.[1],
+    fenced,
     extractBalancedJson(trimmed)
   ].filter((candidate): candidate is string => Boolean(candidate?.trim()));
 
@@ -954,6 +960,51 @@ export function parseJsonObjectFromText(input: string): { ok: true; value: unkno
   }
 
   return { ok: false, error: "no parseable JSON object found" };
+}
+
+/** Removes only terminal slash characters with one bounded reverse scan. */
+function stripTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+  return end === value.length ? value : value.slice(0, end);
+}
+
+/**
+ * Mirrors the former endpoint suffix normalization without an unanchored
+ * wildcard expression. A segment qualifies only at the end or before another
+ * slash, and the first qualifying segment wins just as left-to-right matching
+ * did. Provider egress still crosses authorizedProviderFetch afterwards.
+ */
+function stripPathFromSegment(value: string, segment: string): string {
+  let offset = 0;
+  while (offset < value.length) {
+    const index = value.indexOf(segment, offset);
+    if (index < 0) return value;
+    const boundary = index + segment.length;
+    if (boundary === value.length || value.charCodeAt(boundary) === 47) {
+      return value.slice(0, index);
+    }
+    offset = index + 1;
+  }
+  return value;
+}
+
+/** Extracts the first Markdown fence in linear time without regex backtracking. */
+function extractMarkdownFence(value: string): string | undefined {
+  const opening = value.indexOf("```");
+  if (opening < 0) return undefined;
+  let contentStart = opening + 3;
+  if (value.slice(contentStart, contentStart + 4).toLowerCase() === "json") {
+    contentStart += 4;
+  }
+  while (
+    contentStart < value.length &&
+    value[contentStart]!.trim().length === 0
+  ) {
+    contentStart += 1;
+  }
+  const closing = value.indexOf("```", contentStart);
+  return closing < 0 ? undefined : value.slice(contentStart, closing);
 }
 
 async function callOllamaText(

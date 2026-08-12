@@ -62,10 +62,17 @@ export function normalizeSlug(input: string | undefined, options: NormalizeSlugO
     .toLowerCase();
   if (options.strip) value = value.replace(options.strip, "");
   if (options.mapToDash) value = value.replace(options.mapToDash, "-");
-  value = value
-    .replace(options.collapse ?? /[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  value = value.replace(options.collapse ?? /[^a-z0-9]+/g, "-");
+  value = trimAsciiDashes(value);
   return value || options.fallback || "";
+}
+
+function trimAsciiDashes(input: string): string {
+  let start = 0;
+  let end = input.length;
+  while (start < end && input.charCodeAt(start) === 45) start += 1;
+  while (end > start && input.charCodeAt(end - 1) === 45) end -= 1;
+  return start === 0 && end === input.length ? input : input.slice(start, end);
 }
 
 /** Splits a comma-separated list, trimming items and dropping empties. */
