@@ -119,8 +119,47 @@ function escapeHtml(value) {
 }
 
 function slugify(value) {
-  return value.toLowerCase().replace(/<[^>]+>/g, "").replace(/&[a-z]+;/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section";
+  const input = String(value).toLowerCase();
+  let output = "";
+  let pendingDash = false;
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    if (code === 60) {
+      const close = input.indexOf(">", index + 1);
+      if (close >= 0) {
+        index = close;
+        continue;
+      }
+    }
+    if (code === 38) {
+      const entityEnd = asciiEntityEnd(input, index + 1);
+      if (entityEnd >= 0) {
+        index = entityEnd;
+        continue;
+      }
+    }
+    const isLowercaseLetter = code >= 97 && code <= 122;
+    const isDigit = code >= 48 && code <= 57;
+    if (isLowercaseLetter || isDigit) {
+      if (pendingDash && output) output += "-";
+      output += input[index];
+      pendingDash = false;
+    } else if (output) {
+      pendingDash = true;
+    }
+  }
+  return output || "section";
+}
+
+function asciiEntityEnd(input, start) {
+  let index = start;
+  while (index < input.length) {
+    const code = input.charCodeAt(index);
+    if (code === 59) return index > start ? index : -1;
+    if (code < 97 || code > 122) return -1;
+    index += 1;
+  }
+  return -1;
 }
 
 function guidePath(slug) {

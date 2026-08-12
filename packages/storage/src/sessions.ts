@@ -693,37 +693,70 @@ async function assertSafeOpenedSessionFile(
   ) {
     throw new Error("Session file changed during safe open.");
   }
-  const realParent = await fs.realpath(path.dirname(filePath));
-  const realFile = await fs.realpath(filePath);
   const resolvedRoot = path.resolve(ownerRoot ?? path.dirname(filePath));
-  const realRoot = await fs.realpath(resolvedRoot);
-  const relative = path.relative(realRoot, realFile);
-  if (
-    comparableSessionPath(realRoot) !== comparableSessionPath(resolvedRoot) ||
-    relative.startsWith("..") || path.isAbsolute(relative) ||
+  const resolvedParent = path.resolve(path.dirname(filePath));
+  if (!isSessionPathContained(resolvedRoot, resolvedParent)) {
+    throw new Error("Session file escaped its owner root.");
+  }
+  await assertLinkFreeSessionDirectory(resolvedParent);
+  const [realRoot, realParent, realFile] = await Promise.all([
+    fs.realpath(resolvedRoot),
+    fs.realpath(resolvedParent),
+    fs.realpath(filePath)
+  ]);
+  if (!isSessionPathContained(realRoot, realFile) ||
     comparableSessionPath(path.dirname(realFile)) !== comparableSessionPath(realParent) ||
-    path.basename(realFile) !== path.basename(filePath)
-  ) {
+    comparableSessionPath(path.basename(realFile)) !== comparableSessionPath(path.basename(filePath))) {
     throw new Error("Session file traverses a filesystem link.");
   }
 }
 
 async function assertSafeSessionPath(filePath: string, ownerRoot?: string): Promise<void> {
   const resolvedRoot = path.resolve(ownerRoot ?? path.dirname(filePath));
-  const realRoot = await fs.realpath(resolvedRoot);
-  const realFile = await fs.realpath(filePath);
-  const relative = path.relative(realRoot, realFile);
-  if (
-    comparableSessionPath(realRoot) !== comparableSessionPath(resolvedRoot) ||
-    relative.startsWith("..") || path.isAbsolute(relative)
-  ) {
+  const resolvedFile = path.resolve(filePath);
+  const resolvedParent = path.dirname(resolvedFile);
+  if (!isSessionPathContained(resolvedRoot, resolvedFile)) {
     throw new Error("Session file escaped its owner root.");
+  }
+  await assertLinkFreeSessionDirectory(resolvedParent);
+  const [realRoot, realParent, realFile] = await Promise.all([
+    fs.realpath(resolvedRoot),
+    fs.realpath(resolvedParent),
+    fs.realpath(resolvedFile)
+  ]);
+  if (!isSessionPathContained(realRoot, realFile) ||
+    comparableSessionPath(path.dirname(realFile)) !== comparableSessionPath(realParent) ||
+    comparableSessionPath(path.basename(realFile)) !== comparableSessionPath(path.basename(resolvedFile))) {
+    throw new Error("Session file traverses a filesystem link.");
+  }
+}
+
+async function assertLinkFreeSessionDirectory(target: string): Promise<void> {
+  const resolved = path.resolve(target);
+  const root = path.parse(resolved).root;
+  const relative = path.relative(root, resolved);
+  let current = root;
+  for (const component of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, component);
+    const stat = await fs.lstat(current);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error("Session file traverses a filesystem link.");
+    }
   }
 }
 
 function comparableSessionPath(value: string): string {
   const normalized = path.normalize(value);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isSessionPathContained(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }
 
 function sessionToBody(session: Session): string {
