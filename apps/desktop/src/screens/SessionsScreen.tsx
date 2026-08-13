@@ -137,6 +137,7 @@ export const SessionsScreen = observer(function SessionsScreen() {
       {selectedSession ? (
         <SessionDetailModal
           session={selectedSession}
+          sessions={store.sessions}
           onClose={() => closeSessionDetail()}
           onDeleted={() => closeSessionDetail(true)}
         />

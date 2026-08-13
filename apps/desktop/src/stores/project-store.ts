@@ -11,7 +11,7 @@ import type {
 } from "@zharwing/memory-core";
 import {
   ProjectScopeCoordinator,
-  createApplicationScopePort
+  type ApplicationScopePort
 } from "../application/project-scope/project-scope-coordinator.js";
 import {
   OperationLedger,
@@ -46,6 +46,16 @@ export interface ProjectSummarySnapshot {
   warnings: string[];
 }
 
+export interface SelectProjectOptions {
+  /** Set false when the caller owns the subsequent coordinated refresh. */
+  readonly refresh?: boolean;
+}
+
+export interface LoadProjectsOptions {
+  /** Set false to update the global list without changing project scope. */
+  readonly activate?: boolean;
+}
+
 export class ProjectStore {
   readonly projectsResource: ResourceSlot<Project[]>;
   readonly summaryResource: ResourceSlot<ProjectSummarySnapshot>;
@@ -56,10 +66,10 @@ export class ProjectStore {
   constructor(
     private readonly client: MemoryClient,
     private readonly scope: ProjectScopeCoordinator,
+    applicationScope: ApplicationScopePort,
     private readonly coordinator: ProjectStoreCoordinator,
     runtime: StoreAsyncRuntimePort
   ) {
-    const applicationScope = createApplicationScopePort();
     this.projectsResource = new ResourceSlot(applicationScope, runtime);
     this.projectCreationPreviewResource = new ResourceSlot(applicationScope, runtime);
     this.summaryResource = new ResourceSlot(scope, runtime, () => false);
@@ -121,7 +131,10 @@ export class ProjectStore {
     this.operations.resetScope(this.scope.captureScope());
   }
 
-  async load(preferredProjectId?: string): Promise<void> {
+  async load(
+    preferredProjectId?: string,
+    options: LoadProjectsOptions = {}
+  ): Promise<void> {
     const attempt = this.projectsResource.begin();
     if (!attempt) return;
     try {
@@ -131,6 +144,7 @@ export class ProjectStore {
         { signal: attempt.scope.signal }
       );
       if (!this.projectsResource.succeed(attempt, projects)) return;
+      if (options.activate === false) return;
       const preferred = preferredProjectId
         ? projects.find((project) => project.id === preferredProjectId)
         : undefined;
@@ -158,13 +172,13 @@ export class ProjectStore {
     }
   }
 
-  selectProject(projectId: string): boolean {
+  selectProject(projectId: string, options: SelectProjectOptions = {}): boolean {
     const project = this.list.find((candidate) => candidate.id === projectId);
     if (!project) return false;
     const token = this.scope.activate(project.id, project.repos?.[0]?.path);
     if (!token) return false;
     this.coordinator.resetProjectTransient();
-    void this.coordinator.refreshAll();
+    if (options.refresh !== false) void this.coordinator.refreshAll();
     return this.scope.isScopeCurrent(token);
   }
 

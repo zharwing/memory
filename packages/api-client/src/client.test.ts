@@ -502,6 +502,92 @@ test("concurrent project RPCs serialize rebinding and never reuse an old CSRF af
   });
 });
 
+test("same-project browser RPCs overlap while project transitions wait for every active request", async () => {
+  const rpcReleases: Array<() => void> = [];
+  let rpcStarted = 0;
+  let resolveBothStarted: (() => void) | undefined;
+  const bothStarted = new Promise<void>((resolve) => {
+    resolveBothStarted = resolve;
+  });
+  let projectTransitionStarted = false;
+  const requestFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = new URL(String(input)).pathname;
+    if (path === "/browser-session/bootstrap") {
+      return jsonResponse({
+        csrfToken: "csrf-project-a",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        rotationId: "rotation-project-a",
+        projectId: "project-a"
+      });
+    }
+    if (path === "/browser-session/project") {
+      projectTransitionStarted = true;
+      const body = JSON.parse(String(init?.body)) as { projectId: string };
+      return jsonResponse({
+        csrfToken: `csrf-${body.projectId}`,
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        rotationId: `rotation-${body.projectId}`,
+        projectId: body.projectId
+      });
+    }
+    rpcStarted += 1;
+    if (rpcStarted === 2) resolveBothStarted?.();
+    return new Promise<Response>((resolve) => {
+      rpcReleases.push(() => resolve(jsonResponse(successEnvelope({}), 200)));
+    });
+  }) as typeof fetch;
+  const session = new BrowserSessionController({
+    baseUrl: "http://127.0.0.1:37841",
+    fetch: requestFetch
+  });
+  const transport = new BrowserMemoryTransport({
+    baseUrl: "http://127.0.0.1:37841",
+    fetch: requestFetch,
+    session
+  });
+  await session.bootstrap("synthetic-overlap-bootstrap");
+  const invoke = (suffix: string) => transport.send({
+    audience: "browser",
+    version: RPC_COMPATIBILITY_VERSION,
+    operation: "memory.get_project",
+    input: { projectId: "project-a" },
+    context: {
+      timeoutMs: 1_000,
+      correlationId: `correlation-${suffix}`,
+      maximumResponseBytes: 1024
+    }
+  });
+
+  const first = invoke("first");
+  const second = invoke("second");
+  await Promise.race([
+    bothStarted,
+    new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error("same-project RPCs were serialized")), 250);
+    })
+  ]);
+  assert.equal(rpcStarted, 2);
+
+  const transition = session.bindProject("project-b");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(projectTransitionStarted, false);
+  rpcReleases[0]?.();
+  await first;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(projectTransitionStarted, false);
+  rpcReleases[1]?.();
+  await second;
+  await transition;
+
+  assert.equal(projectTransitionStarted, true);
+  assert.deepEqual(session.state, {
+    status: "active",
+    expiresAt: "2099-01-01T00:00:00.000Z",
+    rotationId: "rotation-project-b",
+    projectId: "project-b"
+  });
+});
+
 for (const status of [401, 403] as const) {
   test(`browser ${status} clears CSRF and enters a typed locked state`, async () => {
     let requestCount = 0;

@@ -1,6 +1,7 @@
 import { makeAutoObservable } from "mobx";
 import type { MemoryClient } from "@zharwing/memory-api-client";
 import type { GraphExtractionRule, ProjectGraph } from "@zharwing/memory-core";
+import type { UiPreferenceStore } from "../app/composition/ports.js";
 import { OperationLedger } from "../application/operations/operation-state.js";
 import type {
   GraphStoreCoordinator,
@@ -12,14 +13,13 @@ import {
   ResourceSlot,
   publicErrorCopy
 } from "../application/resources/resource-state.js";
-import { readString, writeString } from "../utils/storage.js";
 
 export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
 
 const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
 
 export class GraphStore {
-  relationshipMode: GraphRelationshipMode = readStoredGraphRelationshipMode();
+  relationshipMode: GraphRelationshipMode;
   readonly graphResource: ResourceSlot<ProjectGraph>;
   readonly operations: OperationLedger;
 
@@ -27,18 +27,21 @@ export class GraphStore {
     private readonly client: MemoryClient,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: GraphStoreCoordinator,
+    private readonly preferences: UiPreferenceStore,
     runtime: StoreAsyncRuntimePort
   ) {
+    this.relationshipMode = readStoredGraphRelationshipMode(preferences);
     this.graphResource = new ResourceSlot(
       scope,
       runtime,
       (graph) => graph.nodes.length === 0 && graph.edges.length === 0
     );
     this.operations = new OperationLedger(runtime);
-    makeAutoObservable<this, "client" | "scope" | "coordinator">(this, {
+    makeAutoObservable<this, "client" | "scope" | "coordinator" | "preferences">(this, {
       client: false,
       scope: false,
       coordinator: false,
+      preferences: false,
       graphResource: false,
       operations: false
     });
@@ -71,7 +74,7 @@ export class GraphStore {
     const nextMode = normalizeGraphRelationshipMode(mode);
     if (this.relationshipMode === nextMode) return;
     this.relationshipMode = nextMode;
-    writeStoredGraphRelationshipMode(nextMode);
+    writeStoredGraphRelationshipMode(this.preferences, nextMode);
     await this.load();
   }
 
@@ -192,10 +195,13 @@ function normalizeGraphRelationshipMode(input: unknown): GraphRelationshipMode {
     : "ai-reviewed";
 }
 
-function readStoredGraphRelationshipMode(): GraphRelationshipMode {
-  return normalizeGraphRelationshipMode(readString(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
+function readStoredGraphRelationshipMode(preferences: UiPreferenceStore): GraphRelationshipMode {
+  return normalizeGraphRelationshipMode(preferences.get(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
 }
 
-function writeStoredGraphRelationshipMode(mode: GraphRelationshipMode): void {
-  writeString(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY, mode);
+function writeStoredGraphRelationshipMode(
+  preferences: UiPreferenceStore,
+  mode: GraphRelationshipMode
+): void {
+  preferences.set(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY, mode);
 }

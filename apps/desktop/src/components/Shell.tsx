@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useLayoutEffect, useReducer, useRef } from "react";
+import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import {
@@ -15,8 +15,8 @@ import {
   Wrench
 } from "lucide-react";
 import { RecoveryPanel } from "../app/recovery/index.js";
-import { localDiagnostics } from "../platform/diagnostics/index.js";
 import { useStore } from "../stores/store-context.js";
+import { SectionNavigationProvider } from "./SectionTabs.js";
 import type { AppRecoveryState } from "../stores/root-store.js";
 import {
   currentScreenRouteId,
@@ -37,10 +37,6 @@ const navigationIcons: Record<RouteNavigationEntry["icon"], typeof Home> = {
 
 export const Shell = observer(function Shell({ children }: { children: ReactNode }) {
   const store = useStore();
-  const [, refreshSessionTruth] = useReducer((revision: number) => revision + 1, 0);
-  useEffect(() => localDiagnostics.subscribe((event) => {
-    if (event?.name === "browser.session.state") refreshSessionTruth();
-  }), []);
   const project = store.projects.selectedProject;
   const location = useLocation();
   const currentRouteId = currentScreenRouteId(location.pathname);
@@ -112,7 +108,12 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
         </header>
         <ApplicationRecoveryNotice recovery={recovery} onRecover={() => store.recover()} />
         <div ref={routeContent} className="route-content" tabIndex={-1} aria-busy={recovery.status === "reconciling"}>
-          {children}
+          <SectionNavigationProvider
+            projectId={selectedProjectId}
+            pendingInboxCount={pendingInboxCount}
+          >
+            {children}
+          </SectionNavigationProvider>
         </div>
       </main>
     </div>

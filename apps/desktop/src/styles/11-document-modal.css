@@ -134,6 +134,30 @@
   overflow: hidden;
 }
 
+/* MDXEditor ships its own light palette on the editor root. Rebind that
+   palette to the app's semantic tokens so content and controls stay readable
+   in both system themes. The extra parent selector intentionally outranks the
+   library's generated root class, including when its lazy CSS loads later. */
+.document-editor-body .mdx-rich-editor {
+  --basePageBg: var(--surface-raised);
+  --baseBase: var(--surface);
+  --baseBgSubtle: var(--surface-sunken);
+  --baseBg: var(--surface-2);
+  --baseBgHover: color-mix(in srgb, var(--surface-2) 82%, var(--text));
+  --baseBgActive: color-mix(in srgb, var(--surface-2) 70%, var(--text));
+  --baseLine: var(--border);
+  --baseBorder: var(--border);
+  --baseBorderHover: var(--border-strong);
+  --baseSolid: var(--text-muted);
+  --baseSolidHover: var(--text);
+  --baseText: var(--text-muted);
+  --baseTextContrast: var(--text);
+  --accentSolid: var(--accent);
+  --accentSolidHover: var(--accent);
+  --accentText: var(--accent);
+  --accentTextContrast: var(--on-accent-subtle);
+}
+
 .mdx-rich-editor .mdxeditor-toolbar {
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);

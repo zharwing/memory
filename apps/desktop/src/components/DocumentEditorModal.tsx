@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
+import type { MemoryDocument } from "@zharwing/memory-core";
 import {
   BoldItalicUnderlineToggles,
   CreateLink,
@@ -37,6 +38,12 @@ import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
 import { isLikelyMermaidSource } from "./markdown/MermaidDiagramPreview.js";
 import { formatShortDateTime } from "../utils/format.js";
 import { StatusNotice } from "./AccessibleStatus.js";
+import {
+  createDocumentEditorState,
+  documentEditorReducer,
+  normalizeDocumentBody,
+  type DocumentEditorMode
+} from "./document-editor-state.js";
 
 export function DocumentEditorModal({
   doc,
@@ -45,52 +52,38 @@ export function DocumentEditorModal({
   onSave,
   onDelete
 }: {
-  doc: any;
+  doc: MemoryDocument;
   saving: boolean;
   onClose: () => void;
-  onSave: (changes: { title: string; body: string }) => Promise<any>;
+  onSave: (changes: { title: string; body: string }) => Promise<MemoryDocument | undefined>;
   onDelete: () => Promise<void>;
 }) {
-  const [mode, setMode] = useState<"preview" | "markdown">("preview");
-  const [title, setTitle] = useState(doc.title || "");
-  const [body, setBody] = useState(doc.body || "");
-  const [savedTitle, setSavedTitle] = useState(doc.title || "");
-  const [savedBody, setSavedBody] = useState(doc.body || "");
-  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
-  const [editorRevision, setEditorRevision] = useState(0);
-  const [richEditorFailed, setRichEditorFailed] = useState(false);
-  const [localSaving, setLocalSaving] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const [editor, dispatch] = useDocumentEditor(doc);
+  const {
+    mode,
+    title,
+    body,
+    savedTitle,
+    savedBody,
+    showDiscardDialog,
+    editorRevision,
+    richEditorFailed,
+    localSaving,
+    saveFailed
+  } = editor;
   const isDiagramDocument = doc.type === "diagram";
   const hasMermaidDiagram = containsMermaidDiagram(body);
   const useRenderedPreview = mode === "preview" && (isDiagramDocument || hasMermaidDiagram || richEditorFailed);
   const dirty = title !== savedTitle || normalizeDocumentBody(body) !== normalizeDocumentBody(savedBody);
   const saveInProgress = saving || localSaving;
 
-  useEffect(() => {
-    setMode("preview");
-    setTitle(doc.title || "");
-    setBody(doc.body || "");
-    setSavedTitle(doc.title || "");
-    setSavedBody(doc.body || "");
-    setShowDiscardDialog(false);
-    setLocalSaving(false);
-    setSaveFailed(false);
-    setRichEditorFailed(false);
-    setEditorRevision((revision) => revision + 1);
-  }, [doc.id]);
-
   function discardLocalChanges() {
-    setMode("preview");
-    setTitle(savedTitle);
-    setBody(savedBody);
-    setShowDiscardDialog(false);
-    setEditorRevision((revision) => revision + 1);
+    dispatch({ type: "discard-changes" });
   }
 
   function requestClose() {
     if (dirty) {
-      setShowDiscardDialog(true);
+      dispatch({ type: "open-discard-dialog" });
       return;
     }
     onClose();
@@ -102,40 +95,30 @@ export function DocumentEditorModal({
   }
 
   function updateBodyFromRichEditor(nextBody: string, initialMarkdownNormalize: boolean) {
-    const bodyWasClean = normalizeDocumentBody(body) === normalizeDocumentBody(savedBody);
-    if (initialMarkdownNormalize && title === savedTitle && bodyWasClean) {
-      setBody(nextBody);
-      setSavedBody(nextBody);
-      return;
-    }
-    setBody(nextBody);
+    dispatch({ type: "change-rich-body", body: nextBody, initialMarkdownNormalize });
   }
 
   async function saveDocument() {
     if (!title.trim() || saveInProgress) return;
-    setLocalSaving(true);
-    setSaveFailed(false);
+    dispatch({ type: "save-started" });
     try {
       const updated = await onSave({ title: title.trim(), body });
       if (!updated) {
-        setSaveFailed(true);
+        dispatch({ type: "save-failed" });
         return;
       }
       const nextTitle = updated.title || title.trim();
       const nextBody = typeof updated.body === "string" ? updated.body : body;
-      const shouldResetEditor = nextBody !== body;
-      setTitle(nextTitle);
-      setBody(nextBody);
-      setSavedTitle(nextTitle);
-      setSavedBody(nextBody);
-      setShowDiscardDialog(false);
-      if (shouldResetEditor) {
-        setEditorRevision((revision) => revision + 1);
-      }
+      dispatch({
+        type: "save-succeeded",
+        title: nextTitle,
+        body: nextBody,
+        resetEditor: nextBody !== body
+      });
     } catch {
-      setSaveFailed(true);
+      dispatch({ type: "save-failed" });
     } finally {
-      setLocalSaving(false);
+      dispatch({ type: "save-finished" });
     }
   }
 
@@ -145,7 +128,7 @@ export function DocumentEditorModal({
         if (event.defaultPrevented) return;
         event.preventDefault();
         if (showDiscardDialog) {
-          setShowDiscardDialog(false);
+          dispatch({ type: "close-discard-dialog" });
           return;
         }
         void requestClose();
@@ -169,7 +152,7 @@ export function DocumentEditorModal({
             <input
               className="document-title-input"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => dispatch({ type: "change-title", title: event.target.value })}
               aria-label="Document title"
               placeholder="Document title"
               required
@@ -212,7 +195,7 @@ export function DocumentEditorModal({
             role="group"
             ariaLabel="Document editor mode"
             value={mode}
-            onChange={(nextMode) => setMode(nextMode as "preview" | "markdown")}
+            onChange={(nextMode) => dispatch({ type: "change-mode", mode: nextMode as DocumentEditorMode })}
             options={[
               { value: "preview", label: isDiagramDocument || hasMermaidDiagram ? "Rendered" : "Preview" },
               { value: "markdown", label: "Markdown" }
@@ -235,14 +218,14 @@ export function DocumentEditorModal({
               className="mdx-rich-editor"
               markdown={body}
               onChange={updateBodyFromRichEditor}
-              onError={() => setRichEditorFailed(true)}
+              onError={() => dispatch({ type: "rich-editor-failed" })}
               plugins={markdownEditorPlugins}
             />
           ) : (
             <textarea
               className="markdown-source-editor"
               value={body}
-              onChange={(event) => setBody(event.target.value)}
+              onChange={(event) => dispatch({ type: "change-body", body: event.target.value })}
               spellCheck={false}
               aria-label="Markdown source"
             />
@@ -258,12 +241,12 @@ export function DocumentEditorModal({
             }
             backdropClassName="dialog-backdrop"
             className="confirm-dialog"
-            onClose={() => setShowDiscardDialog(false)}
+            onClose={() => dispatch({ type: "close-discard-dialog" })}
             closeOnEscape={false}
             initialFocus="least-destructive"
           >
             <div className="button-row">
-              <button type="button" data-dialog-cancel onClick={() => setShowDiscardDialog(false)}>Keep Editing</button>
+              <button type="button" data-dialog-cancel onClick={() => dispatch({ type: "close-discard-dialog" })}>Keep Editing</button>
               <button type="button" className="danger-button" onClick={confirmDiscardAndClose}>
                 Discard Changes
               </button>
@@ -274,8 +257,12 @@ export function DocumentEditorModal({
   );
 }
 
-function normalizeDocumentBody(value: string) {
-  return value.replace(/\r\n/g, "\n").trimEnd();
+function useDocumentEditor(doc: MemoryDocument) {
+  const [state, dispatch] = useReducer(documentEditorReducer, doc, createDocumentEditorState);
+  useEffect(() => {
+    dispatch({ type: "reset-document", doc });
+  }, [doc.id]);
+  return [state, dispatch] as const;
 }
 
 function containsMermaidDiagram(value: string) {

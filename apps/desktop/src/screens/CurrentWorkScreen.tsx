@@ -111,6 +111,7 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
       {closeoutOpen ? (
         <SessionCloseoutDialog
           session={active}
+          sessions={store.sessions}
           title="Close this work log?"
           confirmLabel="Close work log"
           onCancel={() => setCloseoutOpen(false)}

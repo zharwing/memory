@@ -42,15 +42,17 @@ From `apps/desktop/src/app/recovery/index.ts`:
 From `apps/desktop/src/platform/diagnostics/index.ts`:
 
 - `LocalDiagnosticJournal`
-- `localDiagnostics`
 - `SafeDiagnosticInput`
 - `ClosedDiagnosticInput`
 - `SafeDiagnosticEvent`
 - `SanitizedDiagnosticReport`
 - `DiagnosticSurface`
 - `DiagnosticEventName`
-- `installProductionConsoleSentinel(enabled, journal?)`
-- `InMemoryDiagnosticSink`
+- `installProductionConsoleSentinel(enabled, journal)`
+
+The application runtime owns one `LocalDiagnosticJournal` and injects it into
+recovery and console-sentinel surfaces. There is no process-global diagnostic
+journal or second in-memory sink.
 
 ## Store exports
 

@@ -1,13 +1,22 @@
-import { makeAutoObservable } from "mobx";
+import { action, makeAutoObservable } from "mobx";
 import { createPublicError, type PublicError } from "@zharwing/memory-core";
-import type { BrowserSessionLockReason } from "@zharwing/memory-api-client";
+import type {
+  BrowserSessionLockReason,
+  BrowserSessionState
+} from "@zharwing/memory-api-client";
 import type { AppServices } from "../app/composition/ports.js";
 import type {
   StoreAsyncRuntimePort,
   StoreCoordinatorPort
 } from "../application/operations/store-ports.js";
-import { ProjectScopeCoordinator } from "../application/project-scope/project-scope-coordinator.js";
-import { publicErrorCopy } from "../application/resources/resource-state.js";
+import {
+  ApplicationScopeCoordinator,
+  ProjectScopeCoordinator
+} from "../application/project-scope/project-scope-coordinator.js";
+import {
+  publicErrorCopy,
+  type ResourceSlot
+} from "../application/resources/resource-state.js";
 import { AssistantStore } from "./assistant-store.js";
 import { DocsStore } from "./docs-store.js";
 import { GraphStore } from "./graph-store.js";
@@ -26,8 +35,17 @@ export type AppRecoveryState =
   | { readonly status: "stale"; readonly error: PublicError; readonly staleResourceCount: number }
   | { readonly status: "failed"; readonly error: PublicError };
 
+type RecoveryResourceSlot = ResourceSlot<never> | ResourceSlot<unknown>;
+type ReconciliationScope = "application" | "desktop-control" | "project" | "none";
+
+interface ResourceRegistration {
+  readonly slot: RecoveryResourceSlot;
+  readonly reconciliation: ReconciliationScope;
+}
+
 /** Composes stores around one synchronous project-generation authority. */
 export class RootStore {
+  readonly applicationScope: ApplicationScopeCoordinator;
   readonly projectScope: ProjectScopeCoordinator;
   readonly projects: ProjectStore;
   readonly sessions: SessionStore;
@@ -41,11 +59,22 @@ export class RootStore {
 
   private disposed = false;
   private initializePromise: Promise<void> | undefined;
+  private applicationInitialized = false;
+  private requestedProjectId: string | undefined;
+  private requestedProjectRevision = 0;
+  private appliedProjectRevision = 0;
   private unsubscribeScopeReset: (() => void) | undefined;
+  private unsubscribeBrowserSession: (() => void) | undefined;
   private readonly browserSession: AppServices["browserSession"];
+  private browserSessionState: BrowserSessionState | undefined;
 
-  constructor(services: Pick<AppServices, "memory" | "scheduler" | "clock" | "ids" | "browserSession">) {
+  constructor(services: Pick<
+    AppServices,
+    "memory" | "scheduler" | "clock" | "ids" | "preferences" | "browserSession"
+  >) {
     this.browserSession = services.browserSession;
+    this.browserSessionState = services.browserSession?.state;
+    this.applicationScope = new ApplicationScopeCoordinator();
     this.projectScope = new ProjectScopeCoordinator();
     const runtime: StoreAsyncRuntimePort = {
       createId: (prefix) => `${prefix}:${services.ids.create()}`,
@@ -70,7 +99,7 @@ export class RootStore {
       replaceGraph: (data) => this.graph.replace(data)
     };
 
-    this.projects = new ProjectStore(services.memory, this.projectScope, {
+    this.projects = new ProjectStore(services.memory, this.projectScope, this.applicationScope, {
       resetProjectTransient: coordinator.resetProjectTransient,
       refreshAll: coordinator.refreshAll,
       clearProjectResources: coordinator.clearProjectResources,
@@ -96,7 +125,7 @@ export class RootStore {
       refreshProjects: coordinator.refreshProjects,
       refreshProjectSummary: coordinator.refreshProjectSummary,
       refreshInbox: coordinator.refreshInbox
-    }, runtime);
+    }, services.preferences, runtime);
     this.semantic = new SemanticStore(services.memory, this.projectScope, {
       graphRelationshipMode: coordinator.graphRelationshipMode,
       replaceInboxItems: coordinator.replaceInboxItems,
@@ -115,7 +144,7 @@ export class RootStore {
       refreshProjects: coordinator.refreshProjects,
       refreshProjectSummary: coordinator.refreshProjectSummary
     }, runtime);
-    this.system = new SystemStore(services.memory, this.projectScope, {
+    this.system = new SystemStore(services.memory, this.projectScope, this.applicationScope, {
       refreshProjects: coordinator.refreshProjects,
       refreshAll: coordinator.refreshAll,
       refreshDocs: coordinator.refreshDocs,
@@ -129,8 +158,14 @@ export class RootStore {
     });
     makeAutoObservable<
       this,
-      "disposed" | "initializePromise" | "unsubscribeScopeReset" | "browserSession" | "resourceSlots" | "reconciliationSlots" | "operationErrors" | "clearReconciledOperations"
+      "disposed" | "initializePromise" | "applicationInitialized" |
+      "requestedProjectId" | "requestedProjectRevision" | "appliedProjectRevision" |
+      "unsubscribeScopeReset" | "unsubscribeBrowserSession" | "browserSession" |
+      "browserSessionState" | "resourceManifest" | "resourceSlots" |
+      "reconciliationSlots" | "operationErrors" | "clearReconciledOperations" |
+      "initializeLatestProject"
     >(this, {
+      applicationScope: false,
       projectScope: false,
       projects: false,
       sessions: false,
@@ -143,17 +178,24 @@ export class RootStore {
       system: false,
       disposed: false,
       initializePromise: false,
+      applicationInitialized: false,
+      requestedProjectId: false,
+      requestedProjectRevision: false,
+      appliedProjectRevision: false,
       unsubscribeScopeReset: false,
+      unsubscribeBrowserSession: false,
       browserSession: false,
+      browserSessionState: true,
+      resourceManifest: false,
       resourceSlots: false,
       reconciliationSlots: false,
       operationErrors: false,
       clearReconciledOperations: false,
-      // BrowserSessionPort is intentionally framework-neutral rather than a
-      // MobX observable. Recompute on every observer render; the sanitized
-      // session diagnostic subscription in Shell triggers that render.
-      recoveryState: false
+      initializeLatestProject: false
     });
+    this.unsubscribeBrowserSession = this.browserSession?.subscribe(action("update browser session state", (state) => {
+      this.browserSessionState = state;
+    }));
   }
 
   private get domainStores() {
@@ -170,36 +212,42 @@ export class RootStore {
     ];
   }
 
-  private get resourceSlots() {
+  /** One declarative registry drives global error, stale, and reconciliation truth. */
+  private get resourceManifest(): readonly ResourceRegistration[] {
     return [
-      this.projects.projectsResource,
-      this.projects.summaryResource,
-      this.projects.repoLinksResource,
-      this.projects.projectCreationPreviewResource,
-      this.sessions.listResource,
-      this.sessions.detailBodiesResource,
-      this.docs.listResource,
-      this.docs.searchResource,
-      this.workstreams.listResource,
-      this.workstreams.detailResource,
-      this.graph.graphResource,
-      this.semantic.settingsResource,
-      this.semantic.statusResource,
-      this.semantic.edgesResource,
-      this.semantic.runsResource,
-      this.inbox.inboxResource,
-      this.assistant.statusResource,
-      this.assistant.providerCheckResource,
-      this.assistant.contextBundleResource,
-      this.system.daemonHealthResource,
-      this.system.mcpDoctorResource,
-      this.system.mcpInstallResource,
-      this.system.backupsResource,
-      this.system.trashResource,
-      this.system.importProfilesResource,
-      this.system.importPlanResource,
-      this.system.importResultResource
+      register(this.projects.projectsResource, "application"),
+      register(this.projects.summaryResource, "project"),
+      register(this.projects.repoLinksResource, "project"),
+      register(this.projects.projectCreationPreviewResource, "none"),
+      register(this.sessions.listResource, "project"),
+      register(this.sessions.detailBodiesResource, "none"),
+      register(this.docs.listResource, "project"),
+      register(this.docs.searchResource, "none"),
+      register(this.workstreams.listResource, "project"),
+      register(this.workstreams.detailResource, "none"),
+      register(this.graph.graphResource, "project"),
+      register(this.semantic.settingsResource, "project"),
+      register(this.semantic.statusResource, "project"),
+      register(this.semantic.edgesResource, "project"),
+      register(this.semantic.runsResource, "project"),
+      register(this.inbox.inboxResource, "project"),
+      register(this.assistant.statusResource, "project"),
+      register(this.assistant.providerCheckResource, "none"),
+      register(this.assistant.providerSecretStatusResource, "project"),
+      register(this.assistant.contextBundleResource, "project"),
+      register(this.system.daemonHealthResource, "application"),
+      register(this.system.mcpDoctorResource, "desktop-control"),
+      register(this.system.mcpInstallResource, "none"),
+      register(this.system.backupsResource, "project"),
+      register(this.system.trashResource, "desktop-control"),
+      register(this.system.importProfilesResource, "none"),
+      register(this.system.importPlanResource, "none"),
+      register(this.system.importResultResource, "none")
     ];
+  }
+
+  private get resourceSlots(): readonly RecoveryResourceSlot[] {
+    return this.resourceManifest.map(({ slot }) => slot);
   }
 
   private get operationErrors(): readonly PublicError[] {
@@ -209,29 +257,14 @@ export class RootStore {
   }
 
   private get reconciliationSlots() {
-    const application = [
-      this.projects.projectsResource,
-      this.system.daemonHealthResource,
-      ...(!this.browserSession ? [this.system.mcpDoctorResource, this.system.trashResource] : [])
-    ];
-    if (!this.projectScope.captureScope()) return application;
-    return [
-      ...application,
-      this.projects.summaryResource,
-      this.projects.repoLinksResource,
-      this.sessions.listResource,
-      this.docs.listResource,
-      this.workstreams.listResource,
-      this.graph.graphResource,
-      this.semantic.settingsResource,
-      this.semantic.statusResource,
-      this.semantic.edgesResource,
-      this.semantic.runsResource,
-      this.inbox.inboxResource,
-      this.assistant.statusResource,
-      this.assistant.contextBundleResource,
-      this.system.backupsResource
-    ];
+    const projectActive = Boolean(this.projectScope.captureScope());
+    return this.resourceManifest
+      .filter(({ reconciliation }) =>
+        reconciliation === "application" ||
+        (reconciliation === "desktop-control" && !this.browserSession) ||
+        (reconciliation === "project" && projectActive)
+      )
+      .map(({ slot }) => slot);
   }
 
   get loading(): boolean {
@@ -247,7 +280,7 @@ export class RootStore {
   }
 
   get recoveryState(): AppRecoveryState {
-    const browserState = this.browserSession?.state;
+    const browserState = this.browserSessionState;
     const unauthorized = this.allErrors.find((error) => error.code === "unauthorized");
     if (browserState?.status === "locked" || unauthorized) {
       return {
@@ -284,24 +317,49 @@ export class RootStore {
   }
 
   initialize(preferredProjectId?: string): Promise<void> {
-    if (this.initializePromise) {
-      if (preferredProjectId && preferredProjectId !== this.projectScope.currentProjectId()) {
-        const project = this.projects.list.find((candidate) => candidate.id === preferredProjectId);
-        if (project) {
-          this.projects.selectProject(preferredProjectId);
-          return Promise.resolve();
-        }
-      }
-      return this.initializePromise;
+    this.requestedProjectId = preferredProjectId;
+    this.requestedProjectRevision += 1;
+    // Once the global list is accepted, URL changes can synchronously cancel
+    // the previous project's reads instead of waiting for their full latency.
+    const requestedProject = preferredProjectId
+      ? this.projects.list.find((project) => project.id === preferredProjectId)
+      : undefined;
+    if (this.applicationInitialized && requestedProject &&
+        requestedProject.id !== this.projectScope.currentProjectId()) {
+      this.projects.selectProject(requestedProject.id, { refresh: false });
     }
-    this.initializePromise = (async () => {
+    if (this.initializePromise) return this.initializePromise;
+    this.initializePromise = this.initializeLatestProject().finally(() => {
+      this.initializePromise = undefined;
+    });
+    return this.initializePromise;
+  }
+
+  private async initializeLatestProject(): Promise<void> {
+    if (!this.applicationInitialized) {
       await Promise.all([
-        this.projects.load(preferredProjectId),
+        this.projects.load(undefined, { activate: false }),
         this.system.loadDaemonHealth()
       ]);
-      await this.refreshAll();
-    })();
-    return this.initializePromise;
+      this.applicationInitialized = true;
+    }
+    while (!this.disposed && this.appliedProjectRevision < this.requestedProjectRevision) {
+      const revision = this.requestedProjectRevision;
+      const requestedProjectId = this.requestedProjectId;
+      const requestedProject = requestedProjectId
+        ? this.projects.list.find((project) => project.id === requestedProjectId)
+        : undefined;
+      const currentProject = this.projects.list.find(
+        (project) => project.id === this.projectScope.currentProjectId()
+      );
+      const selectedProject = requestedProject ?? currentProject ?? this.projects.list[0];
+      if (selectedProject && selectedProject.id !== this.projectScope.currentProjectId()) {
+        this.projects.selectProject(selectedProject.id, { refresh: false });
+      }
+      const token = this.projectScope.captureScope();
+      if (token) await this.refreshAll(token);
+      this.appliedProjectRevision = revision;
+    }
   }
 
   /** Full reload for the one accepted project generation. */
@@ -329,8 +387,9 @@ export class RootStore {
   /** Re-observe application and selected-project state without retrying an effect. */
   async recover(): Promise<void> {
     const preferredProjectId = this.projects.selectedProjectId || undefined;
+    const providerSecretKind = this.assistant.providerSecretKind;
     const applicationReads: Promise<void>[] = [
-      this.projects.load(preferredProjectId),
+      this.projects.load(preferredProjectId, { activate: false }),
       this.system.loadDaemonHealth()
     ];
     // MCP configuration and global trash are desktop/admin control-plane
@@ -340,8 +399,18 @@ export class RootStore {
       applicationReads.push(this.system.loadMcpDoctor(), this.system.loadTrash());
     }
     await Promise.all(applicationReads);
+    const selectedProject = this.projects.list.find((project) => project.id === preferredProjectId) ??
+      this.projects.list[0];
+    if (selectedProject) this.projects.selectProject(selectedProject.id, { refresh: false });
+    else this.projectScope.clear();
     const token = this.projectScope.captureScope();
-    if (token) await this.refreshAll(token);
+    if (token) {
+      const projectReads: Promise<void>[] = [this.refreshAll(token)];
+      if (providerSecretKind) {
+        projectReads.push(this.assistant.loadProviderSecretStatus(providerSecretKind));
+      }
+      await Promise.all(projectReads);
+    }
     if (this.reconciliationSlots.every((slot) => !slot.error)) this.clearReconciledOperations();
   }
 
@@ -377,7 +446,17 @@ export class RootStore {
     this.disposed = true;
     this.unsubscribeScopeReset?.();
     this.unsubscribeScopeReset = undefined;
+    this.unsubscribeBrowserSession?.();
+    this.unsubscribeBrowserSession = undefined;
     this.semantic.dispose();
     this.projectScope.dispose();
+    this.applicationScope.dispose();
   }
+}
+
+function register<T>(
+  slot: ResourceSlot<T>,
+  reconciliation: ReconciliationScope
+): ResourceRegistration {
+  return { slot: slot as RecoveryResourceSlot, reconciliation };
 }

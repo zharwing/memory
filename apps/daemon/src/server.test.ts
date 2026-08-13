@@ -548,7 +548,27 @@ test("personal preview has a bounded loopback authMode=none session path and tok
     body: JSON.stringify({ projectId: "preview-project" })
   });
   assert.equal(selected.status, 200);
-  assert.equal(JSON.parse(selected.body).projectId, "preview-project");
+  const selectedBody = JSON.parse(selected.body) as Record<string, unknown>;
+  assert.equal(selectedBody.projectId, "preview-project");
+
+  const secondTab = await request(`${preview.base}/browser-session/preview`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: "{}"
+  });
+  assert.equal(secondTab.status, 200);
+  const firstTabAfterSharedCookieChange = await request(`${preview.base}/browser-session/rotate`, {
+    method: "POST",
+    headers: {
+      origin,
+      cookie: sessionCookie(secondTab),
+      "content-type": "application/json",
+      "x-csrf-token": String(selectedBody.csrfToken)
+    },
+    body: "{}"
+  });
+  assert.equal(firstTabAfterSharedCookieChange.status, 200);
+  assert.equal(JSON.parse(firstTabAfterSharedCookieChange.body).projectId, "preview-project");
 
   const tokenAdmission = deterministicAdmission(t);
   const tokenPreview = await startComposedServer(t, testConfig(), tokenAdmission);

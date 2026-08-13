@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
+import type { ImportCandidate } from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
@@ -135,7 +136,7 @@ export const ImportScreen = observer(function ImportScreen() {
             </select>
             <button type="submit">Commit Reviewed Import</button>
           </form>
-          <DataTable ariaLabel="Import preview candidates" columns={["kind", "title", "relativePath", "targetPath", "warnings"]} rows={candidates.slice(0, 40).map((candidate: any) => ({
+          <DataTable ariaLabel="Import preview candidates" columns={["kind", "title", "relativePath", "targetPath", "warnings"]} rows={candidates.slice(0, 40).map((candidate: ImportCandidate) => ({
             ...candidate,
             warnings: Array.isArray(candidate.warnings) ? candidate.warnings.length : 0
           }))} />

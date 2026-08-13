@@ -5,18 +5,39 @@ import { Empty, Panel, Screen } from "../components/layout.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { DirectoryField } from "../components/DirectoryField.js";
 import { ListRow } from "../components/ListRow.js";
-import { ErrorSummary, type FormError } from "../components/FormField.js";
+import {
+  ErrorSummary,
+  TextAreaField,
+  TextField,
+  type FormError
+} from "../components/FormField.js";
+import { useAsyncAction } from "../utils/useAsyncAction.js";
+import { useDraft } from "../hooks/useDraft.js";
+
+interface RepositoryDraft {
+  repoPath: string;
+  repoName: string;
+  role: string;
+  description: string;
+  defaultBranch: string;
+  writePointerFile: boolean;
+}
+
+const REPOSITORY_DRAFT_DEFAULTS: RepositoryDraft = {
+  repoPath: "",
+  repoName: "",
+  role: "",
+  description: "",
+  defaultBranch: "",
+  writePointerFile: true
+};
 
 export const RepositoriesScreen = observer(function RepositoriesScreen() {
   const store = useStore();
-  const [repoPath, setRepoPath] = useState("");
-  const [repoName, setRepoName] = useState("");
-  const [role, setRole] = useState("");
-  const [description, setDescription] = useState("");
-  const [defaultBranch, setDefaultBranch] = useState("");
-  const [writePointerFile, setWritePointerFile] = useState(true);
+  const [draft, patchDraft, setDraft] = useDraft<RepositoryDraft>(REPOSITORY_DRAFT_DEFAULTS);
   const [formErrors, setFormErrors] = useState<FormError[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const submit = useAsyncAction();
+  const { repoPath, repoName, role, description, defaultBranch, writePointerFile } = draft;
 
   useEffect(() => {
     if (store.projects.selectedProjectId) void store.projects.loadRepoLinks();
@@ -53,15 +74,14 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
         </div>
       </Panel>
       <Panel title="Link Repo">
-        <form className="stacked-form" aria-busy={submitting} onSubmit={async (event) => {
+        <form className="stacked-form" aria-busy={submit.pending} onSubmit={(event) => {
           event.preventDefault();
           const errors: FormError[] = [];
           if (!repoPath.trim()) errors.push({ id: "repository-path", message: "Choose or enter a repository folder." });
           setFormErrors(errors);
-          if (errors.length || submitting) return;
+          if (errors.length || submit.pending) return;
           const previousCount = store.projects.repoLinks.length;
-          setSubmitting(true);
-          try {
+          void submit.run(async () => {
             await store.projects.linkRepo({
               repoPath,
               role: role || "other",
@@ -71,24 +91,20 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
               writePointerFile
             });
             if (store.projects.repoLinks.length > previousCount) {
-              setRepoPath("");
-              setRepoName("");
-              setRole("");
-              setDescription("");
-              setDefaultBranch("");
+              // Preserve the user's pointer-file choice across successful links.
+              setDraft((current) => ({
+                ...REPOSITORY_DRAFT_DEFAULTS,
+                writePointerFile: current.writePointerFile
+              }));
             }
-          } catch {
-            // The shared operation layer owns public failure copy; retain fields.
-          } finally {
-            setSubmitting(false);
-          }
+          });
         }}>
           <ErrorSummary errors={formErrors} />
           <label htmlFor="repository-path">Repo path</label>
           <DirectoryField
             id="repository-path"
             value={repoPath}
-            onChange={(value) => { setRepoPath(value); setFormErrors([]); }}
+            onChange={(value) => { patchDraft({ repoPath: value }); setFormErrors([]); }}
             placeholder="<absolute-path-to-repo-root>"
             describedBy={`repository-path-help${formErrors.length ? " repository-path-error" : ""}`}
             invalid={formErrors.length > 0}
@@ -99,30 +115,18 @@ export const RepositoriesScreen = observer(function RepositoriesScreen() {
             Zharwing Memory will resolve it to the repo root.
           </p>
           {formErrors.length ? <p id="repository-path-error" className="field-error">Choose or enter a repository folder.</p> : null}
-          <label htmlFor="repository-name">
-            <span>Name</span>
-            <input id="repository-name" value={repoName} onChange={(event) => setRepoName(event.target.value)} placeholder="Product web runtime" autoComplete="off" />
-          </label>
-          <label htmlFor="repository-category">
-            <span>Category</span>
-            <input id="repository-category" value={role} onChange={(event) => setRole(event.target.value)} placeholder="service, app, docs, worker, wrapper" autoComplete="off" />
-          </label>
-          <label htmlFor="repository-description">
-            <span>Description</span>
-            <textarea id="repository-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What this repository owns" rows={3} />
-          </label>
-          <label htmlFor="repository-default-branch">
-            <span>Default branch</span>
-            <input id="repository-default-branch" value={defaultBranch} onChange={(event) => setDefaultBranch(event.target.value)} placeholder="main" autoComplete="off" spellCheck={false} />
-          </label>
+          <TextField label="Name" id="repository-name" value={repoName} onChange={(event) => patchDraft({ repoName: event.target.value })} placeholder="Product web runtime" autoComplete="off" />
+          <TextField label="Category" id="repository-category" value={role} onChange={(event) => patchDraft({ role: event.target.value })} placeholder="service, app, docs, worker, wrapper" autoComplete="off" />
+          <TextAreaField label="Description" id="repository-description" value={description} onChange={(event) => patchDraft({ description: event.target.value })} placeholder="What this repository owns" rows={3} />
+          <TextField label="Default branch" id="repository-default-branch" value={defaultBranch} onChange={(event) => patchDraft({ defaultBranch: event.target.value })} placeholder="main" autoComplete="off" spellCheck={false} />
           <label className="checkbox-row">
-            <input type="checkbox" checked={writePointerFile} onChange={(event) => setWritePointerFile(event.target.checked)} />
+            <input type="checkbox" checked={writePointerFile} onChange={(event) => patchDraft({ writePointerFile: event.target.checked })} />
             <span>Write pointer file</span>
           </label>
           <p className="field-help">
             Pointer files are small `.zharwing/memory.json` files in linked repos (legacy `.ai-memory.json` files are still detected). They help agents auto-detect this project from the repo.
           </p>
-          <button type="submit" disabled={!store.projects.selectedProjectId || submitting} aria-busy={submitting}>{submitting ? "Linking…" : "Link Repo"}</button>
+          <button type="submit" disabled={!store.projects.selectedProjectId || submit.pending} aria-busy={submit.pending}>{submit.pending ? "Linking…" : "Link Repo"}</button>
         </form>
       </Panel>
       {store.projects.selectedProjectId && hasLinkedRepos ? (

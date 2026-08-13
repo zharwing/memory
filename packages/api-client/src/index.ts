@@ -9,7 +9,8 @@ import {
 import {
   BrowserMemoryTransport,
   BrowserSessionController,
-  type BrowserSessionControllerOptions
+  type BrowserSessionControllerOptions,
+  type BrowserSessionObservable
 } from "./browser-transport.js";
 import {
   OperationClient,
@@ -34,6 +35,10 @@ export * from "./credential-transport.js";
 export * from "./tauri-transport.js";
 export * from "./client.js";
 export * from "./local-url.js";
+
+// Keep this composition-facing contract visible even when consumers resolve
+// the package through its generated declaration entrypoint.
+export type { BrowserSessionObservable };
 
 export interface BrowserMemoryClientOptions extends Omit<BrowserSessionControllerOptions, "baseUrl"> {
   baseUrl?: string;

@@ -29,12 +29,12 @@ for (const [index, url] of urls.entries()) {
       "--no-first-run",
       "--no-default-browser-check",
       `--user-data-dir=${profile}`,
-      "--virtual-time-budget=10000",
+      "--virtual-time-budget=5000",
       "--dump-dom",
       url
     ], {
       encoding: "utf8",
-      timeout: 30_000,
+      timeout: 60_000,
       windowsHide: true,
       maxBuffer: 20 * 1024 * 1024
     });

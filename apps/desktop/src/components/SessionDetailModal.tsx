@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { MoreHorizontal, X } from "lucide-react";
-import { useStore } from "../stores/store-context.js";
+import type { Session, SessionSummary } from "@zharwing/memory-core";
 import { Modal } from "./Modal.js";
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton.js";
 import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
@@ -11,6 +11,17 @@ import { StatusNotice } from "./AccessibleStatus.js";
 
 const SUMMARY_CLAMP_CHARS = 260;
 
+export type SessionReaderModel = Session | (SessionSummary & { body?: string });
+
+export interface SessionDetailPort {
+  readonly loading: boolean;
+  readonly list: readonly SessionReaderModel[];
+  generateSummary(sessionId: string, force?: boolean): Promise<void>;
+  deleteSession(sessionId: string): Promise<void>;
+  updateGraphVisibility(sessionId: string, includeInGraph: boolean): Promise<void>;
+  closeSession(sessionId: string, summary?: string): Promise<void>;
+}
+
 /**
  * Session reader: the work log gets the dominant reading column, everything
  * supplemental (TL;DR, facts, graph opt-in) sits in a narrow inspector, and
@@ -19,14 +30,15 @@ const SUMMARY_CLAMP_CHARS = 260;
  */
 export const SessionDetailModal = observer(function SessionDetailModal({
   session,
+  sessions,
   onClose,
   onDeleted
 }: {
-  session: any;
+  session: SessionReaderModel;
+  sessions: SessionDetailPort;
   onClose: () => void;
   onDeleted?: () => void;
 }) {
-  const store = useStore();
   const [closeoutOpen, setCloseoutOpen] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const isActive = session.status === "active";
@@ -40,7 +52,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
   const clipboardAvailable = typeof navigator !== "undefined" && typeof navigator.clipboard?.writeText === "function";
 
   function generateSummary() {
-    void store.sessions.generateSummary(session.id, true);
+    void sessions.generateSummary(session.id, true);
   }
 
   return (
@@ -76,7 +88,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
               <button
                 type="button"
                 className="icon-text-button primary"
-                disabled={store.sessions.loading}
+                disabled={sessions.loading}
                 onClick={() => setCloseoutOpen(true)}
               >
                 Close session
@@ -105,7 +117,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                       disabled={!clipboardAvailable}
                       title={clipboardAvailable ? undefined : "Clipboard access is unavailable in this environment"}
                       onClick={() => {
-                        void navigator.clipboard?.writeText(session.branch);
+                        void navigator.clipboard?.writeText(session.branch!);
                         closeMenu();
                       }}
                     >
@@ -114,7 +126,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                   ) : null}
                   <button
                     type="button"
-                    disabled={store.sessions.loading}
+                    disabled={sessions.loading}
                     onClick={() => {
                       generateSummary();
                       closeMenu();
@@ -132,7 +144,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                       critical={isActive}
                       label="Move to trash"
                       onConfirm={async () => {
-                        await store.sessions.deleteSession(session.id);
+                        await sessions.deleteSession(session.id);
                         (onDeleted || onClose)();
                       }}
                     />
@@ -167,7 +179,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
               <div className="inspector-section-head">
                 <h4>TL;DR</h4>
                 {summary ? (
-                  <button type="button" className="link-button" disabled={store.sessions.loading} onClick={generateSummary}>
+                  <button type="button" className="link-button" disabled={sessions.loading} onClick={generateSummary}>
                     Regenerate
                   </button>
                 ) : null}
@@ -196,7 +208,7 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                   <button
                     type="button"
                     className="icon-text-button"
-                    disabled={store.sessions.loading}
+                    disabled={sessions.loading}
                     onClick={generateSummary}
                   >
                     Generate TL;DR
@@ -229,8 +241,8 @@ export const SessionDetailModal = observer(function SessionDetailModal({
                 <input
                   type="checkbox"
                   checked={Boolean(session.includeInGraph)}
-                  disabled={store.sessions.loading}
-                  onChange={(event) => void store.sessions.updateGraphVisibility(session.id, event.target.checked)}
+                  disabled={sessions.loading}
+                  onChange={(event) => void sessions.updateGraphVisibility(session.id, event.target.checked)}
                 />
               </label>
               <p className="inspector-help">
@@ -243,7 +255,11 @@ export const SessionDetailModal = observer(function SessionDetailModal({
       {/* Sibling, not a child: the reader is a two-row grid and a nested
           dialog would become a third row of it. */}
       {closeoutOpen ? (
-        <SessionCloseoutDialog session={session} onCancel={() => setCloseoutOpen(false)} />
+        <SessionCloseoutDialog
+          session={session}
+          sessions={sessions}
+          onCancel={() => setCloseoutOpen(false)}
+        />
       ) : null}
     </>
   );
@@ -256,29 +272,30 @@ export const SessionDetailModal = observer(function SessionDetailModal({
  */
 export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
   session,
+  sessions,
   onCancel,
   title = "Close session",
   confirmLabel = "Close session"
 }: {
-  session: any;
+  session: SessionReaderModel;
+  sessions: SessionDetailPort;
   onCancel: () => void;
   title?: string;
   confirmLabel?: string;
 }) {
-  const store = useStore();
   const [summary, setSummary] = useState("");
   const [includeInGraph, setIncludeInGraph] = useState(Boolean(session.includeInGraph));
   const [operationFailed, setOperationFailed] = useState(false);
 
   async function closeSession() {
-    if (store.sessions.loading) return;
+    if (sessions.loading) return;
     setOperationFailed(false);
     try {
       if (includeInGraph !== Boolean(session.includeInGraph)) {
-        await store.sessions.updateGraphVisibility(session.id, includeInGraph);
+        await sessions.updateGraphVisibility(session.id, includeInGraph);
       }
-      await store.sessions.closeSession(session.id, summary);
-      const latest = store.sessions.list.find((candidate) => candidate.id === session.id);
+      await sessions.closeSession(session.id, summary);
+      const latest = sessions.list.find((candidate) => candidate.id === session.id);
       if (latest && latest.status !== "active") {
         onCancel();
         return;
@@ -295,7 +312,7 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
       description="Optionally describe the final outcome or what is still open. A TL;DR is generated either way."
       backdropClassName="modal-backdrop session-closeout-backdrop"
       className="session-closeout-dialog"
-      onClose={() => { if (!store.sessions.loading) onCancel(); }}
+      onClose={() => { if (!sessions.loading) onCancel(); }}
     >
       {operationFailed ? (
         <StatusNotice tone="danger" assertive title="Session not closed">
@@ -322,9 +339,9 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
         <span>Include this session in the project graph</span>
       </label>
       <div className="session-closeout-actions">
-        <button type="button" data-dialog-cancel disabled={store.sessions.loading} onClick={onCancel}>Cancel</button>
-        <button type="button" className="icon-text-button primary" disabled={store.sessions.loading} aria-busy={store.sessions.loading} onClick={() => void closeSession()}>
-          {store.sessions.loading ? "Closing…" : confirmLabel}
+        <button type="button" data-dialog-cancel disabled={sessions.loading} onClick={onCancel}>Cancel</button>
+        <button type="button" className="icon-text-button primary" disabled={sessions.loading} aria-busy={sessions.loading} onClick={() => void closeSession()}>
+          {sessions.loading ? "Closing…" : confirmLabel}
         </button>
       </div>
     </Modal>

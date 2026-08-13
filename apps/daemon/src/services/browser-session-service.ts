@@ -56,6 +56,7 @@ interface BrowserSessionRecord {
   readonly allowedProjectIds: Set<string>;
   readonly principal: AuthenticatedPrincipal<OperationName>;
   readonly expiresAt: number;
+  readonly personalPreview: boolean;
 }
 
 export interface BrowserSessionOptions {
@@ -166,7 +167,7 @@ export class BrowserSessionService {
       // choices still come from the daemon's current registry rather than
       // browser-supplied ids.
       allowedProjectIds
-    });
+    }, true);
   }
 
   authenticate(
@@ -174,25 +175,17 @@ export class BrowserSessionService {
     csrfToken: string | undefined,
     origin: string | undefined,
     host: string,
-    requireCsrf = true
+    requireCsrf = true,
+    allowPersonalPreviewTokenFallback = false
   ): AuthenticatedPrincipal<OperationName> | undefined {
-    if (!cookie || !isOpaqueSecret(cookie)) return undefined;
-    this.prune();
-    const record = findDigest(this.sessions, secretDigest(cookie), (entry) => entry.cookieDigest);
-    if (!record) return undefined;
-    if (record.expiresAt <= this.clock.now() || !this.authority.isCurrent(record.principal)) {
-      this.revokeRecord(record);
-      return undefined;
-    }
-    if (
-      record.origin !== safeExactOrigin(origin) ||
-      record.host !== safeExactHost(host)
-    ) return undefined;
-    if (requireCsrf) {
-      if (!csrfToken || !isOpaqueSecret(csrfToken)) return undefined;
-      if (!crypto.timingSafeEqual(record.csrfDigest, secretDigest(csrfToken))) return undefined;
-    }
-    return record.principal;
+    return this.authenticatedRecord(
+      cookie,
+      csrfToken,
+      origin,
+      host,
+      requireCsrf,
+      allowPersonalPreviewTokenFallback
+    )?.principal;
   }
 
   switchProject(
@@ -200,12 +193,19 @@ export class BrowserSessionService {
     csrfToken: string,
     origin: string,
     host: string,
-    projectId: string
+    projectId: string,
+    allowPersonalPreviewTokenFallback = false
   ): BrowserSessionIssue | undefined {
-    const principal = this.authenticate(cookie, csrfToken, origin, host, true);
-    if (!principal || !projectId || projectId.trim() !== projectId) return undefined;
-    const record = findDigest(this.sessions, secretDigest(cookie), (entry) => entry.cookieDigest);
-    if (!record) return undefined;
+    const record = this.authenticatedRecord(
+      cookie,
+      csrfToken,
+      origin,
+      host,
+      true,
+      allowPersonalPreviewTokenFallback
+    );
+    const principal = record?.principal;
+    if (!record || !principal || !projectId || projectId.trim() !== projectId) return undefined;
     // A browser cannot turn caller knowledge of an id into authority. Existing
     // projects must be launcher-granted; newly created projects are added only
     // by allowCreatedProject after decoded create-project success.
@@ -220,19 +220,26 @@ export class BrowserSessionService {
       policyDigest: principal.policyDigest
     };
     this.revokeRecord(record);
-    return this.createSession(record.origin, record.host, grant);
+    return this.createSession(record.origin, record.host, grant, record.personalPreview);
   }
 
   rotateSession(
     cookie: string,
     csrfToken: string,
     origin: string,
-    host: string
+    host: string,
+    allowPersonalPreviewTokenFallback = false
   ): BrowserSessionIssue | undefined {
-    const principal = this.authenticate(cookie, csrfToken, origin, host, true);
-    if (!principal) return undefined;
-    const record = findDigest(this.sessions, secretDigest(cookie), (entry) => entry.cookieDigest);
-    if (!record) return undefined;
+    const record = this.authenticatedRecord(
+      cookie,
+      csrfToken,
+      origin,
+      host,
+      true,
+      allowPersonalPreviewTokenFallback
+    );
+    const principal = record?.principal;
+    if (!record || !principal) return undefined;
     const grant: BrowserBootstrapGrant = {
       principalId: principal.principalId,
       sessionOwner: principal.sessionOwner,
@@ -242,12 +249,17 @@ export class BrowserSessionService {
       policyDigest: principal.policyDigest
     };
     this.revokeRecord(record);
-    return this.createSession(record.origin, record.host, grant);
+    return this.createSession(record.origin, record.host, grant, record.personalPreview);
   }
 
   revokeCookie(cookie: string | undefined): void {
     if (!cookie || !isOpaqueSecret(cookie)) return;
     const record = findDigest(this.sessions, secretDigest(cookie), (entry) => entry.cookieDigest);
+    if (record) this.revokeRecord(record);
+  }
+
+  revokePrincipal(principal: AuthenticatedPrincipal<OperationName>): void {
+    const record = this.sessions.find((candidate) => candidate.principal === principal);
     if (record) this.revokeRecord(record);
   }
 
@@ -285,7 +297,8 @@ export class BrowserSessionService {
   private createSession(
     origin: string,
     host: string,
-    grant: BrowserBootstrapGrant
+    grant: BrowserBootstrapGrant,
+    personalPreview = false
   ): BrowserSessionIssue {
     this.prune();
     if (this.sessions.length >= this.maxSessions) {
@@ -313,7 +326,8 @@ export class BrowserSessionService {
       host,
       allowedProjectIds: new Set(grant.allowedProjectIds),
       principal,
-      expiresAt
+      expiresAt,
+      personalPreview
     };
     this.sessions.push(record);
     return {
@@ -324,6 +338,56 @@ export class BrowserSessionService {
       principal,
       secureCookie: origin.startsWith("https://")
     };
+  }
+
+  private authenticatedRecord(
+    cookie: string | undefined,
+    csrfToken: string | undefined,
+    origin: string | undefined,
+    host: string,
+    requireCsrf: boolean,
+    allowPersonalPreviewTokenFallback: boolean
+  ): BrowserSessionRecord | undefined {
+    if (!cookie || !isOpaqueSecret(cookie)) return undefined;
+    this.prune();
+    const normalizedOrigin = safeExactOrigin(origin);
+    const normalizedHost = safeExactHost(host);
+    if (!normalizedOrigin || !normalizedHost) return undefined;
+    const cookieRecord = findDigest(this.sessions, secretDigest(cookie), (entry) => entry.cookieDigest);
+    if (!cookieRecord || !this.recordMatchesRequest(cookieRecord, normalizedOrigin, normalizedHost)) {
+      return undefined;
+    }
+    if (!requireCsrf) return cookieRecord;
+    if (!csrfToken || !isOpaqueSecret(csrfToken)) return undefined;
+    const csrfDigest = secretDigest(csrfToken);
+    if (crypto.timingSafeEqual(cookieRecord.csrfDigest, csrfDigest)) return cookieRecord;
+    if (!allowPersonalPreviewTokenFallback || !cookieRecord.personalPreview) return undefined;
+
+    // Personal-preview tabs share the browser cookie jar but intentionally keep
+    // independent in-memory CSRF values and project claims. A newer tab may
+    // overwrite the cookie. In explicit loopback/no-auth mode only, accept the
+    // older tab's still-current CSRF record while retaining a valid preview
+    // cookie as the browser-origin gate. Hardened/bootstrap sessions never use
+    // this fallback.
+    const tokenRecord = findDigest(this.sessions, csrfDigest, (entry) => entry.csrfDigest);
+    if (
+      !tokenRecord?.personalPreview ||
+      !this.recordMatchesRequest(tokenRecord, normalizedOrigin, normalizedHost)
+    ) {
+      return undefined;
+    }
+    return tokenRecord;
+  }
+
+  private recordMatchesRequest(
+    record: BrowserSessionRecord,
+    origin: string,
+    host: string
+  ): boolean {
+    return record.expiresAt > this.clock.now() &&
+      this.authority.isCurrent(record.principal) &&
+      record.origin === origin &&
+      record.host === host;
   }
 
   private revokeRecord(record: BrowserSessionRecord): void {

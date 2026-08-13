@@ -1,6 +1,10 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createPublicError, type PublicError, type PublicRecoveryAction } from "@zharwing/memory-core";
-import { localDiagnostics, type DiagnosticSurface } from "../../platform/diagnostics/index.js";
+import type {
+  DiagnosticJournal,
+  DiagnosticSurface
+} from "../../platform/diagnostics/index.js";
+import { useDiagnosticJournal } from "./DiagnosticJournalContext.js";
 import { RecoveryPanel } from "./RecoveryPanel.js";
 
 interface RecoveryBoundaryProps {
@@ -14,8 +18,12 @@ interface RecoveryBoundaryState {
   readonly error?: PublicError;
 }
 
+interface OwnedRecoveryBoundaryProps extends RecoveryBoundaryProps {
+  readonly diagnostics: DiagnosticJournal;
+}
+
 /** React crash boundary that stores only a classified public error. */
-export class RecoveryBoundary extends Component<RecoveryBoundaryProps, RecoveryBoundaryState> {
+class OwnedRecoveryBoundary extends Component<OwnedRecoveryBoundaryProps, RecoveryBoundaryState> {
   state: RecoveryBoundaryState = {};
   #lastFocused: HTMLElement | null = null;
 
@@ -25,7 +33,7 @@ export class RecoveryBoundary extends Component<RecoveryBoundaryProps, RecoveryB
 
   componentDidCatch(error: unknown, _info: ErrorInfo): void {
     this.#lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    localDiagnostics.recordFailure({ name: "failure.caught", surface: this.props.surface }, error);
+    this.props.diagnostics.recordFailure({ name: "failure.caught", surface: this.props.surface }, error);
   }
 
   componentDidUpdate(previous: RecoveryBoundaryProps): void {
@@ -58,6 +66,11 @@ export class RecoveryBoundary extends Component<RecoveryBoundaryProps, RecoveryB
       if (this.#lastFocused?.isConnected) this.#lastFocused.focus();
     });
   }
+}
+
+export function RecoveryBoundary(props: RecoveryBoundaryProps) {
+  const diagnostics = useDiagnosticJournal();
+  return <OwnedRecoveryBoundary {...props} diagnostics={diagnostics} />;
 }
 
 export function RootRecoveryBoundary({ children }: { readonly children: ReactNode }) {

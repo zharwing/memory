@@ -1,4 +1,4 @@
-import { localDiagnostics, type LocalDiagnosticJournal } from "./diagnostic-journal.js";
+import type { DiagnosticJournal } from "./diagnostic-journal.js";
 
 export interface ConsoleSentinel {
   dispose(): void;
@@ -11,7 +11,7 @@ export interface ConsoleSentinel {
  */
 export function installProductionConsoleSentinel(
   enabled: boolean,
-  journal: LocalDiagnosticJournal = localDiagnostics
+  journal: Pick<DiagnosticJournal, "recordEvent">
 ): ConsoleSentinel {
   if (!enabled || typeof console === "undefined") return { dispose: () => undefined };
   const originalWarn = console.warn;

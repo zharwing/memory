@@ -8,19 +8,41 @@ import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
 import { WorkstreamStatusActions } from "../components/WorkstreamStatusActions.js";
 import { formatShortDateTime, splitList, timestampRenderers } from "../utils/format.js";
-import { ErrorSummary, type FormError } from "../components/FormField.js";
+import {
+  ErrorSummary,
+  TextAreaField,
+  TextField,
+  type FormError
+} from "../components/FormField.js";
+import { useAsyncAction } from "../utils/useAsyncAction.js";
+import { useDraft } from "../hooks/useDraft.js";
+
+interface WorkstreamDraft {
+  name: string;
+  summary: string;
+  goal: string;
+  topics: string;
+  repoRoles: string;
+  relatedTasks: string;
+  relatedFiles: string;
+}
+
+const WORKSTREAM_DRAFT_DEFAULTS: WorkstreamDraft = {
+  name: "",
+  summary: "",
+  goal: "",
+  topics: "",
+  repoRoles: "",
+  relatedTasks: "",
+  relatedFiles: ""
+};
 
 export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   const store = useStore();
-  const [name, setName] = useState("");
-  const [summary, setSummary] = useState("");
-  const [goal, setGoal] = useState("");
-  const [topics, setTopics] = useState("");
-  const [repoRoles, setRepoRoles] = useState("");
-  const [relatedTasks, setRelatedTasks] = useState("");
-  const [relatedFiles, setRelatedFiles] = useState("");
+  const [draft, patchDraft, setDraft] = useDraft<WorkstreamDraft>(WORKSTREAM_DRAFT_DEFAULTS);
   const [formErrors, setFormErrors] = useState<FormError[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const submit = useAsyncAction();
+  const { name, summary, goal, topics, repoRoles, relatedTasks, relatedFiles } = draft;
 
   useEffect(() => {
     if (store.projects.selectedProjectId) void store.workstreams.load();
@@ -34,7 +56,7 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
     const next = selectedRepoCategories.includes(category)
       ? selectedRepoCategories.filter((item) => item !== category)
       : [...selectedRepoCategories, category];
-    setRepoRoles(next.join(", "));
+    patchDraft({ repoRoles: next.join(", ") });
   }
 
   return (
@@ -42,15 +64,14 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
       <WorkTabs />
       <div className="dashboard-grid">
         <Panel title="Create Workstream">
-          <form className="stacked-form" aria-busy={submitting} onSubmit={async (event) => {
+          <form className="stacked-form" aria-busy={submit.pending} onSubmit={(event) => {
             event.preventDefault();
             const errors: FormError[] = [];
             if (!name.trim()) errors.push({ id: "workstream-name", message: "Enter a workstream name." });
             setFormErrors(errors);
-            if (errors.length || submitting) return;
+            if (errors.length || submit.pending) return;
             const previousCount = store.workstreams.list.length;
-            setSubmitting(true);
-            try {
+            void submit.run(async () => {
               await store.workstreams.createWorkstream({
                 name,
                 summary,
@@ -61,42 +82,27 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                 relatedFiles: splitList(relatedFiles)
               });
               if (store.workstreams.list.length > previousCount) {
-                setName("");
-                setSummary("");
-                setGoal("");
-                setTopics("");
-                setRepoRoles("");
-                setRelatedTasks("");
-                setRelatedFiles("");
+                setDraft(WORKSTREAM_DRAFT_DEFAULTS);
               }
-            } catch {
-              // The shared operation layer owns public failure copy; retain fields.
-            } finally {
-              setSubmitting(false);
-            }
+            });
           }}>
             <ErrorSummary errors={formErrors} />
-            <label htmlFor="workstream-name">
-              <span>Name</span>
-              <input id="workstream-name" value={name} onChange={(event) => { setName(event.target.value); setFormErrors([]); }} placeholder="Dashboard testing" autoComplete="off" aria-invalid={formErrors.length > 0 || undefined} aria-describedby={formErrors.length ? "workstream-name-error" : undefined} required />
-            </label>
-            {formErrors.length ? <p id="workstream-name-error" className="field-error">Enter a workstream name.</p> : null}
-            <label>
-              <span>Description</span>
-              <textarea value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="What kind of work belongs here?" rows={3} />
-            </label>
+            <TextField
+              label="Name"
+              id="workstream-name"
+              value={name}
+              onChange={(event) => { patchDraft({ name: event.target.value }); setFormErrors([]); }}
+              placeholder="Dashboard testing"
+              autoComplete="off"
+              error={formErrors.length ? "Enter a workstream name." : undefined}
+              required
+            />
+            <TextAreaField label="Description" value={summary} onChange={(event) => patchDraft({ summary: event.target.value })} placeholder="What kind of work belongs here?" rows={3} />
             <details className="advanced-fields">
               <summary>Advanced details</summary>
               <div className="advanced-fields-body">
-                <label>
-                  <span>Target outcome</span>
-                  <textarea value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="What this workstream is trying to finish" rows={3} />
-                </label>
-                <label>
-                  <span>Tags</span>
-                  <input value={topics} onChange={(event) => setTopics(event.target.value)} placeholder="dashboard, testing, memory" />
-                  <p className="field-help">Optional. The workstream name is already used as a tag.</p>
-                </label>
+                <TextAreaField label="Target outcome" value={goal} onChange={(event) => patchDraft({ goal: event.target.value })} placeholder="What this workstream is trying to finish" rows={3} />
+                <TextField label="Tags" value={topics} onChange={(event) => patchDraft({ topics: event.target.value })} placeholder="dashboard, testing, memory" help="Optional. The workstream name is already used as a tag." />
                 <label>
                   <span>Repo categories</span>
                   {repoCategoryOptions.length ? (
@@ -108,20 +114,14 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                       options={repoCategoryOptions.map((category) => ({ value: category, label: category }))}
                     />
                   ) : null}
-                  <input value={repoRoles} onChange={(event) => setRepoRoles(event.target.value)} placeholder={repoCategoryOptions.length ? "additional categories" : "app, backend"} />
+                  <input value={repoRoles} onChange={(event) => patchDraft({ repoRoles: event.target.value })} placeholder={repoCategoryOptions.length ? "additional categories" : "app, backend"} />
                   <p className="field-help">Optional. Select known repo categories or type extras separated by commas.</p>
                 </label>
-                <label>
-                  <span>Related tasks</span>
-                  <input value={relatedTasks} onChange={(event) => setRelatedTasks(event.target.value)} placeholder="task ids or labels" />
-                </label>
-                <label>
-                  <span>Related files</span>
-                  <input value={relatedFiles} onChange={(event) => setRelatedFiles(event.target.value)} placeholder="paths this workstream often touches" />
-                </label>
+                <TextField label="Related tasks" value={relatedTasks} onChange={(event) => patchDraft({ relatedTasks: event.target.value })} placeholder="task ids or labels" />
+                <TextField label="Related files" value={relatedFiles} onChange={(event) => patchDraft({ relatedFiles: event.target.value })} placeholder="paths this workstream often touches" />
               </div>
             </details>
-            <button type="submit" disabled={!store.projects.selectedProjectId || submitting} aria-busy={submitting}>{submitting ? "Creating…" : "Create Workstream"}</button>
+            <button type="submit" disabled={!store.projects.selectedProjectId || submit.pending} aria-busy={submit.pending}>{submit.pending ? "Creating…" : "Create Workstream"}</button>
           </form>
         </Panel>
         <Panel title="Workstream List">
@@ -160,7 +160,10 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
             <KeyValue label="File" value={detail.workstream.filePath || "not written"} />
           </div>
           <div className="button-row">
-            <WorkstreamStatusActions workstream={detail.workstream} />
+            <WorkstreamStatusActions
+              workstream={detail.workstream}
+              onStatusChange={(workstreamId, status) => store.workstreams.updateStatus(workstreamId, status)}
+            />
             <ConfirmDeleteButton
               itemType="workstream"
               title={detail.workstream.name}

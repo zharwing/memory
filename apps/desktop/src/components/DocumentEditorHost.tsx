@@ -1,32 +1,40 @@
 import { observer } from "mobx-react-lite";
-import { useStore } from "../stores/store-context.js";
+import type { MemoryDocument } from "@zharwing/memory-core";
 import { DocumentEditorModal } from "./DocumentEditorModal.js";
 
+export interface DocumentEditorPort {
+  readonly loading: boolean;
+  updateDocument(
+    documentId: string,
+    changes: { title: string; body: string }
+  ): Promise<MemoryDocument | undefined>;
+  deleteDocument(documentId: string): Promise<void>;
+}
+
 /**
- * Standard wiring for DocumentEditorModal: save goes through
- * `store.docs.updateDocument`, delete goes through `store.docs.deleteDocument`
- * and then closes. `onDeleted` overrides the close call after a delete (for
- * screens that close with `replace: true` history semantics).
+ * Standard wiring for DocumentEditorModal through a narrow document port.
+ * Delete closes only after the operation settles; `onDeleted` overrides that
+ * close for screens using `replace: true` history semantics.
  */
 export const DocumentEditorHost = observer(function DocumentEditorHost({
   doc,
+  documents,
   onClose,
   onDeleted
 }: {
-  doc: any;
+  doc: MemoryDocument;
+  documents: DocumentEditorPort;
   onClose: () => void;
   onDeleted?: () => void;
 }) {
-  const store = useStore();
-
   return (
     <DocumentEditorModal
       doc={doc}
-      saving={store.docs.loading}
+      saving={documents.loading}
       onClose={onClose}
-      onSave={(changes) => store.docs.updateDocument(doc.id, changes)}
+      onSave={(changes) => documents.updateDocument(doc.id, changes)}
       onDelete={async () => {
-        await store.docs.deleteDocument(doc.id);
+        await documents.deleteDocument(doc.id);
         (onDeleted || onClose)();
       }}
     />

@@ -164,6 +164,7 @@ export function createDaemonServer(
     : { service: serviceOrDependencies };
   const service = dependencies.service ?? new MemoryService({ memoryRoot: config.memoryRoot });
   const admission = dependencies.admission ?? createDaemonAdmissionServices(config);
+  const allowPersonalPreviewTokenFallback = config.profile === "personal-preview" && config.authMode === "none";
 
   return http.createServer(async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
@@ -218,21 +219,21 @@ export function createDaemonServer(
         request.method === "POST" &&
         request.url === "/browser-session/rotate"
       ) {
-        await handleBrowserRotate(request, response, admission.browserSessions);
+        await handleBrowserRotate(request, response, admission.browserSessions, allowPersonalPreviewTokenFallback);
         return;
       }
       if (
         request.method === "POST" &&
         request.url === "/browser-session/project"
       ) {
-        await handleBrowserProject(request, response, admission.browserSessions);
+        await handleBrowserProject(request, response, admission.browserSessions, allowPersonalPreviewTokenFallback);
         return;
       }
       if (
         request.method === "POST" &&
         request.url === "/browser-session/revoke"
       ) {
-        await handleBrowserRevoke(request, response, admission.browserSessions);
+        await handleBrowserRevoke(request, response, admission.browserSessions, allowPersonalPreviewTokenFallback);
         return;
       }
       if (
@@ -258,7 +259,7 @@ export function createDaemonServer(
       // while the daemon keeps personal-preview compatibility enabled. This
       // prevents a native/agent bearer from being silently downgraded to the
       // legacy raw dispatcher merely because native requests have no Origin.
-      const authenticated = authenticateHardenedRequest(admission, request);
+      const authenticated = authenticateHardenedRequest(admission, request, allowPersonalPreviewTokenFallback);
       if (
         config.profile === "personal-preview" &&
         !request.headers.origin &&
@@ -389,7 +390,8 @@ async function handleBrowserPreview(
 async function handleBrowserRotate(
   request: http.IncomingMessage,
   response: http.ServerResponse,
-  sessions: BrowserSessionService
+  sessions: BrowserSessionService,
+  allowPersonalPreviewTokenFallback: boolean
 ): Promise<void> {
   requireEmptyObject(await readRequestBody(request));
   const cookie = browserCookie(request);
@@ -397,7 +399,7 @@ async function handleBrowserRotate(
   const host = request.headers.host;
   const csrf = headerValue(request, "x-csrf-token");
   const issue = cookie && origin && host && csrf
-    ? sessions.rotateSession(cookie, csrf, origin, host)
+    ? sessions.rotateSession(cookie, csrf, origin, host, allowPersonalPreviewTokenFallback)
     : undefined;
   if (!issue) {
     sendError(response, 401, "unauthorized");
@@ -411,7 +413,8 @@ async function handleBrowserRotate(
 async function handleBrowserProject(
   request: http.IncomingMessage,
   response: http.ServerResponse,
-  sessions: BrowserSessionService
+  sessions: BrowserSessionService,
+  allowPersonalPreviewTokenFallback: boolean
 ): Promise<void> {
   const body = parseObject(await readRequestBody(request));
   const cookie = browserCookie(request);
@@ -419,7 +422,7 @@ async function handleBrowserProject(
   const host = request.headers.host;
   const csrf = headerValue(request, "x-csrf-token");
   const issue = cookie && origin && host && csrf && typeof body.projectId === "string"
-    ? sessions.switchProject(cookie, csrf, origin, host, body.projectId)
+    ? sessions.switchProject(cookie, csrf, origin, host, body.projectId, allowPersonalPreviewTokenFallback)
     : undefined;
   if (!issue) {
     sendError(response, 401, "unauthorized");
@@ -433,19 +436,27 @@ async function handleBrowserProject(
 async function handleBrowserRevoke(
   request: http.IncomingMessage,
   response: http.ServerResponse,
-  sessions: BrowserSessionService
+  sessions: BrowserSessionService,
+  allowPersonalPreviewTokenFallback: boolean
 ): Promise<void> {
   requireEmptyObject(await readRequestBody(request));
   const cookie = browserCookie(request);
   const origin = request.headers.origin;
   const host = request.headers.host;
   const csrf = headerValue(request, "x-csrf-token");
-  const principal = sessions.authenticate(cookie, csrf, origin, host || "", true);
+  const principal = sessions.authenticate(
+    cookie,
+    csrf,
+    origin,
+    host || "",
+    true,
+    allowPersonalPreviewTokenFallback
+  );
   if (!principal) {
     sendError(response, 401, "unauthorized");
     return;
   }
-  sessions.revokeCookie(cookie);
+  sessions.revokePrincipal(principal);
   response.statusCode = 204;
   response.setHeader("set-cookie", sessions.expiredCookieHeader(origin));
   response.end();
@@ -546,7 +557,8 @@ async function dispatchPreviewMcp(service: MemoryService, call: McpToolCall): Pr
 
 function authenticateHardenedRequest(
   admission: DaemonAdmissionServices,
-  request: http.IncomingMessage
+  request: http.IncomingMessage,
+  allowPersonalPreviewTokenFallback: boolean
 ): AuthenticatedPrincipal<OperationName> | undefined {
   if (request.url === "/rpc" && request.headers.origin) {
     return admission.browserSessions.authenticate(
@@ -554,7 +566,8 @@ function authenticateHardenedRequest(
       headerValue(request, "x-csrf-token"),
       request.headers.origin,
       request.headers.host || "",
-      true
+      true,
+      allowPersonalPreviewTokenFallback
     );
   }
   if (request.headers.origin) return undefined;

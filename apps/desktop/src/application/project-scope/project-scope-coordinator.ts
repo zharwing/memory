@@ -30,6 +30,20 @@ export interface ScopedProjectPort extends ProjectScopePort {
   onScopeReset(listener: ScopeResetListener): () => void;
 }
 
+/**
+ * Disposable authority for resources whose lifetime is the complete app.
+ *
+ * Application resources still use the same captured-token contract as
+ * project resources, so an in-flight request cannot commit after the app has
+ * begun shutting down.
+ */
+export interface ApplicationScopePort extends Pick<
+  ScopedProjectPort,
+  "captureScope" | "isScopeCurrent"
+> {
+  dispose(): void;
+}
+
 export class ProjectScopeCoordinator implements ScopedProjectPort {
   private projectId = "";
   private workingDirectory: string | undefined = undefined;
@@ -129,19 +143,32 @@ export class ProjectScopeCoordinator implements ScopedProjectPort {
   }
 }
 
-/** Stable scope for application-wide resources such as daemon health. */
-export function createApplicationScopePort(): Pick<
-  ScopedProjectPort,
-  "captureScope" | "isScopeCurrent"
-> {
-  const controller = new AbortController();
-  const token: ScopeToken = Object.freeze({
+/** Stable, explicitly owned scope for application-wide resources. */
+export class ApplicationScopeCoordinator implements ApplicationScopePort {
+  private readonly controller = new AbortController();
+  private readonly token: ScopeToken = Object.freeze({
     projectId: "@application",
     generation: 0,
-    signal: controller.signal
+    signal: this.controller.signal
   });
-  return {
-    captureScope: () => token,
-    isScopeCurrent: (candidate) => candidate === token && !candidate.signal.aborted
-  };
+  private disposed = false;
+
+  captureScope(): ScopeToken | undefined {
+    return this.disposed ? undefined : this.token;
+  }
+
+  isScopeCurrent(candidate: ScopeToken): boolean {
+    return !this.disposed && candidate === this.token && !candidate.signal.aborted;
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.controller.abort();
+  }
+}
+
+/** Compatibility factory for composition roots that prefer function wiring. */
+export function createApplicationScopePort(): ApplicationScopeCoordinator {
+  return new ApplicationScopeCoordinator();
 }

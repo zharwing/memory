@@ -1,4 +1,14 @@
 import type { ReactNode } from "react";
+import type { ResourceState } from "../application/resources/resource-state.js";
+import {
+  resourceStateToAsyncRegion,
+  type ResourceContentStatus
+} from "./async-resource-projection.js";
+
+export {
+  resourceStateToAsyncRegion,
+  type AsyncResourceProjection
+} from "./async-resource-projection.js";
 
 export type AsyncStatus =
   | "idle"
@@ -65,7 +75,8 @@ export function AsyncRegion({
   empty,
   error,
   action,
-  className
+  className,
+  retainedStatus
 }: {
   status: AsyncStatus;
   label: string;
@@ -76,6 +87,8 @@ export function AsyncRegion({
   error?: ReactNode;
   action?: ReactNode;
   className?: string;
+  /** Optional presentation override for a retained refreshing/partial/error result. */
+  retainedStatus?: ReactNode;
 }) {
   const hasKnownContent = children !== undefined && children !== null;
   const retainContent = hasKnownContent && ["refreshing", "partial", "stale", "outcome-unknown", "error", "success"].includes(status);
@@ -94,16 +107,61 @@ export function AsyncRegion({
         <div className="sr-only" role={status === "error" ? "alert" : "status"}>{statusText}</div>
       ) : null}
       {retainContent && status !== "success" ? (
-        <StatusNotice
-          tone={status === "error" ? "danger" : status === "outcome-unknown" ? "warning" : "information"}
-          announce={status === "error" || status === "outcome-unknown" ? "assertive" : "polite"}
-          action={action}
-        >
-          {statusText ?? defaultAsyncStatusText(status)}
-        </StatusNotice>
+        retainedStatus !== undefined ? retainedStatus : (
+          <StatusNotice
+            tone={status === "error" ? "danger" : status === "outcome-unknown" ? "warning" : "information"}
+            announce={status === "error" || status === "outcome-unknown" ? "assertive" : "polite"}
+            action={action}
+          >
+            {statusText ?? defaultAsyncStatusText(status)}
+          </StatusNotice>
+        )
       ) : null}
       {content}
     </section>
+  );
+}
+
+export function ResourceAsyncRegion<T>({
+  state,
+  label,
+  children,
+  loading,
+  empty,
+  error,
+  statusText,
+  retainedStatus,
+  retainPreviousOnFailure = false,
+  action,
+  className
+}: {
+  state: ResourceState<T>;
+  label: string;
+  children: (data: T) => ReactNode;
+  loading?: ReactNode;
+  empty?: ReactNode;
+  error?: ReactNode;
+  statusText?: Partial<Record<AsyncStatus, string>>;
+  retainedStatus?: Partial<Record<ResourceContentStatus, ReactNode>>;
+  retainPreviousOnFailure?: boolean;
+  action?: ReactNode;
+  className?: string;
+}) {
+  const projection = resourceStateToAsyncRegion(state, { retainPreviousOnFailure });
+  return (
+    <AsyncRegion
+      status={projection.status}
+      label={label}
+      loading={loading}
+      empty={empty}
+      error={error}
+      statusText={statusText?.[projection.status]}
+      retainedStatus={projection.hasData ? retainedStatus?.[projection.status] : undefined}
+      action={action}
+      className={className}
+    >
+      {projection.hasData ? children(projection.data) : undefined}
+    </AsyncRegion>
   );
 }
 

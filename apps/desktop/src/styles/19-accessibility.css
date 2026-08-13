@@ -15,6 +15,13 @@
   transform: translateY(0);
 }
 
+/* Route changes focus this hidden heading for screen-reader context. Keep its
+   normal focus indicator intact, but place the non-tabbable announcement well
+   outside the viewport so it cannot flash over the newly rendered screen. */
+[data-route-heading="true"] {
+  inset-inline-start: -10000px;
+}
+
 .field {
   display: grid;
   gap: var(--space-2);

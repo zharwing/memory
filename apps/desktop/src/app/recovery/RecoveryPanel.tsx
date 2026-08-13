@@ -4,8 +4,9 @@ import {
   type PublicError,
   type PublicRecoveryAction
 } from "@zharwing/memory-core";
-import { localDiagnostics, type DiagnosticSurface } from "../../platform/diagnostics/index.js";
+import type { DiagnosticSurface } from "../../platform/diagnostics/index.js";
 import { DiagnosticReportAction } from "./DiagnosticReportAction.js";
+import { useDiagnosticJournal } from "./DiagnosticJournalContext.js";
 import { publicMessageCopy, recoveryActionCopy } from "./public-error-copy.js";
 
 export interface RecoveryPanelProps {
@@ -27,14 +28,15 @@ export function RecoveryPanel({
   focusOnMount = true,
   onRecover
 }: RecoveryPanelProps) {
+  const diagnostics = useDiagnosticJournal();
   const heading = useRef<HTMLHeadingElement>(null);
   const mounted = useRef(true);
   const headingId = useId();
   const [recovering, setRecovering] = useState(false);
   useEffect(() => {
     if (focusOnMount) heading.current?.focus();
-    localDiagnostics.recordEvent({ name: "failure.caught", surface, publicError: error });
-  }, [error.code, error.messageId, focusOnMount, surface, title]);
+    diagnostics.recordEvent({ name: "failure.caught", surface, publicError: error });
+  }, [diagnostics, error.code, error.messageId, focusOnMount, surface, title]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -45,11 +47,11 @@ export function RecoveryPanel({
   async function recover(action: PublicRecoveryAction) {
     if (recovering) return;
     setRecovering(true);
-    localDiagnostics.recordEvent({ name: "recovery.requested", surface, publicError: error, recoveryAction: action });
+    diagnostics.recordEvent({ name: "recovery.requested", surface, publicError: error, recoveryAction: action });
     try {
       if (usesCallerRecovery(action) && onRecover) await onRecover(action);
       else applyDefaultRecovery(action);
-      localDiagnostics.recordEvent({
+      diagnostics.recordEvent({
         name: "recovery.completed",
         surface,
         publicError: error,
@@ -57,7 +59,7 @@ export function RecoveryPanel({
         outcome: "accepted"
       });
     } catch {
-      localDiagnostics.recordEvent({
+      diagnostics.recordEvent({
         name: "recovery.failed",
         surface,
         publicError: error,

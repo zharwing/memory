@@ -1,4 +1,5 @@
 import { observer } from "mobx-react-lite";
+import type { MemoryDocument } from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
@@ -27,7 +28,7 @@ export const DiagramsScreen = observer(function DiagramsScreen() {
     () => closeDiagramEditor(true)
   );
 
-  function openDiagramEditor(doc: any) {
+  function openDiagramEditor(doc: MemoryDocument) {
     setDocSearchParam(doc.id);
   }
 
@@ -70,6 +71,7 @@ export const DiagramsScreen = observer(function DiagramsScreen() {
       {editingDoc ? (
         <DocumentEditorHost
           doc={editingDoc}
+          documents={store.docs}
           onClose={() => closeDiagramEditor()}
           onDeleted={() => closeDiagramEditor(true)}
         />

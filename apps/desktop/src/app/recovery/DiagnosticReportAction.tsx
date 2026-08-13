@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { localDiagnostics } from "../../platform/diagnostics/index.js";
+import { useDiagnosticJournal } from "./DiagnosticJournalContext.js";
 
 export function DiagnosticReportAction() {
+  const diagnostics = useDiagnosticJournal();
   const [status, setStatus] = useState<"idle" | "exported" | "failed">("idle");
 
   function exportReport() {
     try {
-      const report = localDiagnostics.exportJson();
+      const report = diagnostics.exportJson();
       const blob = new Blob([report], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -17,7 +18,7 @@ export function DiagnosticReportAction() {
       URL.revokeObjectURL(url);
       setStatus("exported");
     } catch {
-      localDiagnostics.recordEvent({
+      diagnostics.recordEvent({
         name: "recovery.failed",
         surface: "runtime",
         outcome: "refused"

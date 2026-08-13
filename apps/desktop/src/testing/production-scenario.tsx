@@ -7,9 +7,15 @@ import {
 import { App } from "../App.js";
 import { createAppRuntime, type AppRuntime } from "../app/composition/runtime.js";
 import type { AppServices, Scheduler } from "../app/composition/ports.js";
+import { DiagnosticJournalProvider } from "../app/recovery/DiagnosticJournalContext.js";
+import {
+  LocalDiagnosticJournal,
+  type SafeDiagnosticEvent
+} from "../platform/diagnostics/diagnostic-journal.js";
 import { StoreProvider } from "../stores/store-context.js";
 import { FIXTURE_NOW } from "./fixture-data.js";
 import { FakeMemoryTransport } from "./fake-memory-transport.js";
+import { createLocalGraphPositionStore } from "../features/graph/persistence/graph-position-store.js";
 import { getFrontendScenario, type FrontendScenario } from "./scenario-registry.js";
 
 export interface ProductionScenarioHarness {
@@ -21,7 +27,7 @@ export interface ProductionScenarioHarness {
   dispose(): void;
 }
 
-export type ScenarioDiagnosticEvent = Parameters<AppServices["diagnostics"]["record"]>[0];
+export type ScenarioDiagnosticEvent = SafeDiagnosticEvent;
 
 /**
  * Creates the real application runtime, store graph, App route tree and screen
@@ -32,7 +38,7 @@ export function createProductionScenario(id: string): ProductionScenarioHarness 
   const scenario = getFrontendScenario(id);
   const transport = new FakeMemoryTransport(scenario.transport);
   const clock = new ControlledScenarioClock();
-  const diagnostics: ScenarioDiagnosticEvent[] = [];
+  const diagnostics = new LocalDiagnosticJournal();
   const preferences = new Map<string, string>();
   const services: AppServices = {
     memory: new OperationClient(transport, clock.clientRuntime, "desktop"),
@@ -42,7 +48,8 @@ export function createProductionScenario(id: string): ProductionScenarioHarness 
       get: (key) => preferences.get(key),
       set: (key, value) => value === undefined ? preferences.delete(key) : void preferences.set(key, value)
     },
-    diagnostics: { record: (event) => diagnostics.push(Object.freeze({ ...event })) },
+    graphPositions: createLocalGraphPositionStore(),
+    diagnostics,
     scheduler: clock.scheduler
   };
   const runtime = createAppRuntime(services);
@@ -51,7 +58,9 @@ export function createProductionScenario(id: string): ProductionScenarioHarness 
     scenario,
     transport,
     runtime,
-    diagnostics,
+    get diagnostics() {
+      return diagnostics.snapshot();
+    },
     element: <ProductionScenarioApp scenario={scenario} runtime={runtime} />,
     dispose() {
       if (disposed) return;
@@ -78,11 +87,13 @@ export function ProductionScenarioApp({ scenario, runtime }: {
       data-scenario-hover={scenario.capabilities.hover}
       dir={scenario.capabilities.direction ?? "ltr"}
     >
-      <StoreProvider runtime={runtime}>
-        <MemoryRouter initialEntries={[scenario.route]}>
-          <App />
-        </MemoryRouter>
-      </StoreProvider>
+      <DiagnosticJournalProvider journal={runtime.diagnostics}>
+        <StoreProvider runtime={runtime}>
+          <MemoryRouter initialEntries={[scenario.route]}>
+            <App />
+          </MemoryRouter>
+        </StoreProvider>
+      </DiagnosticJournalProvider>
     </div>
   );
 }

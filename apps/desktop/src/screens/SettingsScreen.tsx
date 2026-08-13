@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
+import type { SemanticGraphSettings } from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { SettingsTabs } from "../components/SectionTabs.js";
@@ -13,7 +14,7 @@ export const SettingsScreen = observer(function SettingsScreen() {
   const memoryWritePolicy = store.projects.selectedMemoryWritePolicy;
   const [graphRulesDraft, setGraphRulesDraft] = useState("[]");
   const [graphRulesError, setGraphRulesError] = useState("");
-  const [semanticDraft, updateSemanticDraft, setSemanticDraft] = useDraft<any>({});
+  const [semanticDraft, updateSemanticDraft, setSemanticDraft] = useDraft<SemanticSettingsDraft>({});
   const graphRulesSignature = JSON.stringify(project?.graphRules || []);
   const semanticSettingsSignature = JSON.stringify(store.semantic.settings || {});
   const edgeCounts = store.semantic.edgeCounts;
@@ -127,7 +128,9 @@ export const SettingsScreen = observer(function SettingsScreen() {
               <select
                 value={semanticDraft.mode || "review"}
                 disabled={!store.projects.selectedProjectId}
-                onChange={(event) => updateSemanticDraft({ mode: event.target.value })}
+                onChange={(event) => updateSemanticDraft({
+                  mode: event.target.value as SemanticGraphSettings["mode"]
+                })}
               >
                 <option value="review">Review</option>
                 <option value="auto">Auto</option>
@@ -330,3 +333,17 @@ export const SettingsScreen = observer(function SettingsScreen() {
     </Screen>
   );
 });
+
+type SemanticSettingsDraft = Partial<Omit<SemanticGraphSettings,
+  | "autoAcceptThreshold"
+  | "reviewThreshold"
+  | "discardBelowThreshold"
+  | "maxCandidatesPerDocument"
+  | "maxClusterSize"
+>> & {
+  autoAcceptThreshold?: number | string;
+  reviewThreshold?: number | string;
+  discardBelowThreshold?: number | string;
+  maxCandidatesPerDocument?: number | string;
+  maxClusterSize?: number | string;
+};

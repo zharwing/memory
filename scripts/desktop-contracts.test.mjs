@@ -45,6 +45,21 @@ test("desktop document filters keep imported and starter-draft behavior stable",
   assert.deepEqual(documents.filterDocuments(docs, "imported").map((doc) => doc.id), ["imported"]);
   assert.equal(documents.isStarterDraftDoc(docs[0]), true);
   assert.equal(documents.isStarterDraftDoc(docs[2]), false);
+
+  const loadedDocument = {
+    id: "list-read-id",
+    projectId: "project-one",
+    filePath: "C:\\memory\\project-one\\overview.md"
+  };
+  assert.equal(
+    documents.findDocumentForSearchResult([loadedDocument], {
+      id: "separate-search-read-id",
+      projectId: "project-one",
+      type: "document",
+      path: "C:/memory/project-one/overview.md"
+    }),
+    loadedDocument
+  );
 });
 
 test("Search and Documents share one editor host with a rendered fallback for unsupported Markdown", () => {
@@ -52,12 +67,107 @@ test("Search and Documents share one editor host with a rendered fallback for un
   const docs = readSource("apps/desktop/src/screens/DocsScreen.tsx");
   const host = readSource("apps/desktop/src/components/DocumentEditorHost.tsx");
   const editor = readSource("apps/desktop/src/components/DocumentEditorModal.tsx");
+  const editorStyles = readSource("apps/desktop/src/styles/11-document-modal.css");
 
   assert.match(search, /<DocumentEditorHost\s+doc=\{editingDoc\}/);
+  assert.match(search, /const editingDoc = store\.docs\.list\.find\(\(doc\) => doc\.id === editingDocId\)/);
+  assert.match(search, /if \(row\.resultType === "document"\) \{[\s\S]*findDocumentForSearchResult\(store\.docs\.list, row\)[\s\S]*setEditingDocId\(document\.id\)/);
   assert.match(docs, /<DocumentEditorHost[\s\S]*doc=\{editingDoc\}/);
   assert.match(host, /<DocumentEditorModal/);
-  assert.match(editor, /onError=\{\(\) => setRichEditorFailed\(true\)\}/);
+  assert.match(editor, /markdown=\{body\}/);
+  assert.match(editor, /onError=\{\(\) => dispatch\(\{ type: "rich-editor-failed" \}\)\}/);
   assert.match(editor, /richEditorFailed[\s\S]*<MarkdownPreview body=\{body\}/);
+  assert.match(editorStyles, /\.document-editor-body \.mdx-rich-editor[\s\S]*--baseTextContrast: var\(--text\)/);
+});
+
+test("document editor reducer preserves drafts failures and tab behavior", async () => {
+  const editor = await importTypeScriptModule("apps/desktop/src/components/document-editor-state.ts");
+  const doc = { id: "doc-a", title: "Original", body: "# Original" };
+  let state = editor.createDocumentEditorState(doc);
+
+  state = editor.documentEditorReducer(state, { type: "change-mode", mode: "markdown" });
+  state = editor.documentEditorReducer(state, { type: "change-title", title: "Draft title" });
+  state = editor.documentEditorReducer(state, { type: "change-body", body: "# Draft body" });
+  state = editor.documentEditorReducer(state, { type: "save-started" });
+  state = editor.documentEditorReducer(state, { type: "save-failed" });
+  state = editor.documentEditorReducer(state, { type: "save-finished" });
+  assert.deepEqual(
+    { mode: state.mode, title: state.title, body: state.body, localSaving: state.localSaving, saveFailed: state.saveFailed },
+    { mode: "markdown", title: "Draft title", body: "# Draft body", localSaving: false, saveFailed: true }
+  );
+
+  state = editor.documentEditorReducer(state, { type: "open-discard-dialog" });
+  state = editor.documentEditorReducer(state, { type: "discard-changes" });
+  assert.deepEqual(
+    { mode: state.mode, title: state.title, body: state.body, showDiscardDialog: state.showDiscardDialog },
+    { mode: "preview", title: "Original", body: "# Original", showDiscardDialog: false }
+  );
+
+  state = editor.documentEditorReducer(state, { type: "rich-editor-failed" });
+  assert.equal(state.richEditorFailed, true);
+  state = editor.documentEditorReducer(state, {
+    type: "reset-document",
+    doc: { id: "doc-b", title: "Search result", body: "# Search result body" }
+  });
+  assert.deepEqual(
+    { mode: state.mode, title: state.title, body: state.body, richEditorFailed: state.richEditorFailed },
+    { mode: "preview", title: "Search result", body: "# Search result body", richEditorFailed: false }
+  );
+});
+
+test("resource async projection retains only explicitly accepted prior content", async () => {
+  const asyncState = await importTypeScriptModule("apps/desktop/src/components/async-resource-projection.ts");
+  const scope = { projectId: "project-a" };
+  const data = ["accepted"];
+  const refreshing = asyncState.resourceStateToAsyncRegion({
+    status: "refreshing",
+    scope,
+    requestId: "request-a",
+    data,
+    completeness: { kind: "complete" },
+    lastSuccessAt: "2026-08-13T00:00:00.000Z"
+  });
+  assert.deepEqual(refreshing, { status: "refreshing", hasData: true, data });
+
+  const partial = asyncState.resourceStateToAsyncRegion({
+    status: "success",
+    scope,
+    data,
+    completeness: { kind: "partial" },
+    lastSuccessAt: "2026-08-13T00:00:00.000Z"
+  });
+  assert.deepEqual(partial, { status: "partial", hasData: true, data });
+
+  const failure = {
+    status: "failure",
+    scope,
+    error: { code: "internal" },
+    previous: { scope, data, completeness: { kind: "complete" }, receivedAt: "2026-08-13T00:00:00.000Z" }
+  };
+  assert.deepEqual(asyncState.resourceStateToAsyncRegion(failure), { status: "error", hasData: false });
+  assert.deepEqual(
+    asyncState.resourceStateToAsyncRegion(failure, { retainPreviousOnFailure: true }),
+    { status: "error", hasData: true, data }
+  );
+});
+
+test("dashboard keeps an explicit zero graph snapshot for authoritative empty data", () => {
+  const dashboard = readSource("apps/desktop/src/screens/DashboardScreen.tsx");
+
+  assert.match(dashboard, /label="Graph snapshot"[\s\S]*empty=\{\([\s\S]*label="Nodes" value=\{0\}[\s\S]*label="Edges" value=\{0\}/);
+});
+
+test("modal stack is runtime-owned and enforces topmost focus behavior", () => {
+  const modal = readSource("apps/desktop/src/components/Modal.tsx");
+  const provider = readSource("apps/desktop/src/stores/store-context.tsx");
+  assert.match(provider, /<DialogStackProvider>\{children\}<\/DialogStackProvider>/);
+  assert.match(modal, /throw new Error\("DialogStackProvider is missing\."\)/);
+  assert.match(modal, /ownedDialogStack\.push\(instanceId\)/);
+  assert.match(modal, /ownedDialogStack\.remove\(instanceId\)/);
+  assert.match(modal, /if \(!ownedDialogStack\.isTop\(instanceId\)\) return;/);
+  assert.match(modal, /\(candidate \?\? panel\)\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(modal, /returnTarget\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(modal, /onKeyDown=\{containFocus\}/);
 });
 
 test("desktop route registry covers critical workflows and generates the route outlet", async () => {
@@ -99,9 +209,11 @@ test("desktop route registry covers critical workflows and generates the route o
   assert.match(app.slice(scopeGuard, registeredOutlet), /return \([\s\S]*Switching project/);
 
   const routeElements = readSource("apps/desktop/src/app/routing/route-elements.tsx");
+  const accessibilityStyles = readSource("apps/desktop/src/styles/19-accessibility.css");
   assert.match(routeElements, /for \(const route of registeredRouteEntries\(\)\)/);
   assert.match(routeElements, /shouldMoveFocusToRouteHeading/);
   assert.match(routeElements, /RouteNotFoundScreen/);
+  assert.match(accessibilityStyles, /\[data-route-heading="true"\][\s\S]*inset-inline-start:\s*-10000px/);
 });
 
 test("desktop navigation consumers use registered builders only", () => {
@@ -131,23 +243,71 @@ test("production navigation has no legacy path builder callers", () => {
 test("graph adapters keep a synchronized structured fallback and bounded canvas", () => {
   const graphMap = readSource("apps/desktop/src/screens/graph/GraphMap.tsx");
   const graphScreen = readSource("apps/desktop/src/screens/graph/GraphScreen.tsx");
-  const graphFlow = readSource("apps/desktop/src/screens/graph/graph-flow.tsx");
+  const graphContent = readSource("apps/desktop/src/screens/graph/GraphContent.tsx");
+  const graphController = readSource("apps/desktop/src/screens/graph/useGraphScreenController.ts");
+  const graphFlow = readSource("apps/desktop/src/screens/graph/graph-flow-model.ts");
   const structured = readSource("apps/desktop/src/features/graph/accessible/StructuredGraphView.tsx");
+  const storeProvider = readSource("apps/desktop/src/stores/store-context.tsx");
+  const appPorts = readSource("apps/desktop/src/app/composition/ports.ts");
+  const browserComposition = readSource("apps/desktop/src/app/composition/browser.ts");
+  const tauriComposition = readSource("apps/desktop/src/app/composition/tauri.ts");
 
   assert.match(graphMap, /graph-layout-adapter\.js/);
-  assert.match(graphMap, /graph-position-store\.js/);
+  assert.match(graphMap, /GraphPositionStoreContext\.js/);
+  assert.match(graphMap, /const positionStore = useGraphPositionStore\(\)/);
   assert.match(graphMap, /graph-interaction-state\.js/);
-  assert.match(graphMap, /graph-render-capability\.js/);
+  assert.match(graphController, /graph-render-capability\.js/);
+  assert.match(graphController, /const positionStore = useGraphPositionStore\(\)/);
   assert.equal((graphMap.match(/tabIndex=\{0\}/g) || []).length, 1);
   assert.doesNotMatch(graphMap, /\.attr\("tabindex",\s*0\)/);
   assert.match(graphMap, /role="application"/);
 
   assert.match(graphFlow, /virtualizeGraph\(nodes, edges, focusedNodeId\)/);
-  assert.match(graphScreen, /<GraphMap[\s\S]*<StructuredGraphView/);
-  assert.match(graphScreen, /selectedNodeId=\{selectedGraphNodeId\}/);
-  assert.match(graphScreen, /visualAvailable=\{visualGraphAvailable\}/);
+  assert.match(graphScreen, /<GraphContent controller=\{controller\.content\}/);
+  assert.match(graphContent, /<GraphMap[\s\S]*<StructuredGraphView/);
+  assert.match(graphContent, /model=\{model\.viewport\}[\s\S]*actions=\{actions\}/);
   assert.match(structured, /Nodes \(\{nodes\.length\}\)[\s\S]*<select/);
   assert.match(structured, /Spatial position and color are not required/);
+
+  assert.match(appPorts, /graphPositions:\s*GraphPositionStore/);
+  assert.match(storeProvider, /GraphPositionStoreProvider store=\{runtime\.services\.graphPositions\}/);
+  assert.match(browserComposition, /graphPositions:\s*createLocalGraphPositionStore\(\)/);
+  assert.match(tauriComposition, /graphPositions:\s*createLocalGraphPositionStore\(\)/);
+  assert.doesNotMatch(graphMap, /\blocalGraphPositionStore\b/);
+  assert.doesNotMatch(graphController, /\blocalGraphPositionStore\b/);
+});
+
+test("SystemStore facade preserves one ledger and exact collaborator resource identities", () => {
+  const facade = readSource("apps/desktop/src/stores/system-store.ts");
+
+  assert.equal((facade.match(/this\.operations = new OperationLedger\(runtime\)/g) || []).length, 1);
+  assert.match(facade, /new SystemDiagnosticsStore\([\s\S]*this\.operations/);
+  assert.match(facade, /new SystemTrashStore\([\s\S]*this\.operations/);
+  assert.match(facade, /new SystemBackupsStore\([\s\S]*this\.operations/);
+  assert.match(facade, /new SystemImportStore\([\s\S]*this\.operations/);
+  assert.match(facade, /this\.daemonHealthResource = this\.diagnostics\.daemonHealthResource/);
+  assert.match(facade, /this\.mcpDoctorResource = this\.diagnostics\.mcpDoctorResource/);
+  assert.match(facade, /this\.mcpInstallResource = this\.diagnostics\.mcpInstallResource/);
+  assert.match(facade, /this\.backupsResource = this\.backupsStore\.resource/);
+  assert.match(facade, /this\.trashResource = this\.trashStore\.resource/);
+  assert.match(facade, /this\.importProfilesResource = this\.importStore\.profilesResource/);
+  assert.match(facade, /this\.importPlanResource = this\.importStore\.planResource/);
+  assert.match(facade, /this\.importResultResource = this\.importStore\.resultResource/);
+});
+
+test("extracted graph route state preserves compatible bounded query keys and defaults", () => {
+  const routeState = readSource("apps/desktop/src/screens/graph/useGraphRouteState.ts");
+
+  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "view", \{ maximumLength: 16 \}\)/);
+  assert.match(routeState, /rawViewParam === "all" \? "all" : "context"/);
+  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "relationships", \{ maximumLength: 32 \}\)/);
+  assert.match(routeState, /viewMode === "all" \? "" : parseBoundedSearchParam\(searchParams, "focus"\)/);
+  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "doc"\)/);
+  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "edge", \{ maximumLength: 320 \}\)/);
+  assert.match(routeState, /patch\.view = nextState\.viewMode === "all" \? "all" : null/);
+  assert.match(routeState, /patch\.relationships = nextState\.relationshipMode === "ai-reviewed" \? null : nextState\.relationshipMode/);
+  assert.match(routeState, /relationshipModeFromSearchParam\(rawRelationshipModeParam\) \|\| "ai-reviewed"/);
+  assert.match(routeState, /patchSearchParams\(invalidPatch, \{ replace: true \}\)/);
 });
 
 test("context preview distinguishes loading failure partial and authoritative empty states", () => {
@@ -186,11 +346,13 @@ test("desktop feature code cannot reach raw RPC clients or carriers", () => {
 
   for (const file of sourceFiles(path.join(desktopRoot, "stores"))) {
     const source = readFileSync(file, "utf8");
-    for (const match of source.matchAll(/import[^;]+from "@zharwing\/memory-api-client";/g)) {
-      assert.match(
-        match[0],
-        /^import type \{ (?:MemoryClient|BrowserSessionLockReason) \} from "@zharwing\/memory-api-client";$/,
-        `${path.relative(repoRoot, file)} must depend only on the narrow MemoryClient port`
+    for (const match of source.matchAll(/import type \{([\s\S]*?)\} from "@zharwing\/memory-api-client";/g)) {
+      const importedTypes = match[1].split(",").map((name) => name.trim()).filter(Boolean);
+      const allowedTypes = new Set(["MemoryClient", "BrowserSessionLockReason", "BrowserSessionState"]);
+      assert.equal(
+        importedTypes.every((name) => allowedTypes.has(name)),
+        true,
+        `${path.relative(repoRoot, file)} must depend only on narrow API-client ports`
       );
     }
     if (file.endsWith("-store.ts") && !file.endsWith(`${path.sep}root-store.ts`)) {
@@ -213,24 +375,33 @@ test("StrictMode borrows one application runtime instead of constructing service
   const runtime = readSource("apps/desktop/src/app/composition/runtime.ts");
   const rootStore = readSource("apps/desktop/src/stores/root-store.ts");
   const semanticStore = readSource("apps/desktop/src/stores/semantic-store.ts");
+  const semanticPolling = readSource("apps/desktop/src/stores/semantic/semantic-poll-controller.ts");
 
-  assert.equal((main.match(/const runtime = await loadApplicationRuntime\(\);/g) || []).length, 1);
-  assert.ok(main.indexOf("const runtime = await loadApplicationRuntime()") < main.indexOf("<React.StrictMode>"));
+  assert.equal((main.match(/const loadedRuntime = await loadApplicationRuntime\(diagnostics\);/g) || []).length, 1);
+  assert.ok(main.indexOf("const loadedRuntime = await loadApplicationRuntime(diagnostics)") < main.indexOf("<React.StrictMode>"));
+  assert.match(main, /if \(pageDisposed\) \{\s*loadedRuntime\.dispose\(\);\s*return;/);
+  assert.match(main, /runtime = loadedRuntime;/);
+  assert.equal((main.match(/new LocalDiagnosticJournal\(\)/g) || []).length, 1);
   assert.match(main, /if \(isTauri\(\)\)[\s\S]*await import\("\.\/app\/composition\/tauri\.js"\)/);
   assert.match(main, /await import\("\.\/app\/composition\/browser\.js"\)/);
   assert.match(main, /<StoreProvider runtime=\{runtime\}>/);
   const pagehide = main.indexOf('"pagehide"');
-  assert.ok(pagehide >= 0 && main.indexOf("runtime.dispose()", pagehide) > pagehide);
+  assert.match(main, /const disposePage = \(\) => \{[\s\S]*runtime\?\.dispose\(\);[\s\S]*consoleSentinel\.dispose\(\);/);
+  assert.ok(pagehide >= 0 && main.indexOf("disposePage", pagehide) > pagehide);
 
   assert.match(provider, /value=\{runtime\.store\}/);
   assert.doesNotMatch(provider, /\b(?:useMemo|useState|useEffect|createAppRuntime|createBrowserRuntime|new RootStore)\b/);
   assert.equal((runtime.match(/new RootStore\(/g) || []).length, 1);
+  assert.match(runtime, /diagnostics: services\.diagnostics/);
+  assert.match(runtime, /const unsubscribeBrowserSession = services\.browserSession\?\.subscribe/);
+  assert.match(runtime, /unsubscribeBrowserSession\?\.\(\)/);
   assert.match(runtime, /if \(disposed\) return;/);
   assert.match(rootStore, /if \(this\.disposed\) return;/);
   assert.match(rootStore, /this\.semantic\.dispose\(\)/);
-  assert.match(semanticStore, /this\.scheduler\.setTimeout\(/);
-  assert.match(semanticStore, /this\.scheduler\.clearTimeout\(/);
-  assert.doesNotMatch(semanticStore, /this\.scheduler\.setInterval\(/);
+  assert.match(semanticStore, /this\.analysis\.dispose\(\)/);
+  assert.match(semanticPolling, /this\.options\.scheduler\.setTimeout\(/);
+  assert.match(semanticPolling, /this\.options\.scheduler\.clearTimeout\(/);
+  assert.doesNotMatch(semanticPolling, /this\.options\.scheduler\.setInterval\(/);
 });
 
 test("Mermaid preview has an explicit offline support boundary", () => {
@@ -282,7 +453,13 @@ test("application runtime creates and disposes one owned root graph", async () =
     clock: { now: () => new Date(0) },
     ids: { create: () => "test-id" },
     preferences: { get: () => undefined, set: () => undefined },
-    diagnostics: { record: (event) => events.push(event.name) },
+    diagnostics: { recordEvent: (event) => events.push(event.name) },
+    browserSession: {
+      subscribe(listener) {
+        listener({ status: "active" });
+        return () => events.push("browser.session.unsubscribed");
+      }
+    },
     scheduler
   };
 
@@ -297,7 +474,12 @@ test("application runtime creates and disposes one owned root graph", async () =
   runtime.dispose();
   assert.equal(runtime.disposed, true);
   assert.equal(lifecycle.rootDisposed, 1);
-  assert.deepEqual(events, ["runtime.created", "runtime.disposed"]);
+  assert.deepEqual(events, [
+    "runtime.created",
+    "browser.session.state",
+    "browser.session.unsubscribed",
+    "runtime.disposed"
+  ]);
 });
 
 test("project scope generations synchronously abort and hide obsolete projects", async () => {
@@ -664,9 +846,24 @@ test("semantic polling is completion-scheduled, focus-aware, and disposal is ide
       "./graph-store.js": `
         export function graphRelationshipParams() { return {}; }
       `,
+      "../graph-store.js": `
+        export function graphRelationshipParams() { return {}; }
+      `,
       "../application/resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts"),
       "../application/operations/operation-state.js": readSource("apps/desktop/src/application/operations/operation-state.ts"),
-      "../resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts")
+      "../resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts"),
+      "../../application/resources/resource-state.js": readSource("apps/desktop/src/application/resources/resource-state.ts"),
+      "../../application/operations/operation-state.js": readSource("apps/desktop/src/application/operations/operation-state.ts"),
+      "./semantic/semantic-analysis-controller.js": readSource("apps/desktop/src/stores/semantic/semantic-analysis-controller.ts"),
+      "./semantic/semantic-command-store.js": readSource("apps/desktop/src/stores/semantic/semantic-command-store.ts"),
+      "./semantic/semantic-operation-keys.js": readSource("apps/desktop/src/stores/semantic/semantic-operation-keys.ts"),
+      "./semantic/semantic-snapshot-client.js": readSource("apps/desktop/src/stores/semantic/semantic-snapshot-client.ts"),
+      "./semantic/semantic-types.js": readSource("apps/desktop/src/stores/semantic/semantic-types.ts"),
+      "./semantic-operation-keys.js": readSource("apps/desktop/src/stores/semantic/semantic-operation-keys.ts"),
+      "./semantic-poll-controller.js": readSource("apps/desktop/src/stores/semantic/semantic-poll-controller.ts"),
+      "./semantic-run-state.js": readSource("apps/desktop/src/stores/semantic/semantic-run-state.ts"),
+      "./semantic-snapshot-client.js": readSource("apps/desktop/src/stores/semantic/semantic-snapshot-client.ts"),
+      "./semantic-types.js": readSource("apps/desktop/src/stores/semantic/semantic-types.ts")
   });
   let timeoutClears = 0;
   const scheduledDelays = [];

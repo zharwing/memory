@@ -73,6 +73,39 @@ test("cookie sessions require exact origin host and in-memory CSRF", () => {
   assert.equal(sessions.authenticate(issue.cookie, issue.csrfToken, origin, host), issue.principal);
 });
 
+test("personal preview keeps independent tabs current when the shared cookie changes", () => {
+  const { sessions } = fixture();
+  const operations = ["memory.list_docs" as const];
+  const first = sessions.establishUnboundPreviewSession(origin, host, operations, ["project-a", "project-b"]);
+  const firstBound = sessions.switchProject(first.cookie, first.csrfToken, origin, host, "project-a")!;
+  const second = sessions.establishUnboundPreviewSession(origin, host, operations, ["project-a", "project-b"]);
+
+  assert.equal(
+    sessions.authenticate(second.cookie, firstBound.csrfToken, origin, host, true),
+    undefined,
+    "hardened cookie/CSRF pairing remains strict by default"
+  );
+  assert.equal(
+    sessions.authenticate(second.cookie, firstBound.csrfToken, origin, host, true, true),
+    firstBound.principal
+  );
+
+  const reboundFirst = sessions.switchProject(
+    second.cookie,
+    firstBound.csrfToken,
+    origin,
+    host,
+    "project-b",
+    true
+  )!;
+  assert.equal(reboundFirst.principal.projectId, "project-b");
+  assert.equal(
+    sessions.authenticate(reboundFirst.cookie, second.csrfToken, origin, host, true, true),
+    second.principal,
+    "the other tab remains usable after the first tab rotates"
+  );
+});
+
 test("project switch rotates cookie CSRF and principal while revoking the old session", () => {
   const { sessions } = fixture();
   const bootstrap = sessions.issueBootstrap(origin, host, grant);

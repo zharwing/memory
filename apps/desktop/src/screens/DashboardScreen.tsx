@@ -8,6 +8,7 @@ import {
 } from "../app/recovery/index.js";
 import { KeyValue, Panel, Screen } from "../components/layout.js";
 import { DataTable } from "../components/DataTable.js";
+import { ResourceAsyncRegion } from "../components/AccessibleStatus.js";
 import { reviewModeLabel } from "../utils/labels.js";
 import { routePath } from "../utils/routes.js";
 import { pendingInboxReviewCount } from "../utils/inbox.js";
@@ -15,7 +16,6 @@ import { timestampRenderers } from "../utils/format.js";
 
 export const DashboardScreen = observer(function DashboardScreen() {
   const store = useStore();
-  const summary = store.projects.summary;
   const summaryState = store.projects.summaryState;
   const memoryWritePolicy = store.projects.selectedMemoryWritePolicy;
   const pendingReviewCount = pendingInboxReviewCount(store.inbox.items);
@@ -23,43 +23,46 @@ export const DashboardScreen = observer(function DashboardScreen() {
     <Screen title="Project Dashboard" actions={<DashboardActions />}>
       <div className="dashboard-grid">
         <Panel title="Current Work">
-          {summaryState.status === "idle" || summaryState.status === "loading" ? (
-            <p className="panel-help" role="status">Loading project summary…</p>
-          ) : summaryState.status === "failure" ? (
-            <p className="panel-help" role="alert">The project summary could not be loaded. Refresh to try again.</p>
-          ) : (
-            <>
-              {summaryState.status === "refreshing" ? (
-                <p className="panel-help" role="status">Refreshing summary; showing the last accepted result.</p>
-              ) : summaryState.completeness.kind === "partial" ? (
-                <p className="panel-help" role="status">Showing a partial project summary.</p>
-              ) : null}
-              <KeyValue label="Active session" value={summary?.activeSession?.taskTitle || "None"} />
-              <KeyValue label="Latest session" value={summary?.latestSession?.taskTitle || "None"} />
-              <KeyValue label="Pending next steps" value={summary?.latestSession?.nextSteps?.length || 0} />
-            </>
-          )}
+          <ResourceAsyncRegion
+            state={summaryState}
+            label="Project summary"
+            loading={<p className="panel-help" role="status">Loading project summary…</p>}
+            error={<p className="panel-help" role="alert">The project summary could not be loaded. Refresh to try again.</p>}
+            retainedStatus={{
+              refreshing: <p className="panel-help" role="status">Refreshing summary; showing the last accepted result.</p>,
+              partial: <p className="panel-help" role="status">Showing a partial project summary.</p>
+            }}
+          >
+            {(summary) => (
+              <>
+                <KeyValue label="Active session" value={summary?.activeSession?.taskTitle || "None"} />
+                <KeyValue label="Latest session" value={summary?.latestSession?.taskTitle || "None"} />
+                <KeyValue label="Pending next steps" value={summary?.latestSession?.nextSteps?.length || 0} />
+              </>
+            )}
+          </ResourceAsyncRegion>
         </Panel>
         <Panel title="Context Preview">
           <p className="panel-help">Preview only. These items are not sent anywhere unless an agent or user asks for a context bundle.</p>
-          {store.assistant.contextBundleResource.state.status === "idle" ||
-          store.assistant.contextBundleResource.state.status === "loading" ? (
-            <p className="panel-help" role="status">Loading context preview…</p>
-          ) : store.assistant.contextBundleResource.state.status === "failure" ? (
-            <p className="panel-help" role="alert">The context preview could not be loaded. Refresh to try again.</p>
-          ) : (
-            <>
-              {store.assistant.contextBundleResource.state.status === "refreshing" ? (
-                <p className="panel-help" role="status">Refreshing context preview; showing the last accepted result.</p>
-              ) : store.assistant.contextBundleResource.completeness?.kind === "partial" ? (
-                <p className="panel-help" role="status">Showing a partial context preview.</p>
-              ) : null}
-              <KeyValue label="Safety" value={store.assistant.contextBundle?.safetyStatus || "unknown"} />
-              <KeyValue label="Would include" value={store.assistant.contextBundle?.includedItems?.length || 0} />
-              <KeyValue label="Would skip" value={store.assistant.contextBundle?.excludedItems?.length || 0} />
-              <KeyValue label="Estimated tokens" value={store.assistant.contextBundle?.tokenEstimate || 0} />
-            </>
-          )}
+          <ResourceAsyncRegion
+            state={store.assistant.contextBundleResource.state}
+            label="Context preview"
+            loading={<p className="panel-help" role="status">Loading context preview…</p>}
+            error={<p className="panel-help" role="alert">The context preview could not be loaded. Refresh to try again.</p>}
+            retainedStatus={{
+              refreshing: <p className="panel-help" role="status">Refreshing context preview; showing the last accepted result.</p>,
+              partial: <p className="panel-help" role="status">Showing a partial context preview.</p>
+            }}
+          >
+            {(contextBundle) => (
+              <>
+                <KeyValue label="Safety" value={contextBundle?.safetyStatus || "unknown"} />
+                <KeyValue label="Would include" value={contextBundle?.includedItems?.length || 0} />
+                <KeyValue label="Would skip" value={contextBundle?.excludedItems?.length || 0} />
+                <KeyValue label="Estimated tokens" value={contextBundle?.tokenEstimate || 0} />
+              </>
+            )}
+          </ResourceAsyncRegion>
         </Panel>
         <Panel title="Memory Updates">
           <p className="panel-help">
@@ -70,22 +73,29 @@ export const DashboardScreen = observer(function DashboardScreen() {
           <KeyValue label="Pending review" value={pendingReviewCount} />
         </Panel>
         <Panel title="Graph Snapshot">
-          {store.graph.graphResource.state.status === "idle" ||
-          store.graph.graphResource.state.status === "loading" ? (
-            <p className="panel-help" role="status">Loading graph snapshot…</p>
-          ) : store.graph.graphResource.state.status === "failure" ? (
-            <p className="panel-help" role="alert">The graph snapshot could not be loaded. Refresh to try again.</p>
-          ) : (
-            <>
-              {store.graph.graphResource.state.status === "refreshing" ? (
-                <p className="panel-help" role="status">Refreshing graph; showing the last accepted result.</p>
-              ) : store.graph.graphResource.completeness?.kind === "partial" ? (
-                <p className="panel-help" role="status">Showing a partial graph snapshot.</p>
-              ) : null}
-              <KeyValue label="Nodes" value={store.graph.data?.nodes?.length || 0} />
-              <KeyValue label="Edges" value={store.graph.data?.edges?.length || 0} />
-            </>
-          )}
+          <ResourceAsyncRegion
+            state={store.graph.graphResource.state}
+            label="Graph snapshot"
+            loading={<p className="panel-help" role="status">Loading graph snapshot…</p>}
+            empty={(
+              <>
+                <KeyValue label="Nodes" value={0} />
+                <KeyValue label="Edges" value={0} />
+              </>
+            )}
+            error={<p className="panel-help" role="alert">The graph snapshot could not be loaded. Refresh to try again.</p>}
+            retainedStatus={{
+              refreshing: <p className="panel-help" role="status">Refreshing graph; showing the last accepted result.</p>,
+              partial: <p className="panel-help" role="status">Showing a partial graph snapshot.</p>
+            }}
+          >
+            {(graph) => (
+              <>
+                <KeyValue label="Nodes" value={graph?.nodes?.length || 0} />
+                <KeyValue label="Edges" value={graph?.edges?.length || 0} />
+              </>
+            )}
+          </ResourceAsyncRegion>
         </Panel>
       </div>
       <RecentSessions />
@@ -161,32 +171,32 @@ function DashboardActions() {
 function RecentSessions() {
   const store = useStore();
   const listState = store.sessions.listState;
-  const completeness = store.sessions.listCompleteness;
   return (
     <Panel title="Recent Project Sessions">
-      {listState.status === "idle" || listState.status === "loading" ? (
-        <p className="panel-help" role="status">Loading recent sessions…</p>
-      ) : listState.status === "failure" ? (
-        <p className="panel-help" role="alert">Recent sessions could not be loaded. Refresh to try again.</p>
-      ) : (
-        <>
-          {listState.status === "refreshing" ? (
-            <p className="panel-help" role="status">Refreshing sessions; showing the last accepted result.</p>
-          ) : completeness?.kind === "partial" ? (
-            <p className="panel-help" role="status">Showing recent sessions from a partial list.</p>
-          ) : null}
-          {store.sessions.list.length ? (
-            <DataTable
-              columns={["updated", "status", "taskTitle"]}
-              columnLabels={{ updated: "Updated", status: "Status", taskTitle: "Task" }}
-              rows={store.sessions.list.slice(0, 6)}
-              renderers={timestampRenderers("updated")}
-            />
-          ) : completeness?.kind === "complete" ? (
-            <p className="panel-help">No project sessions yet.</p>
-          ) : null}
-        </>
-      )}
+      <ResourceAsyncRegion
+        state={listState}
+        label="Recent project sessions"
+        loading={<p className="panel-help" role="status">Loading recent sessions…</p>}
+        empty={<p className="panel-help">No project sessions yet.</p>}
+        error={<p className="panel-help" role="alert">Recent sessions could not be loaded. Refresh to try again.</p>}
+        retainedStatus={{
+          refreshing: <p className="panel-help" role="status">Refreshing sessions; showing the last accepted result.</p>,
+          partial: <p className="panel-help" role="status">Showing recent sessions from a partial list.</p>
+        }}
+      >
+        {(sessions) => (
+          <>
+            {sessions.length ? (
+              <DataTable
+                columns={["updated", "status", "taskTitle"]}
+                columnLabels={{ updated: "Updated", status: "Status", taskTitle: "Task" }}
+                rows={sessions.slice(0, 6)}
+                renderers={timestampRenderers("updated")}
+              />
+            ) : null}
+          </>
+        )}
+      </ResourceAsyncRegion>
     </Panel>
   );
 }

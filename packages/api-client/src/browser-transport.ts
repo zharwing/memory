@@ -29,7 +29,17 @@ export type BrowserSessionLockReason =
   | "forbidden";
 
 export interface BrowserSessionSnapshot {
-  state: BrowserSessionState;
+  readonly state: BrowserSessionState;
+}
+
+export type BrowserSessionStateListener = (state: BrowserSessionState) => void;
+
+export interface BrowserSessionObservable extends BrowserSessionSnapshot {
+  /**
+   * Observes public session state only. The current snapshot is delivered
+   * immediately and the returned function removes the listener.
+   */
+  subscribe(listener: BrowserSessionStateListener): () => void;
 }
 
 export interface BrowserSessionAccess extends BrowserSessionSnapshot {
@@ -62,11 +72,15 @@ const SESSION_RESPONSE_LIMIT = 64 * 1024;
  * Owns the browser session's only script-visible secret. The CSRF value is
  * deliberately private, memory-only, and absent from snapshots/configuration.
  */
-export class BrowserSessionController implements BrowserSessionSnapshot {
+export class BrowserSessionController implements BrowserSessionObservable {
   private readonly requestFetch: typeof fetch;
   private readonly baseUrl: string;
   #csrfToken: string | undefined;
   #sessionQueue: Promise<void> = Promise.resolve();
+  #activeProjectRequests = 0;
+  #requestDrain: Promise<void> | undefined;
+  #resolveRequestDrain: (() => void) | undefined;
+  readonly #stateListeners = new Set<BrowserSessionStateListener>();
   private currentState: BrowserSessionState = Object.freeze({
     status: "locked",
     reason: "bootstrap-required"
@@ -85,10 +99,19 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
     return this.currentState;
   }
 
+  subscribe(listener: BrowserSessionStateListener): () => void {
+    this.#stateListeners.add(listener);
+    this.notifyListener(listener);
+    return () => {
+      this.#stateListeners.delete(listener);
+    };
+  }
+
   /** Atomically exchanges a launcher-issued, single-use bootstrap code. */
   async bootstrap(code: string, signal?: AbortSignal): Promise<BrowserSessionBootstrapResult> {
     if (!code) throw new Error("A browser bootstrap code is required.");
     return this.exclusive(async () => {
+      await this.waitForActiveProjectRequests();
       this.lock("bootstrap-required");
       return this.establish("/browser-session/bootstrap", { code }, undefined, signal);
     });
@@ -101,6 +124,7 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
    */
   async bootstrapPersonalPreview(signal?: AbortSignal): Promise<BrowserSessionBootstrapResult> {
     return this.exclusive(async () => {
+      await this.waitForActiveProjectRequests();
       this.lock("bootstrap-required");
       return this.establish("/browser-session/preview", {}, undefined, signal);
     });
@@ -109,6 +133,8 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
   /** Rotates the bounded session while preserving cookie-only session authority. */
   async rotate(signal?: AbortSignal): Promise<BrowserSessionBootstrapResult> {
     return this.exclusive(async () => {
+      await this.waitForActiveProjectRequests();
+      this.expireSessionIfNeeded();
       const csrfToken = this.requireCsrf();
       this.lock("rotating");
       return this.establish("/browser-session/rotate", {}, csrfToken, signal);
@@ -118,12 +144,18 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
   /** Rebinds project scope by rotating to new server-owned session claims. */
   async bindProject(projectId: string, signal?: AbortSignal): Promise<BrowserSessionBootstrapResult> {
     if (!projectId) throw new Error("A project id is required to bind the browser session.");
-    return this.exclusive(() => this.bindProjectNow(projectId, signal));
+    return this.exclusive(async () => {
+      await this.waitForActiveProjectRequests();
+      this.expireSessionIfNeeded();
+      return this.bindProjectNow(projectId, signal);
+    });
   }
 
   /** Revokes the cookie session and immediately forgets the in-memory CSRF value. */
   async revoke(signal?: AbortSignal): Promise<void> {
     return this.exclusive(async () => {
+      await this.waitForActiveProjectRequests();
+      this.expireSessionIfNeeded();
       const csrfToken = this.requireCsrf();
       this.lock("revoked");
       const response = await this.request("/browser-session/revoke", {}, csrfToken, signal);
@@ -137,20 +169,30 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
     this.setState({ status: "locked", reason });
   }
 
-  withProjectSession<Result>(
+  async withProjectSession<Result>(
     projectId: string | null,
     invoke: (csrfToken: string) => Promise<Result>
   ): Promise<Result> {
-    return this.exclusive(async () => {
-      if (projectId !== null &&
-          (this.currentState.status !== "active" || this.currentState.projectId !== projectId)) {
-        await this.bindProjectNow(projectId);
+    const csrfToken = await this.exclusive(async () => {
+      if (!this.isStableForProject(projectId)) {
+        await this.waitForActiveProjectRequests();
+        this.expireSessionIfNeeded();
+        if (projectId !== null &&
+            (this.currentState.status !== "active" || this.currentState.projectId !== projectId)) {
+          await this.bindProjectNow(projectId);
+        }
       }
-      if (this.currentState.status === "active" && Date.parse(this.currentState.expiresAt) <= Date.now()) {
-        this.lock("expired");
-      }
-      return invoke(this.requireCsrf());
+      this.expireSessionIfNeeded();
+      const token = this.requireCsrf();
+      this.acquireProjectRequest();
+      return token;
     });
+
+    try {
+      return await invoke(csrfToken);
+    } finally {
+      this.releaseProjectRequest();
+    }
   }
 
   handleAccessStatus(status: number): never {
@@ -206,6 +248,41 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
     return this.establish("/browser-session/project", { projectId }, csrfToken, signal);
   }
 
+  private isStableForProject(projectId: string | null): boolean {
+    return this.currentState.status === "active" &&
+      Date.parse(this.currentState.expiresAt) > Date.now() &&
+      (projectId === null || this.currentState.projectId === projectId);
+  }
+
+  private expireSessionIfNeeded(): void {
+    if (this.currentState.status === "active" && Date.parse(this.currentState.expiresAt) <= Date.now()) {
+      this.lock("expired");
+    }
+  }
+
+  private acquireProjectRequest(): void {
+    if (this.#activeProjectRequests === 0) {
+      this.#requestDrain = new Promise<void>((resolve) => {
+        this.#resolveRequestDrain = () => resolve();
+      });
+    }
+    this.#activeProjectRequests += 1;
+  }
+
+  private releaseProjectRequest(): void {
+    if (this.#activeProjectRequests <= 0) return;
+    this.#activeProjectRequests -= 1;
+    if (this.#activeProjectRequests !== 0) return;
+    const resolve = this.#resolveRequestDrain;
+    this.#requestDrain = undefined;
+    this.#resolveRequestDrain = undefined;
+    resolve?.();
+  }
+
+  private waitForActiveProjectRequests(): Promise<void> {
+    return this.#requestDrain ?? Promise.resolve();
+  }
+
   private exclusive<Result>(operation: () => Promise<Result>): Promise<Result> {
     const result = this.#sessionQueue.then(operation);
     this.#sessionQueue = result.then(() => undefined, () => undefined);
@@ -245,7 +322,16 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
 
   private setState(state: BrowserSessionState): void {
     this.currentState = Object.freeze(state);
-    this.options.onStateChange?.(this.currentState);
+    if (this.options.onStateChange) this.notifyListener(this.options.onStateChange);
+    for (const listener of [...this.#stateListeners]) this.notifyListener(listener);
+  }
+
+  private notifyListener(listener: BrowserSessionStateListener): void {
+    try {
+      listener(this.currentState);
+    } catch {
+      // Session observers cannot interrupt or roll back an authority change.
+    }
   }
 }
 

@@ -2,7 +2,13 @@ import { useState } from "react";
 import { observer } from "mobx-react-lite";
 import { Link } from "react-router-dom";
 import { Activity, AlertCircle, CircleHelp, Play, Settings2, Sparkles, X } from "lucide-react";
-import type { AssistantPolicy, SemanticGraphRunCounts } from "@zharwing/memory-core";
+import type {
+  AssistantPolicy,
+  MemoryDocument,
+  OperationOutput,
+  SemanticGraphRun,
+  SemanticGraphRunCounts
+} from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
@@ -113,7 +119,7 @@ export const DocsScreen = observer(function DocsScreen() {
     setPage(0);
   }
 
-  function openDocEditor(doc: any) {
+  function openDocEditor(doc: MemoryDocument) {
     setDocSearchParam(doc.id);
   }
 
@@ -153,7 +159,7 @@ export const DocsScreen = observer(function DocsScreen() {
   return (
     <Screen title="Docs Library">
       <LibraryTabs />
-      {showSemanticRunBanner ? (
+      {showSemanticRunBanner && semanticDisplayRun ? (
         <section className={`semantic-run-banner ${semanticRunStatusClass(semanticDisplayRun)}`} aria-live={semanticRunRunning ? "polite" : "off"}>
           <div className="semantic-run-banner-main">
             <div className="semantic-run-banner-title">
@@ -286,6 +292,7 @@ export const DocsScreen = observer(function DocsScreen() {
       {editingDoc ? (
         <DocumentEditorHost
           doc={editingDoc}
+          documents={store.docs}
           onClose={() => closeDocEditor()}
           onDeleted={() => closeDocEditor(true)}
         />
@@ -486,7 +493,7 @@ export const DocsScreen = observer(function DocsScreen() {
   );
 });
 
-function semanticRunTitle(run: any, pendingSuggestions: number, hasProposal: boolean): string {
+function semanticRunTitle(run: SemanticGraphRun, pendingSuggestions: number, hasProposal: boolean): string {
   if (run.status === "failed") return "Suggestion run failed";
   if (run.status === "cancelled") return "Suggestion run cancelled";
   if (run.status === "running" || run.status === "pending") return "Creating suggestions";
@@ -496,7 +503,7 @@ function semanticRunTitle(run: any, pendingSuggestions: number, hasProposal: boo
   return "Suggestion run complete";
 }
 
-function semanticRunPhase(run: any, running: boolean): string {
+function semanticRunPhase(run: SemanticGraphRun, running: boolean): string {
   if (!running) return String(run.status || "latest run");
   const counts = run.counts || {};
   const documentsTotal = Number(counts.documentsTotal || 0);
@@ -506,14 +513,14 @@ function semanticRunPhase(run: any, running: boolean): string {
   return "Preparing links";
 }
 
-function semanticRunStatusClass(run: any): string {
+function semanticRunStatusClass(run: SemanticGraphRun): string {
   if (run.status === "failed") return "failed";
   if (run.status === "cancelled") return "warning";
   if (run.status === "completed") return "completed";
   return "running";
 }
 
-function semanticRunCompletionCopy(run: any, pendingSuggestions: number, hasProposal: boolean): string {
+function semanticRunCompletionCopy(run: SemanticGraphRun, pendingSuggestions: number, hasProposal: boolean): string {
   const counts = run.counts || {};
   if (run.status === "failed") return semanticRunErrorCopy(run.error);
   if (run.status === "cancelled") return "The run stopped before it could finish.";
@@ -536,8 +543,8 @@ function semanticRunErrorCopy(error: unknown): string {
 }
 
 function modelDisplayNameForLinkDiscovery(args: {
-  assistantPolicy: any;
-  providerCheck: any;
+  assistantPolicy: Partial<AssistantPolicy>;
+  providerCheck: OperationOutput<"memory.check_semantic_graph_provider"> | undefined;
   modelId: string;
 }): string {
   if (

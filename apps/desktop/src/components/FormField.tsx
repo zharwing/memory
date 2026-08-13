@@ -5,6 +5,7 @@ import {
   type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
   useEffect,
   useId,
   useRef
@@ -78,6 +79,21 @@ export function SelectField({ label, help, error, fieldClassName, required, chil
   return (
     <Field label={label} help={help} error={error} required={required} className={fieldClassName}>
       <select {...selectProps}>{children}</select>
+    </Field>
+  );
+}
+
+interface TextAreaFieldProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "children"> {
+  label: ReactNode;
+  help?: ReactNode;
+  error?: ReactNode;
+  fieldClassName?: string;
+}
+
+export function TextAreaField({ label, help, error, fieldClassName, required, ...textareaProps }: TextAreaFieldProps) {
+  return (
+    <Field label={label} help={help} error={error} required={required} className={fieldClassName}>
+      <textarea {...textareaProps} />
     </Field>
   );
 }

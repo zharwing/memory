@@ -1,3 +1,5 @@
+import type { SemanticGraphRun } from "@zharwing/memory-core";
+
 /**
  * Pure selectors over a semantic-graph run record. Shared by Shell (topbar
  * pill), DocsScreen (link-discovery banner/dialog), and GraphScreen so the
@@ -5,7 +7,7 @@
  */
 
 export interface SemanticRunStatus {
-  run: any;
+  run: SemanticGraphRun | undefined;
   status: string;
   running: boolean;
   finished: boolean;
@@ -17,18 +19,21 @@ export interface SemanticRunStatus {
   progressLabel: string;
 }
 
-export function semanticRunStatus(run: any, analysisRunning = false): SemanticRunStatus {
-  const status = String(run?.status || "");
-  const counts = run?.counts || {};
+export function semanticRunStatus(
+  run: SemanticGraphRun | undefined,
+  analysisRunning = false
+): SemanticRunStatus {
+  const status = run?.status ?? "";
+  const counts = run?.counts;
   const running = analysisRunning || status === "running" || status === "pending";
   const finished = Boolean(run && !running && ["completed", "failed", "cancelled"].includes(status));
-  const documentsTotal = Number(counts.documentsTotal || 0);
+  const documentsTotal = counts?.documentsTotal ?? 0;
   const documentsProcessed = Math.min(
     documentsTotal || Number.MAX_SAFE_INTEGER,
-    Number(counts.documentsAnalyzed || 0) + Number(counts.extractionsReused || 0)
+    (counts?.documentsAnalyzed ?? 0) + (counts?.extractionsReused ?? 0)
   );
-  const candidatesTotal = Number(counts.candidates || 0);
-  const candidatesJudged = Number(counts.judged || 0);
+  const candidatesTotal = counts?.candidates ?? 0;
+  const candidatesJudged = counts?.judged ?? 0;
 
   return {
     run,

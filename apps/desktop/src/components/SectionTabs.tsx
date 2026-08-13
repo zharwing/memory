@@ -1,5 +1,5 @@
+import { createContext, type ReactNode, useContext } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useStore } from "../stores/store-context.js";
 import {
   currentScreenRouteId,
   registeredRouteEntries,
@@ -9,15 +9,32 @@ import {
   type RouteTabEntry,
   type TabSection
 } from "../utils/routes.js";
-import { pendingInboxReviewCount } from "../utils/inbox.js";
+
+interface SectionNavigationValue {
+  readonly projectId?: string;
+  readonly pendingInboxCount: number;
+}
+
+const SectionNavigationContext = createContext<SectionNavigationValue | null>(null);
+
+export function SectionNavigationProvider({
+  projectId,
+  pendingInboxCount,
+  children
+}: SectionNavigationValue & { children: ReactNode }) {
+  return (
+    <SectionNavigationContext.Provider value={{ projectId, pendingInboxCount }}>
+      {children}
+    </SectionNavigationContext.Provider>
+  );
+}
 
 export function WorkTabs() {
   return <RegisteredSectionTabs section="work" />;
 }
 
 export function LibraryTabs() {
-  const store = useStore();
-  const pendingInboxCount = pendingInboxReviewCount(store.inbox.items);
+  const { pendingInboxCount } = useSectionNavigation();
   return <RegisteredSectionTabs section="library" badges={{ inbox: pendingInboxCount }} />;
 }
 
@@ -65,7 +82,7 @@ function RouteTabs({
   entries: readonly RouteTabEntry[];
   badges: Partial<Record<AppRouteId, number>>;
 }) {
-  const store = useStore();
+  const { projectId } = useSectionNavigation();
   const location = useLocation();
   const currentRouteId = currentScreenRouteId(location.pathname);
   return (
@@ -74,7 +91,7 @@ function RouteTabs({
         <NavLink
           aria-current={currentRouteId === entry.routeId ? "page" : undefined}
           key={entry.routeId}
-          to={routePath(entry.routeId, { projectId: store.projects.selectedProjectId })}
+          to={routePath(entry.routeId, { projectId })}
           className={() => `section-tab ${currentRouteId === entry.routeId ? "active" : ""}`}
         >
           {entry.label}
@@ -83,6 +100,12 @@ function RouteTabs({
       ))}
     </nav>
   );
+}
+
+function useSectionNavigation(): SectionNavigationValue {
+  const navigation = useContext(SectionNavigationContext);
+  if (!navigation) throw new Error("SectionNavigationProvider is missing.");
+  return navigation;
 }
 
 function legacyPathFor(routeId: AppRouteId): string {

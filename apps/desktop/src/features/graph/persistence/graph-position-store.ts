@@ -26,36 +26,43 @@ export interface GraphPositionStore {
   remove(storageKey: string): void;
 }
 
-export const localGraphPositionStore: GraphPositionStore = {
-  read(storageKey, nodeIds) {
-    if (!validStorageKey(storageKey) || !validNodeIds(nodeIds)) return undefined;
-    return decodeGraphPositions(readJson<unknown>(storageKey), nodeIds);
-  },
+/**
+ * Creates the browser/WebView adapter at the composition boundary. The
+ * adapter is deliberately stateless; its instance still has to be injected so
+ * graph model and interaction code never reach into process-global storage.
+ */
+export function createLocalGraphPositionStore(): GraphPositionStore {
+  return {
+    read(storageKey, nodeIds) {
+      if (!validStorageKey(storageKey) || !validNodeIds(nodeIds)) return undefined;
+      return decodeGraphPositions(readJson<unknown>(storageKey), nodeIds);
+    },
 
-  write(storageKey, nodes) {
-    if (!validStorageKey(storageKey) || nodes.length > MAX_PERSISTED_GRAPH_NODES) return;
-    const positions: StoredGraphNodePositionMap = {};
-    const nodeIds: string[] = [];
+    write(storageKey, nodes) {
+      if (!validStorageKey(storageKey) || nodes.length > MAX_PERSISTED_GRAPH_NODES) return;
+      const positions: StoredGraphNodePositionMap = {};
+      const nodeIds: string[] = [];
 
-    for (const node of nodes) {
-      if (!validNodeId(node.id)) return;
-      const position = { x: Math.round(Number(node.x ?? 0)), y: Math.round(Number(node.y ?? 0)) };
-      if (!isGraphNodePosition(position)) return;
-      nodeIds.push(node.id);
-      positions[node.id] = position;
+      for (const node of nodes) {
+        if (!validNodeId(node.id)) return;
+        const position = { x: Math.round(Number(node.x ?? 0)), y: Math.round(Number(node.y ?? 0)) };
+        if (!isGraphNodePosition(position)) return;
+        nodeIds.push(node.id);
+        positions[node.id] = position;
+      }
+
+      writeJson(storageKey, {
+        version: GRAPH_POSITION_FORMAT_VERSION,
+        nodeIds: nodeIds.sort((left, right) => left.localeCompare(right, "en-US")),
+        positions
+      } satisfies StoredGraphNodePositionsPayload);
+    },
+
+    remove(storageKey) {
+      if (validStorageKey(storageKey)) remove(storageKey);
     }
-
-    writeJson(storageKey, {
-      version: GRAPH_POSITION_FORMAT_VERSION,
-      nodeIds: nodeIds.sort((left, right) => left.localeCompare(right, "en-US")),
-      positions
-    } satisfies StoredGraphNodePositionsPayload);
-  },
-
-  remove(storageKey) {
-    if (validStorageKey(storageKey)) remove(storageKey);
-  }
-};
+  };
+}
 
 export function decodeGraphPositions(
   input: unknown,

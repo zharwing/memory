@@ -18,6 +18,7 @@ type ProviderCheck = OperationOutput<"memory.check_semantic_graph_provider">;
 type ProviderSecretStatus = OperationOutput<"memory.get_provider_secret_status">;
 
 export class AssistantStore {
+  providerSecretKind: string | undefined;
   readonly statusResource: ResourceSlot<AssistantStatus>;
   readonly providerCheckResource: ResourceSlot<ProviderCheck>;
   readonly providerSecretStatusResource: ResourceSlot<ProviderSecretStatus>;
@@ -82,11 +83,13 @@ export class AssistantStore {
   }
 
   resetProviderCheck(): void {
+    this.providerSecretKind = undefined;
     this.providerCheckResource.reset();
     this.providerSecretStatusResource.reset();
   }
 
   clear(): void {
+    this.providerSecretKind = undefined;
     this.statusResource.reset();
     this.providerCheckResource.reset();
     this.providerSecretStatusResource.reset();
@@ -163,6 +166,7 @@ export class AssistantStore {
   }
 
   async loadProviderSecretStatus(providerKind: string): Promise<void> {
+    this.providerSecretKind = providerKind;
     const token = this.scope.captureScope();
     if (!token) {
       this.providerSecretStatusResource.reset();
@@ -182,12 +186,13 @@ export class AssistantStore {
   }
 
   async saveProviderSecret(providerKind: string, secret: string): Promise<boolean> {
+    this.providerSecretKind = providerKind;
     const token = this.scope.captureScope();
     if (!token || !secret) return false;
     const current = this.providerSecretStatus;
     const operation = this.operations.begin("save-provider-secret", token);
     try {
-      const options = { signal: token.signal, idempotencyKey: globalThis.crypto.randomUUID() };
+      const options = { signal: token.signal, idempotencyKey: operation.operationId };
       const status = current?.configured && current.providerKind === providerKind && current.revision
         ? await this.client.operation("memory.rotate_provider_secret", {
           projectId: token.projectId,
@@ -218,13 +223,14 @@ export class AssistantStore {
     const token = this.scope.captureScope();
     const current = this.providerSecretStatus;
     if (!token || !current?.configured || !current.revision) return false;
+    this.providerSecretKind = current.providerKind;
     const operation = this.operations.begin("clear-provider-secret", token);
     try {
       const status = await this.client.operation("memory.clear_provider_secret", {
         projectId: token.projectId,
         providerKind: current.providerKind,
         expectedRevision: current.revision
-      }, { signal: token.signal, idempotencyKey: globalThis.crypto.randomUUID() });
+      }, { signal: token.signal, idempotencyKey: operation.operationId });
       if (!this.scope.isScopeCurrent(token)) {
         this.operations.abandon(operation);
         return false;

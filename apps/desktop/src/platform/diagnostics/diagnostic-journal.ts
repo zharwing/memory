@@ -66,6 +66,19 @@ export interface SanitizedDiagnosticReport {
   readonly events: readonly SafeDiagnosticEvent[];
 }
 
+/** Runtime-owned, local-only diagnostics capability exposed to composition and recovery UI. */
+export interface DiagnosticJournal {
+  recordEvent(input: ClosedDiagnosticInput): void;
+  recordFailure(
+    input: Omit<SafeDiagnosticInput, "error" | "publicError">,
+    error: unknown
+  ): void;
+  snapshot(): readonly SafeDiagnosticEvent[];
+  createReport(now?: Date): SanitizedDiagnosticReport;
+  exportJson(now?: Date): string;
+  clear(): void;
+}
+
 const MAX_EVENTS = 200;
 const MAX_REPORT_BYTES = 64 * 1024;
 
@@ -74,11 +87,10 @@ const MAX_REPORT_BYTES = 64 * 1024;
  * of enum-like metadata; raw messages, stacks, paths, payloads, and values are
  * never retained. `error` is classified and discarded synchronously.
  */
-export class LocalDiagnosticJournal {
+export class LocalDiagnosticJournal implements DiagnosticJournal {
   #events: SafeDiagnosticEvent[] = [];
   #sequence = 0;
   readonly #startedAt = Date.now();
-  readonly #listeners = new Set<(event?: SafeDiagnosticEvent) => void>();
 
   private record(input: SafeDiagnosticInput): void {
     const publicError = input.publicError ?? classifyUnknownFailure(input.error);
@@ -100,7 +112,6 @@ export class LocalDiagnosticJournal {
     });
     this.#events.push(event);
     if (this.#events.length > MAX_EVENTS) this.#events.splice(0, this.#events.length - MAX_EVENTS);
-    this.notify(event);
   }
 
   recordEvent(input: ClosedDiagnosticInput): void {
@@ -109,13 +120,6 @@ export class LocalDiagnosticJournal {
 
   recordFailure(input: Omit<SafeDiagnosticInput, "error" | "publicError">, error: unknown): void {
     this.record({ ...input, error });
-  }
-
-  subscribe(listener: (event?: SafeDiagnosticEvent) => void): () => void {
-    this.#listeners.add(listener);
-    return () => {
-      this.#listeners.delete(listener);
-    };
   }
 
   snapshot(): readonly SafeDiagnosticEvent[] {
@@ -140,22 +144,8 @@ export class LocalDiagnosticJournal {
 
   clear(): void {
     this.#events = [];
-    this.notify();
-  }
-
-  private notify(event?: SafeDiagnosticEvent): void {
-    for (const listener of this.#listeners) {
-      try {
-        listener(event);
-      } catch {
-        // Observers receive no diagnostic data. A failed observer is detached
-        // by its owner and must not turn diagnostics into a crash path.
-      }
-    }
   }
 }
-
-export const localDiagnostics = new LocalDiagnosticJournal();
 
 function classifyUnknownFailure(error: unknown): PublicError | undefined {
   try {

@@ -4,19 +4,20 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App.js";
 import {
+  DiagnosticJournalProvider,
   RecoveryPanel,
   RootRecoveryBoundary
 } from "./app/recovery/index.js";
+import type { AppRuntime } from "./app/composition/runtime.js";
 import {
   installProductionConsoleSentinel,
-  localDiagnostics
+  LocalDiagnosticJournal,
+  type DiagnosticJournal
 } from "./platform/diagnostics/index.js";
 import { StoreProvider } from "./stores/store-context.js";
 import "./styles/global.css";
 
 const environment = (import.meta as unknown as { env?: { PROD?: boolean } }).env;
-const consoleSentinel = installProductionConsoleSentinel(environment?.PROD === true);
-const rootElement = document.getElementById("root");
 
 function redirectLegacyLocalhost(): boolean {
   if (isTauri() || globalThis.location?.hostname !== "localhost") return false;
@@ -26,54 +27,85 @@ function redirectLegacyLocalhost(): boolean {
   return true;
 }
 
-async function loadApplicationRuntime() {
+async function loadApplicationRuntime(diagnostics: DiagnosticJournal) {
   if (isTauri()) {
     const { createTauriRuntime } = await import("./app/composition/tauri.js");
-    return createTauriRuntime(invoke);
+    return createTauriRuntime(invoke, diagnostics);
   }
   const { createBrowserRuntime } = await import("./app/composition/browser.js");
-  return createBrowserRuntime();
+  return createBrowserRuntime(diagnostics);
 }
 
-if (redirectLegacyLocalhost()) {
-  // Keep localhost bookmarks compatible while ensuring the UI and local daemon
-  // share one exact loopback site for the browser's private session cookie.
-} else if (!rootElement) {
-  // There is no render target for a recovery surface. Record only the closed
-  // classification and avoid creating an exception/stack or console output.
-  localDiagnostics.recordFailure({ name: "failure.caught", surface: "root" }, true);
-} else {
+function startApplication(): void {
+  if (redirectLegacyLocalhost()) {
+    // Keep localhost bookmarks compatible while ensuring the UI and local daemon
+    // share one exact loopback site for the browser's private session cookie.
+    return;
+  }
+
+  const diagnostics = new LocalDiagnosticJournal();
+  const consoleSentinel = installProductionConsoleSentinel(
+    environment?.PROD === true,
+    diagnostics
+  );
+  const rootElement = document.getElementById("root");
+  if (!rootElement) {
+    // There is no render target for a recovery surface. Record only the closed
+    // classification and avoid creating an exception/stack or console output.
+    diagnostics.recordFailure({ name: "failure.caught", surface: "root" }, true);
+    consoleSentinel.dispose();
+    return;
+  }
+
   const root = createRoot(rootElement);
+  let runtime: AppRuntime | undefined;
+  let pageDisposed = false;
+  const disposePage = () => {
+    if (pageDisposed) return;
+    pageDisposed = true;
+    try {
+      runtime?.dispose();
+    } finally {
+      consoleSentinel.dispose();
+    }
+  };
+  globalThis.addEventListener?.("pagehide", disposePage, { once: true });
+
   void (async () => {
     try {
-      const runtime = await loadApplicationRuntime();
-      globalThis.addEventListener?.("pagehide", () => {
-        try {
-          runtime.dispose();
-        } finally {
-          consoleSentinel.dispose();
-        }
-      }, { once: true });
+      const loadedRuntime = await loadApplicationRuntime(diagnostics);
+      if (pageDisposed) {
+        loadedRuntime.dispose();
+        return;
+      }
+      runtime = loadedRuntime;
 
       root.render(
         <React.StrictMode>
-          <RootRecoveryBoundary>
-            <StoreProvider runtime={runtime}>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
-            </StoreProvider>
-          </RootRecoveryBoundary>
+          <DiagnosticJournalProvider journal={diagnostics}>
+            <RootRecoveryBoundary>
+              <StoreProvider runtime={runtime}>
+                <BrowserRouter>
+                  <App />
+                </BrowserRouter>
+              </StoreProvider>
+            </RootRecoveryBoundary>
+          </DiagnosticJournalProvider>
         </React.StrictMode>
       );
     } catch (error) {
-      localDiagnostics.recordFailure({ name: "failure.caught", surface: "root" }, error);
+      diagnostics.recordFailure({ name: "failure.caught", surface: "root" }, error);
+      if (pageDisposed) return;
       root.render(
-        <RecoveryPanel
-          surface="root"
-          title="The app could not start"
-        />
+        <DiagnosticJournalProvider journal={diagnostics}>
+          <RecoveryPanel
+            surface="root"
+            title="The app could not start"
+          />
+        </DiagnosticJournalProvider>
       );
     }
   })();
 }
+
+startApplication();

@@ -1,16 +1,17 @@
 import { observer } from "mobx-react-lite";
-import { useStore } from "../stores/store-context.js";
+import type { Workstream } from "@zharwing/memory-core";
 
 const WORKSTREAM_STATUSES = ["active", "paused", "done", "archived"] as const;
+export type WorkstreamActionStatus = (typeof WORKSTREAM_STATUSES)[number];
 
 /** The four workstream status buttons (Workstreams screen and Search detail). */
 export const WorkstreamStatusActions = observer(function WorkstreamStatusActions({
-  workstream
+  workstream,
+  onStatusChange
 }: {
-  workstream: { id: string; status?: string };
+  workstream: Pick<Workstream, "id" | "status">;
+  onStatusChange: (workstreamId: string, status: WorkstreamActionStatus) => void | Promise<void>;
 }) {
-  const store = useStore();
-
   return (
     <>
       {WORKSTREAM_STATUSES.map((status) => (
@@ -18,7 +19,7 @@ export const WorkstreamStatusActions = observer(function WorkstreamStatusActions
           type="button"
           key={status}
           disabled={workstream.status === status}
-          onClick={() => store.workstreams.updateStatus(workstream.id, status)}
+          onClick={() => void onStatusChange(workstream.id, status)}
         >
           {status}
         </button>

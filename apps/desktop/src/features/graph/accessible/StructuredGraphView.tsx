@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import type {
+  GraphViewportActions,
+  GraphViewportModel
+} from "../application/graph-viewport-contract.js";
 
 export interface StructuredGraphNode {
   id: string;
@@ -17,22 +21,22 @@ export interface StructuredGraphEdge {
   sourceKind?: string;
 }
 
-interface StructuredGraphViewProps<Node extends StructuredGraphNode, Edge extends StructuredGraphEdge> {
-  nodes: readonly Node[];
-  edges: readonly Edge[];
-  focusedNodeId: string;
-  selectedNodeId: string;
-  selectedEdgeId: string;
-  visualAvailable: boolean;
-  omittedNodeCount?: number;
-  omittedEdgeCount?: number;
+export interface StructuredGraphViewAdapters<
+  Node extends StructuredGraphNode,
+  Edge extends StructuredGraphEdge
+> {
   documentIdForNode: (node: Node) => string | undefined;
   canFocusNode: (node: Node) => boolean;
   edgeTypeLabel: (edgeType: string) => string;
-  onOpenDocument: (documentId: string) => void;
-  onSelectNode: (nodeId: string) => void;
-  onFocusNode: (nodeId: string) => void;
-  onSelectEdge: (edge: Edge) => void;
+}
+
+interface StructuredGraphViewProps<
+  Node extends StructuredGraphNode,
+  Edge extends StructuredGraphEdge
+> {
+  model: GraphViewportModel<Node, Edge>;
+  actions: GraphViewportActions<Edge>;
+  adapters: StructuredGraphViewAdapters<Node, Edge>;
 }
 
 /**
@@ -41,22 +45,15 @@ interface StructuredGraphViewProps<Node extends StructuredGraphNode, Edge extend
  * arrow-key access to every projected node and relationship.
  */
 export function StructuredGraphView<Node extends StructuredGraphNode, Edge extends StructuredGraphEdge>({
-  nodes,
-  edges,
-  focusedNodeId,
-  selectedNodeId,
-  selectedEdgeId,
-  visualAvailable,
-  omittedNodeCount = 0,
-  omittedEdgeCount = 0,
-  documentIdForNode,
-  canFocusNode,
-  edgeTypeLabel,
-  onOpenDocument,
-  onSelectNode,
-  onFocusNode,
-  onSelectEdge
+  model,
+  actions,
+  adapters
 }: StructuredGraphViewProps<Node, Edge>) {
+  const { nodes, edges, selection, availability } = model;
+  const { focusedNodeId, selectedNodeId, selectedEdgeId } = selection;
+  const { visualAvailable, omittedNodeCount, omittedEdgeCount } = availability;
+  const { documentIdForNode, canFocusNode, edgeTypeLabel } = adapters;
+  const { openDocument, selectNode, focusNode, selectEdge } = actions;
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const effectiveNodeId = nodeById.has(selectedNodeId)
     ? selectedNodeId
@@ -115,7 +112,7 @@ export function StructuredGraphView<Node extends StructuredGraphNode, Edge exten
             aria-describedby="structured-node-help"
             size={Math.min(10, Math.max(2, nodes.length))}
             value={effectiveNodeId}
-            onChange={(event) => onSelectNode(event.target.value)}
+            onChange={(event) => selectNode(event.target.value)}
           >
             {nodes.map((node) => (
               <option key={node.id} value={node.id}>{node.label} - {node.typeLabel}</option>
@@ -133,10 +130,10 @@ export function StructuredGraphView<Node extends StructuredGraphNode, Edge exten
           </dl>
           <div className="button-row">
             {documentId ? (
-              <button type="button" onClick={() => onOpenDocument(documentId)}>Open document</button>
+              <button type="button" onClick={() => openDocument(documentId)}>Open document</button>
             ) : null}
             {selectedNode && canFocusNode(selectedNode) ? (
-              <button type="button" onClick={() => onFocusNode(selectedNode.id)}>
+              <button type="button" onClick={() => focusNode(selectedNode.id)}>
                 {selectedNode.id === focusedNodeId ? "Return to overview" : "Focus this node"}
               </button>
             ) : null}
@@ -167,7 +164,7 @@ export function StructuredGraphView<Node extends StructuredGraphNode, Edge exten
         {selectedEdge ? (
           <div className="graph-structured-relationship-detail">
             <p>{selectedEdge.reason || "No explanation was recorded for this relationship."}</p>
-            <button type="button" onClick={() => onSelectEdge(selectedEdge)}>Inspect relationship</button>
+            <button type="button" onClick={() => selectEdge(selectedEdge)}>Inspect relationship</button>
           </div>
         ) : null}
       </div>

@@ -1,6 +1,28 @@
 import type { ReactNode } from "react";
 
-export function DataTable({
+export type DataTableRowId = string | number;
+
+type DataTableColumn<Row extends object> = Extract<keyof Row, string>;
+
+export interface DataTableProps<
+  Row extends object,
+  Column extends DataTableColumn<Row> = DataTableColumn<Row>
+> {
+  columns: readonly Column[];
+  columnLabels?: Partial<Record<Column, string>>;
+  rows: readonly Row[];
+  /** Per-column cell renderers; columns without one fall back to the raw value. */
+  renderers?: Partial<Record<Column, (row: Row) => ReactNode>>;
+  selectedRowId?: DataTableRowId;
+  onRowClick?: (row: Row) => void;
+  rowActions?: (row: Row) => ReactNode;
+  ariaLabel?: string;
+}
+
+export function DataTable<
+  Row extends object,
+  Column extends DataTableColumn<Row> = DataTableColumn<Row>
+>({
   columns,
   columnLabels,
   rows,
@@ -9,17 +31,7 @@ export function DataTable({
   onRowClick,
   rowActions,
   ariaLabel = "Results"
-}: {
-  columns: string[];
-  columnLabels?: Record<string, string>;
-  rows: any[];
-  /** Per-column cell renderers; columns without one fall back to the raw value. */
-  renderers?: Record<string, (row: any) => ReactNode>;
-  selectedRowId?: string;
-  onRowClick?: (row: any) => void;
-  rowActions?: (row: any) => ReactNode;
-  ariaLabel?: string;
-}) {
+}: DataTableProps<Row, Column>) {
   return (
     <div className="table-wrap">
       <table aria-label={ariaLabel}>
@@ -30,32 +42,49 @@ export function DataTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr
-              key={row.id || rowIndex}
-              className={`${onRowClick ? "clickable-row" : ""} ${selectedRowId && row.id === selectedRowId ? "selected-row" : ""}`}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-              tabIndex={onRowClick ? 0 : undefined}
-              aria-current={selectedRowId && row.id === selectedRowId ? "true" : undefined}
-              onKeyDown={onRowClick ? (event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onRowClick(row);
-                }
-              } : undefined}
-            >
-              {columns.map((column) => (
-                <td key={column}>{renderers?.[column] ? renderers[column](row) : String(row[column] ?? "")}</td>
-              ))}
-              {rowActions ? (
-                <td className="table-actions" onClick={(event) => event.stopPropagation()}>
-                  {rowActions(row)}
-                </td>
-              ) : null}
-            </tr>
-          ))}
+          {rows.map((row, rowIndex) => {
+            const rowId = resolveRowId(row, rowIndex);
+            const selected = selectedRowId !== undefined && rowId === selectedRowId;
+            return (
+              <tr
+                key={rowId}
+                className={`${onRowClick ? "clickable-row" : ""} ${selected ? "selected-row" : ""}`}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                aria-current={selected ? "true" : undefined}
+                onKeyDown={onRowClick ? (event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onRowClick(row);
+                  }
+                } : undefined}
+              >
+                {columns.map((column) => {
+                  const render = renderers?.[column];
+                  return (
+                    <td key={column}>
+                      {render ? render(row) : String(row[column] ?? "")}
+                    </td>
+                  );
+                })}
+                {rowActions ? (
+                  <td className="table-actions" onClick={(event) => event.stopPropagation()}>
+                    {rowActions(row)}
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
+}
+
+function resolveRowId(row: object, rowIndex: number): DataTableRowId {
+  const candidate = (row as { readonly id?: unknown }).id;
+  return typeof candidate === "string" || typeof candidate === "number"
+    ? candidate
+    : rowIndex;
 }

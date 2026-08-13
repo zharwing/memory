@@ -106,7 +106,7 @@ compatibility sink also clears the local journal.
 
 ## Production console sentinel
 
-`installProductionConsoleSentinel(true)` replaces `console.warn` and
+`installProductionConsoleSentinel(true, journal)` replaces `console.warn` and
 `console.error` during the production browser lifetime. It records only that an
 unexpected warning or error occurred and its level. It does not inspect,
 stringify, retain, or forward the arguments. Disposal restores the original

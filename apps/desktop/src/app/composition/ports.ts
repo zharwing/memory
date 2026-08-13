@@ -1,9 +1,10 @@
 import type {
   BrowserSessionBootstrapResult,
-  BrowserSessionLockReason,
   BrowserSessionState,
   MemoryClient
 } from "@zharwing/memory-api-client";
+import type { DiagnosticJournal } from "../../platform/diagnostics/diagnostic-journal.js";
+import type { GraphPositionStore } from "../../features/graph/persistence/graph-position-store.js";
 
 export interface Clock {
   now(): Date;
@@ -18,19 +19,9 @@ export interface UiPreferenceStore {
   set(key: string, value: string | undefined): void;
 }
 
-export interface DiagnosticEvent {
-  name: "runtime.created" | "runtime.disposed" | "contract.failure" | "browser.session.state";
-  correlationId?: string;
-  sessionState?: "active" | "locked";
-  lockReason?: BrowserSessionLockReason;
-}
-
-export interface DiagnosticSink {
-  record(event: DiagnosticEvent): void;
-}
-
 export interface BrowserSessionPort {
   readonly state: BrowserSessionState;
+  subscribe(listener: (state: BrowserSessionState) => void): () => void;
   bootstrap(code: string, signal?: AbortSignal): Promise<BrowserSessionBootstrapResult>;
   bootstrapPersonalPreview(signal?: AbortSignal): Promise<BrowserSessionBootstrapResult>;
   rotate(signal?: AbortSignal): Promise<BrowserSessionBootstrapResult>;
@@ -51,7 +42,8 @@ export interface AppServices {
   clock: Clock;
   ids: IdSource;
   preferences: UiPreferenceStore;
-  diagnostics: DiagnosticSink;
+  graphPositions: GraphPositionStore;
+  diagnostics: DiagnosticJournal;
   scheduler: Scheduler;
 }
 
@@ -67,5 +59,3 @@ export const globalScheduler: Scheduler = {
   setInterval: (callback, delayMs) => globalThis.setInterval(callback, delayMs),
   clearInterval: (handle) => globalThis.clearInterval(handle)
 };
-
-export const noOpDiagnostics: DiagnosticSink = { record: () => undefined };

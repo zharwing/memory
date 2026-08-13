@@ -47,10 +47,15 @@ export function quantizedClock(now = Date.now()): number {
   return Math.floor(now / RELATIVE_CLOCK_QUANTUM_MS) * RELATIVE_CLOCK_QUANTUM_MS;
 }
 
-export function timestampRenderers(...columns: string[]): Record<string, (row: any) => string> {
+export function timestampRenderers<Column extends string>(
+  ...columns: readonly Column[]
+): Record<Column, (row: Record<Column, unknown>) => string> {
   return Object.fromEntries(
-    columns.map((column) => [column, (row: any) => formatShortDateTime(String(row[column] ?? ""))])
-  );
+    columns.map((column) => [
+      column,
+      (row: Record<Column, unknown>) => formatShortDateTime(String(row[column] ?? ""))
+    ])
+  ) as Record<Column, (row: Record<Column, unknown>) => string>;
 }
 
 export function splitList(input: string): string[] {
