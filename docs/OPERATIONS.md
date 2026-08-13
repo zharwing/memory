@@ -42,7 +42,6 @@ Daemon:
 ```text
 ZHARWING_MEMORY_HOST=127.0.0.1
 ZHARWING_MEMORY_PORT=37841
-ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
 ZHARWING_MEMORY_ROOT=<memory-root>
 ZHARWING_MEMORY_AGENT_SURFACE=enabled
 ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=true
@@ -55,11 +54,11 @@ API client:
 
 ```text
 ZHARWING_MEMORY_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_MEMORY_AUTH_TOKEN=<local-random-token>
 ```
 
-When `ZHARWING_MEMORY_AUTH_TOKEN` is unset, the daemon generates a random
-per-user token on first start and stores it in the OS user state directory
+Normal `personal-preview` mode needs no token. When advanced token mode or
+`hardened-local` is selected and `ZHARWING_MEMORY_AUTH_TOKEN` is unset, the
+daemon generates a random per-user token and stores it in the OS user state directory
 (`%APPDATA%\zharwing-memory\daemon-token` on Windows, `$XDG_STATE_HOME` or
 `~/.local/state/zharwing-memory/daemon-token` on POSIX). Delete the file to
 rotate the token. Never commit a real token or use a placeholder token outside
@@ -103,38 +102,19 @@ corepack pnpm dev:cli projects
 
 ### Local Browser UI
 
-The browser UI is a full local interface for daily use. It renders the same
-React application as the Tauri window, but it does not manage the daemon
-process. Start the daemon first and keep it running:
+The browser UI is a full local interface for daily use. Start the daemon and
+UI together:
 
 ```text
-corepack pnpm dev:daemon
+corepack pnpm dev
 ```
 
-Then start the UI in a second terminal:
-
-```text
-corepack pnpm dev:web
-```
-
-Open `http://localhost:5174/`. The React/Vite dev server is pinned to that port so it does
+Open `http://127.0.0.1:5174/`. The React/Vite dev server is pinned to that port so it does
 not collide with other local product runtimes that commonly use Vite's default
 `5173`.
 
-For the explicit source-run compatibility preview, configure both sides of the
-public profile and keep the daemon loopback-only:
-
-```text
-ZHARWING_MEMORY_PROFILE=personal-preview
-ZHARWING_MEMORY_AUTH_MODE=none
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_PUBLIC_PROFILE=personal-preview
-```
-
-Browser code never receives a daemon token. Authenticated preview and
-`hardened-local` require a trusted one-shot bootstrap and then use an HttpOnly
-cookie plus memory-only CSRF. Vite exposes only `ZHARWING_PUBLIC_*` hints;
-restart `dev:web` after changing them. See [Browser UI](WEB_UI.md).
+Normal local use requires no token, launcher, or profile setup. See
+[Browser UI](WEB_UI.md).
 
 Desktop/web UI workflows currently include setup, project selection, project
 delete, repo links, import preview/commit, workstreams, sessions, docs, search,
@@ -151,8 +131,7 @@ screens use OS folder pickers for path fields. Browser dev mode leaves those
 Browse buttons disabled and keeps typed paths as the fallback, because ordinary
 browsers cannot expose arbitrary absolute folder paths to web apps.
 
-Use `corepack pnpm dev:web` for the browser app after
-`corepack pnpm dev:daemon`. Use `corepack pnpm dev:desktop` for the native
+Use `corepack pnpm dev` for the browser app. Use `corepack pnpm dev:desktop` for the native
 Tauri window. The Tauri dev command starts or reuses the Vite app on port
 `5174`; the Rust desktop host owns its daemon on `127.0.0.1:37841`.
 
@@ -197,8 +176,8 @@ evidence. The native Tauri command requires the local Rust/Tauri toolchain.
 
 Current daemon behavior:
 
-- generates a per-user local auth token when `ZHARWING_MEMORY_AUTH_TOKEN` is
-  unset, stored with restrictive permissions in the OS user state directory
+- generates a per-user local auth token only when advanced token mode is active
+  and no token was supplied, storing it with restrictive permissions
 - binds to localhost by default
 
 Production packaging should additionally:

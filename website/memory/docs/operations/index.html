@@ -33,15 +33,13 @@
 <p>Daemon:</p>
 <div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>ZHARWING_MEMORY_HOST=127.0.0.1
 ZHARWING_MEMORY_PORT=37841
-ZHARWING_MEMORY_AUTH_TOKEN=&lt;local-random-token&gt;
 ZHARWING_MEMORY_ROOT=&lt;memory-root&gt;
 ZHARWING_MEMORY_AGENT_SURFACE=enabled
 ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON=true</code></pre></div>
 <p><code>ZHARWING_MEMORY_ROOT</code> stores private project memory, sessions, docs, imports, context bundles, Memory Inbox proposals, and backups. Do not commit this folder.</p>
 <p>API client:</p>
-<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>ZHARWING_MEMORY_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_MEMORY_AUTH_TOKEN=&lt;local-random-token&gt;</code></pre></div>
-<p>When <code>ZHARWING_MEMORY_AUTH_TOKEN</code> is unset, the daemon generates a random per-user token on first start and stores it in the OS user state directory (<code>%APPDATA%\zharwing-memory\daemon-token</code> on Windows, <code>$XDG_STATE_HOME</code> or <code>~/.local/state/zharwing-memory/daemon-token</code> on POSIX). Delete the file to rotate the token. Never commit a real token or use a placeholder token outside local development.</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>ZHARWING_MEMORY_DAEMON_URL=http://127.0.0.1:37841</code></pre></div>
+<p>Normal <code>personal-preview</code> mode needs no token. When advanced token mode or <code>hardened-local</code> is selected and <code>ZHARWING_MEMORY_AUTH_TOKEN</code> is unset, the daemon generates a random per-user token and stores it in the OS user state directory (<code>%APPDATA%\zharwing-memory\daemon-token</code> on Windows, <code>$XDG_STATE_HOME</code> or <code>~/.local/state/zharwing-memory/daemon-token</code> on POSIX). Delete the file to rotate the token. Never commit a real token or use a placeholder token outside local development.</p>
 <p>Optional desktop-shell overrides use <code>ZHARWING_MEMORY_DESKTOP_PROJECT_ROOT</code>, <code>ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND</code>, and <code>ZHARWING_MEMORY_DESKTOP_AUTOSTART_DAEMON</code>. Canonical <code>ZHARWING_MEMORY_*</code> variables always win. The previous <code>AIMEM_*</code> names remain fallback-only for one compatibility window.</p>
 <h2 id="rename-compatibility">Rename Compatibility<a class="heading-anchor" href="#rename-compatibility" aria-label="Link to this section">#</a></h2>
 <p>New configuration, generated MCP files, logs, schemas, skill metadata, and runtime metadata use the Zharwing Memory name. A small set of legacy identifiers is retained deliberately so existing installations do not lose data or become separate applications:</p>
@@ -53,20 +51,13 @@ ZHARWING_MEMORY_AUTH_TOKEN=&lt;local-random-token&gt;</code></pre></div>
 <p>CLI:</p>
 <div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev:cli projects</code></pre></div>
 <h3 id="local-browser-ui">Local Browser UI<a class="heading-anchor" href="#local-browser-ui" aria-label="Link to this section">#</a></h3>
-<p>The browser UI is a full local interface for daily use. It renders the same React application as the Tauri window, but it does not manage the daemon process. Start the daemon first and keep it running:</p>
-<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev:daemon</code></pre></div>
-<p>Then start the UI in a second terminal:</p>
-<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev:web</code></pre></div>
-<p>Open <code>http://localhost:5174/</code>. The React/Vite dev server is pinned to that port so it does not collide with other local product runtimes that commonly use Vite&#039;s default <code>5173</code>.</p>
-<p>For the explicit source-run compatibility preview, configure both sides of the public profile and keep the daemon loopback-only:</p>
-<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>ZHARWING_MEMORY_PROFILE=personal-preview
-ZHARWING_MEMORY_AUTH_MODE=none
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_PUBLIC_PROFILE=personal-preview</code></pre></div>
-<p>Browser code never receives a daemon token. Authenticated preview and <code>hardened-local</code> require a trusted one-shot bootstrap and then use an HttpOnly cookie plus memory-only CSRF. Vite exposes only <code>ZHARWING_PUBLIC_*</code> hints; restart <code>dev:web</code> after changing them. See <a href="/memory/docs/browser-ui/">Browser UI</a>.</p>
+<p>The browser UI is a full local interface for daily use. Start the daemon and UI together:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev</code></pre></div>
+<p>Open <code>http://127.0.0.1:5174/</code>. The React/Vite dev server is pinned to that port so it does not collide with other local product runtimes that commonly use Vite&#039;s default <code>5173</code>.</p>
+<p>Normal local use requires no token, launcher, or profile setup. See <a href="/memory/docs/browser-ui/">Browser UI</a>.</p>
 <p>Desktop/web UI workflows currently include setup, project selection, project delete, repo links, import preview/commit, workstreams, sessions, docs, search, context preview, inbox, graph, backup management, and Trash restore/purge. The browser UI calls the daemon API, so the daemon must be running first in browser mode. The native Tauri host refuses an unrelated healthy daemon. It starts and owns an exact-loopback hardened daemon, exchanges a one-shot desktop credential outside the webview, and rotates the daemon/principal when project binding changes. A packaged executable needs its sidecar or an explicit trusted <code>ZHARWING_MEMORY_DESKTOP_DAEMON_COMMAND</code>.</p>
 <p>When opened as a native Tauri window, the Setup, Repositories, and Import screens use OS folder pickers for path fields. Browser dev mode leaves those Browse buttons disabled and keeps typed paths as the fallback, because ordinary browsers cannot expose arbitrary absolute folder paths to web apps.</p>
-<p>Use <code>corepack pnpm dev:web</code> for the browser app after <code>corepack pnpm dev:daemon</code>. Use <code>corepack pnpm dev:desktop</code> for the native Tauri window. The Tauri dev command starts or reuses the Vite app on port <code>5174</code>; the Rust desktop host owns its daemon on <code>127.0.0.1:37841</code>.</p>
+<p>Use <code>corepack pnpm dev</code> for the browser app. Use <code>corepack pnpm dev:desktop</code> for the native Tauri window. The Tauri dev command starts or reuses the Vite app on port <code>5174</code>; the Rust desktop host owns its daemon on <code>127.0.0.1:37841</code>.</p>
 <p>Native Tauri dev window:</p>
 <div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev:desktop</code></pre></div>
 <p>Packaged desktop build:</p>
@@ -81,7 +72,7 @@ zharwing-memory mcp doctor</code></pre></div>
 <p>The daemon and browser UI commands are source entry points, not validation evidence. The native Tauri command requires the local Rust/Tauri toolchain.</p>
 <h2 id="security">Security<a class="heading-anchor" href="#security" aria-label="Link to this section">#</a></h2>
 <p>Current daemon behavior:</p>
-<ul><li>generates a per-user local auth token when <code>ZHARWING_MEMORY_AUTH_TOKEN</code> is unset, stored with restrictive permissions in the OS user state directory</li><li>binds to localhost by default</li></ul>
+<ul><li>generates a per-user local auth token only when advanced token mode is active and no token was supplied, storing it with restrictive permissions</li><li>binds to localhost by default</li></ul>
 <p>Production packaging should additionally:</p>
 <ul><li>allow <code>ZHARWING_MEMORY_AUTH_MODE=none</code> only for loopback-only personal setups</li><li>keep remote access disabled by default</li><li>require confirmation for project creation, repo linking, and destructive administrative operations</li><li>serve selected-project memory to AI by default without per-request approval; keep explicit visibility exclusions, never-send patterns, and secret checks</li><li>route canonical memory writes through review only when the project enables review mode or the update is risky or uncertain</li><li>log sensitive operations without storing raw secrets</li></ul>
 <h2 id="backups-and-trash">Backups And Trash<a class="heading-anchor" href="#backups-and-trash" aria-label="Link to this section">#</a></h2>

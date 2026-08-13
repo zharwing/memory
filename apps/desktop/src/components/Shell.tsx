@@ -67,7 +67,6 @@ export const Shell = observer(function Shell({ children }: { children: ReactNode
       routeContent.current?.removeAttribute("inert");
       if (routeWasInteractionLocked.current) {
         if (routeFocusBeforeLock.current?.isConnected) routeFocusBeforeLock.current.focus();
-        else routeContent.current?.focus();
         routeFocusBeforeLock.current = null;
       }
     }
@@ -169,7 +168,7 @@ function ApplicationRecoveryNotice({
         compact
         surface="session"
         error={recovery.error}
-        title="Session locked"
+        title="Local session needs a refresh"
         detail={lockedCopy(recovery.reason)}
       />
     );
@@ -228,13 +227,13 @@ function ApplicationRecoveryNotice({
 
 function lockedCopy(reason: Extract<AppRecoveryState, { status: "locked" }>["reason"]): string {
   switch (reason) {
-    case "bootstrap-required": return "A trusted launcher session is required. Reload from the launcher to continue.";
-    case "exchange-failed": return "The trusted session could not be established. Reload from the launcher to try again.";
-    case "expired": return "This session expired. Reload from the launcher to continue.";
+    case "bootstrap-required": return "Reload the app to connect to the local service.";
+    case "exchange-failed": return "The local session could not be established. Reload the app to try again.";
+    case "expired": return "This local session expired. Reload the app to continue.";
     case "project-rebinding": return "Project authority is being rebound. Wait or reload before continuing.";
-    case "revoked": return "This session was revoked. Reload from the launcher to continue.";
+    case "revoked": return "This session ended. Reload the app to continue.";
     case "rotating": return "Session authority is rotating. Wait or reload before continuing.";
-    case "unauthorized": return "This session is no longer authorized. Reload from the launcher to continue.";
+    case "unauthorized": return "The local session ended. Reload the app to continue.";
     case "forbidden": return "This session cannot perform the requested action.";
   }
 }

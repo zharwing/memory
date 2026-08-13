@@ -404,6 +404,37 @@ test("personal-preview browser bootstrap is an explicit credential-free session 
   assert.equal(new Headers(observed[0]?.init?.headers).has("x-csrf-token"), false);
 });
 
+test("browser clients preserve the native fetch receiver during startup and RPC", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestCount = 0;
+  const receiverSensitiveFetch = function(this: typeof globalThis): Promise<Response> {
+    if (this !== globalThis) throw new TypeError("Illegal invocation");
+    requestCount += 1;
+    return Promise.resolve(requestCount === 1
+      ? jsonResponse({
+          csrfToken: "receiver-safe-csrf",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+          rotationId: "receiver-safe-rotation",
+          projectId: null
+        })
+      : jsonResponse(successEnvelope({ status: "ok", memoryRoot: "D:/memory" })));
+  } as typeof fetch;
+  globalThis.fetch = receiverSensitiveFetch;
+  try {
+    const session = new BrowserSessionController({ baseUrl: "http://127.0.0.1:37841" });
+    const client = new OperationClient(
+      new BrowserMemoryTransport({ baseUrl: "http://127.0.0.1:37841", session }),
+      clientRuntime,
+      "browser"
+    );
+    await session.bootstrapPersonalPreview();
+    await client.operation("memory.health", {});
+    assert.equal(requestCount, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("concurrent project RPCs serialize rebinding and never reuse an old CSRF after rotation", async () => {
   const sequence: Array<{ path: string; projectId?: string; csrf?: string }> = [];
   const requestFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {

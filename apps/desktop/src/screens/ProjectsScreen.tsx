@@ -11,9 +11,10 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
   const navigate = useNavigate();
   const projectsState = store.projects.projectsState;
 
-  async function openProject(projectId: string) {
-    const accepted = await store.projects.selectProject(projectId);
-    if (accepted) navigate(routePath("dashboard", { projectId }));
+  function openProject(projectId: string) {
+    if (store.projects.selectProject(projectId)) {
+      navigate(routePath("dashboard", { projectId }));
+    }
   }
 
   return (
@@ -38,7 +39,7 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
               <div className="managed-card" key={project.id}>
                 <button
                   className={`project-card ${store.projects.selectedProjectId === project.id ? "selected" : ""}`}
-                  onClick={() => void openProject(project.id)}
+                  onClick={() => openProject(project.id)}
                 >
                   <strong>{project.name}</strong>
                   <span>{project.id}</span>

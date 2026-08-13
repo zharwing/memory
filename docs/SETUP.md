@@ -34,7 +34,7 @@ Memory has two explicit local profiles.
 
 | Profile | Intended use | Authority boundary |
 | --- | --- | --- |
-| `personal-preview` | Current single-user compatibility preview | Loopback only; token authentication is the normal mode and an explicitly selected no-auth mode is limited to loopback |
+| `personal-preview` | Normal single-user local use | Seamless and loopback-only; no credential or launcher setup |
 | `hardened-local` | The fail-closed local authority model | Exact loopback host, authenticated browser or desktop session, and distinct project-bound agent authority |
 
 `personal-preview` remains the compatibility default during the migration. It
@@ -49,44 +49,23 @@ See [Principal Model](security/principal-model.md) and
 
 ## Start The Browser Interface
 
-The browser uses a cookie/CSRF session and never a shared bearer. For the
-current loopback-only compatibility preview, set these local values before
-starting the two processes:
+For normal single-user local use, run one command:
 
 ```text
-ZHARWING_MEMORY_PROFILE=personal-preview
-ZHARWING_MEMORY_AUTH_MODE=none
-ZHARWING_PUBLIC_PROFILE=personal-preview
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
+corepack pnpm dev
 ```
 
-`ZHARWING_PUBLIC_*` values are public browser-build configuration, not secrets.
-This exact preview is refused outside loopback and is unavailable under
-`hardened-local`.
+Open `http://127.0.0.1:5174/`. No token, launcher, or browser credential setup
+is required. The command starts both local processes on exact loopback. The
+older two-terminal workflow remains available through `dev:daemon` and
+`dev:web`; those commands select the same seamless local mode.
 
-Use two terminals in the repository root.
-
-Terminal 1:
-
-```text
-corepack pnpm dev:daemon
-```
-
-Terminal 2:
-
-```text
-corepack pnpm dev:web
-```
-
-Open `http://localhost:5174/`. The Vite process does not start the daemon. The
-browser interface and daemon must both remain local. The public documentation
+The public documentation
 website at `/memory/` is a separate static artifact and cannot access the
 private daemon or memory directory.
 
-Token-authenticated and hardened browser use requires a trusted launcher to
-issue a one-shot code into the URL fragment. The app removes the fragment and
-exchanges it for a short-lived HttpOnly cookie plus an in-memory CSRF value.
-There is no browser bearer fallback. See [Browser UI](WEB_UI.md).
+`hardened-local` remains an explicit advanced profile. Its configured launch
+commands and authority setup are not part of the normal single-user workflow.
 
 ## Start The Native Interface
 
@@ -136,8 +115,8 @@ or environment files. See [Source And Context Boundary](SOURCE_CONTEXT.md).
 
 - If the browser cannot connect, confirm the daemon is running on the expected
   loopback address.
-- If a request is locked or unauthorized, renew the intended browser, desktop,
-  or agent authority instead of substituting another audience's credential.
+- If the local browser needs a session refresh, reload the app. Normal local
+  mode re-establishes it automatically.
 - If a selected project changes, wait for the new project scope to be accepted
   before trusting route content.
 - If a mutation outcome is unknown, refresh or reconcile before retrying.

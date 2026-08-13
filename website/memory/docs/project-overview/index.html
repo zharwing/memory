@@ -93,20 +93,14 @@ templates/
   store/     private local memory data, do not commit</code></pre></div>
 <p>Other users should clone only the app source, then choose their own private store path.</p>
 <div class="code-block"><div class="code-label"><span>bash</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm install</code></pre></div>
-<p>Create a private, untracked <code>.env</code>; do not derive browser configuration from a checked-in credential template. For the explicit loopback-only compatibility preview, set:</p>
-<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>ZHARWING_MEMORY_ROOT=&lt;absolute-private-store-path&gt;
-ZHARWING_MEMORY_PROFILE=personal-preview
-ZHARWING_MEMORY_AUTH_MODE=none
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_PUBLIC_PROFILE=personal-preview</code></pre></div>
+<p>The default local data directory works without configuration. To choose a different private location, create an untracked <code>.env</code> containing only:</p>
+<div class="code-block"><div class="code-label"><span>text</span><button type="button" data-copy-code>Copy</button></div><pre><code>ZHARWING_MEMORY_ROOT=&lt;absolute-private-store-path&gt;</code></pre></div>
 <h3 id="local-browser-ui">Local Browser UI<a class="heading-anchor" href="#local-browser-ui" aria-label="Link to this section">#</a></h3>
 <p>The browser UI is a complete local interface for normal daily use, not a demo or a reduced documentation view. It exposes the same React pages and workflows as the native desktop window.</p>
-<p>Start the daemon in the first terminal:</p>
-<div class="code-block"><div class="code-label"><span>bash</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev:daemon</code></pre></div>
-<p>Start the browser UI in a second terminal:</p>
-<div class="code-block"><div class="code-label"><span>bash</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev:web</code></pre></div>
-<p>Open <code>http://localhost:5174/</code>. Keep both processes running. The browser UI calls the daemon at <code>http://127.0.0.1:37841</code>; <code>dev:web</code> does not start it.</p>
-<p>This is the explicit loopback-only compatibility preview. Browser JavaScript uses an HttpOnly session cookie and an in-memory CSRF value; it never receives a daemon bearer. Authenticated preview and <code>hardened-local</code> require a trusted launcher to deliver a one-shot bootstrap code. Only <code>ZHARWING_PUBLIC_*</code> non-secret hints may enter browser bytes. Browser path fields accept typed or pasted absolute paths because browsers cannot expose arbitrary local folders.</p>
+<p>Start the local daemon and browser UI together:</p>
+<div class="code-block"><div class="code-label"><span>bash</span><button type="button" data-copy-code>Copy</button></div><pre><code>corepack pnpm dev</code></pre></div>
+<p>Open <code>http://127.0.0.1:5174/</code>. Normal single-user local use requires no token, launcher, or authentication setup. If you prefer two terminals, <code>dev:daemon</code> and <code>dev:web</code> select the same seamless loopback-only mode.</p>
+<p>Browser path fields accept typed or pasted absolute paths because browsers cannot expose arbitrary local folders. The optional <code>hardened-local</code> profile is for advanced environments and is not part of this normal startup flow.</p>
 <p>See the dedicated <a href="/memory/docs/browser-ui/">Browser UI guide</a> for the full setup, browser-versus-desktop comparison, local authentication, and troubleshooting.</p>
 <h3 id="native-desktop-ui">Native Desktop UI<a class="heading-anchor" href="#native-desktop-ui" aria-label="Link to this section">#</a></h3>
 <p>For the native Tauri app, run:</p>
@@ -214,7 +208,7 @@ zharwing-memory assistant classify-doc --project my-app --doc doc-id</code></pre
 <ul><li><code>memory.health</code></li><li><code>memory.get_startup_state</code></li><li><code>memory.get_latest_session</code></li><li><code>memory.get_recent_sessions</code></li><li><code>memory.get_session_detail</code></li><li><code>memory.start_session</code></li><li><code>memory.search</code></li><li><code>memory.preview_context_bundle</code></li><li><code>memory.get_context_bundle</code></li><li><code>memory.save_checkpoint</code></li><li><code>memory.close_session</code></li></ul>
 <p>The full daemon API is intentionally broader. Use the desktop UI or CLI for project administration, repository links, workstreams, document editing, imports, graph settings, backups, Trash, and other administrative operations. See <a href="/memory/docs/api-reference/">API Reference</a> for both surfaces.</p>
 <h2 id="browser-and-desktop-ui">Browser And Desktop UI<a class="heading-anchor" href="#browser-and-desktop-ui" aria-label="Link to this section">#</a></h2>
-<p>The local browser UI and native desktop app share the same React human interface. The browser UI is often the fastest way to use Memory from a source checkout: run the daemon, run <code>dev:web</code>, and open <code>http://localhost:5174/</code>. The sidebar stays intentionally small:</p>
+<p>The local browser UI and native desktop app share the same React human interface. The fastest source workflow is <code>corepack pnpm dev</code>, then open <code>http://127.0.0.1:5174/</code>. It starts the loopback daemon and browser UI together; normal single-user use needs no token or launcher setup. The sidebar stays intentionally small:</p>
 <ul><li>project switcher for selecting, creating, and deleting projects</li><li>Dashboard</li><li>Repos</li><li>Work</li><li>Library</li><li>Import</li><li>Search</li><li>Trash</li><li>Settings</li></ul>
 <p>Secondary pages live inside section tabs:</p>
 <ul><li>Work: Current Work, Sessions, Workstreams</li><li>Library: Docs, Diagrams, Inbox, Graph, Context</li><li>Settings: Project, Setup, Assistant, Backups</li></ul>

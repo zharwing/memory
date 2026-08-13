@@ -18,6 +18,14 @@ const environment = (import.meta as unknown as { env?: { PROD?: boolean } }).env
 const consoleSentinel = installProductionConsoleSentinel(environment?.PROD === true);
 const rootElement = document.getElementById("root");
 
+function redirectLegacyLocalhost(): boolean {
+  if (isTauri() || globalThis.location?.hostname !== "localhost") return false;
+  const canonicalUrl = new URL(globalThis.location.href);
+  canonicalUrl.hostname = "127.0.0.1";
+  globalThis.location.replace(canonicalUrl.href);
+  return true;
+}
+
 async function loadApplicationRuntime() {
   if (isTauri()) {
     const { createTauriRuntime } = await import("./app/composition/tauri.js");
@@ -27,7 +35,10 @@ async function loadApplicationRuntime() {
   return createBrowserRuntime();
 }
 
-if (!rootElement) {
+if (redirectLegacyLocalhost()) {
+  // Keep localhost bookmarks compatible while ensuring the UI and local daemon
+  // share one exact loopback site for the browser's private session cookie.
+} else if (!rootElement) {
   // There is no render target for a recovery surface. Record only the closed
   // classification and avoid creating an exception/stack or console output.
   localDiagnostics.recordFailure({ name: "failure.caught", surface: "root" }, true);

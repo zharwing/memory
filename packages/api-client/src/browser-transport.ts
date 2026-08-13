@@ -74,7 +74,7 @@ export class BrowserSessionController implements BrowserSessionSnapshot {
 
   constructor(private readonly options: BrowserSessionControllerOptions) {
     this.baseUrl = normalizeLocalDaemonBaseUrl(options.baseUrl);
-    const requestFetch = options.fetch ?? globalThis.fetch;
+    const requestFetch = options.fetch ?? globalThis.fetch?.bind(globalThis);
     if (typeof requestFetch !== "function") {
       throw new Error("A fetch implementation is required by BrowserSessionController.");
     }
@@ -262,7 +262,7 @@ export class BrowserMemoryTransport implements MemoryTransport {
 
   constructor(private readonly options: BrowserMemoryTransportOptions) {
     this.baseUrl = normalizeLocalDaemonBaseUrl(options.baseUrl);
-    const requestFetch = options.fetch ?? globalThis.fetch;
+    const requestFetch = options.fetch ?? globalThis.fetch?.bind(globalThis);
     if (typeof requestFetch !== "function") {
       throw new Error("A fetch implementation is required by BrowserMemoryTransport.");
     }

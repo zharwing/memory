@@ -200,16 +200,11 @@ store path.
 corepack pnpm install
 ```
 
-Create a private, untracked `.env`; do not derive browser configuration from a
-checked-in credential template. For the explicit loopback-only compatibility
-preview, set:
+The default local data directory works without configuration. To choose a
+different private location, create an untracked `.env` containing only:
 
 ```text
 ZHARWING_MEMORY_ROOT=<absolute-private-store-path>
-ZHARWING_MEMORY_PROFILE=personal-preview
-ZHARWING_MEMORY_AUTH_MODE=none
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_PUBLIC_PROFILE=personal-preview
 ```
 
 ### Local Browser UI
@@ -218,27 +213,19 @@ The browser UI is a complete local interface for normal daily use, not a demo
 or a reduced documentation view. It exposes the same React pages and workflows
 as the native desktop window.
 
-Start the daemon in the first terminal:
+Start the local daemon and browser UI together:
 
 ```bash
-corepack pnpm dev:daemon
+corepack pnpm dev
 ```
 
-Start the browser UI in a second terminal:
+Open `http://127.0.0.1:5174/`. Normal single-user local use requires no token,
+launcher, or authentication setup. If you prefer two terminals, `dev:daemon`
+and `dev:web` select the same seamless loopback-only mode.
 
-```bash
-corepack pnpm dev:web
-```
-
-Open `http://localhost:5174/`. Keep both processes running. The browser UI calls
-the daemon at `http://127.0.0.1:37841`; `dev:web` does not start it.
-
-This is the explicit loopback-only compatibility preview. Browser JavaScript
-uses an HttpOnly session cookie and an in-memory CSRF value; it never receives
-a daemon bearer. Authenticated preview and `hardened-local` require a trusted
-launcher to deliver a one-shot bootstrap code. Only `ZHARWING_PUBLIC_*`
-non-secret hints may enter browser bytes. Browser path fields accept typed or
-pasted absolute paths because browsers cannot expose arbitrary local folders.
+Browser path fields accept typed or pasted absolute paths because browsers
+cannot expose arbitrary local folders. The optional `hardened-local` profile is
+for advanced environments and is not part of this normal startup flow.
 
 See the dedicated [Browser UI guide](docs/WEB_UI.md) for the full setup,
 browser-versus-desktop comparison, local authentication, and troubleshooting.
@@ -502,8 +489,9 @@ See [API Reference](docs/API_REFERENCE.md) for both surfaces.
 ## Browser And Desktop UI
 
 The local browser UI and native desktop app share the same React human
-interface. The browser UI is often the fastest way to use Memory from a source
-checkout: run the daemon, run `dev:web`, and open `http://localhost:5174/`.
+interface. The fastest source workflow is `corepack pnpm dev`, then open
+`http://127.0.0.1:5174/`. It starts the loopback daemon and browser UI together;
+normal single-user use needs no token or launcher setup.
 The sidebar stays intentionally small:
 
 - project switcher for selecting, creating, and deleting projects

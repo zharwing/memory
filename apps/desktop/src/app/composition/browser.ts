@@ -51,7 +51,8 @@ export function createBrowserServices(): AppServices {
 
 function browserPreviewEnabled(): boolean {
   const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-  return env.ZHARWING_PUBLIC_PROFILE === "personal-preview";
+  const profile = env.ZHARWING_PUBLIC_PROFILE;
+  return profile === undefined || profile === "" || profile === "personal-preview";
 }
 
 export function createBrowserRuntime() {

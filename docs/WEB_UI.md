@@ -28,7 +28,7 @@ supported by the implemented browser composition.
 
 | Profile | Browser startup | Boundary |
 | --- | --- | --- |
-| `personal-preview` with `authMode=none` | Set both daemon and public profile to `personal-preview`; the browser establishes the explicit preview session | Loopback-only compatibility for one trusted local user; not a hardened-security claim |
+| `personal-preview` | Starts automatically through `pnpm dev`, `dev:daemon`, and `dev:web` | Normal loopback-only mode for one trusted local user; no credential setup |
 | Authenticated `personal-preview` | A trusted launcher supplies a one-shot code in the URL fragment | Cookie + memory-only CSRF; the preview endpoint is absent |
 | `hardened-local` | A trusted launcher supplies a one-shot, exact-Origin/Host, operation- and project-bounded code in the URL fragment | Required authenticated browser model; no automatic preview fallback |
 
@@ -42,28 +42,22 @@ exchange. `dev:web` by itself cannot create hardened authority.
 Requirements are Node.js `22.21.x` or a supported Node 24 release, pnpm 9 via
 Corepack, and a private memory root outside the source checkout.
 
-Create local configuration containing at least:
+Configure only the private store location if the default is not suitable:
 
 ```text
 ZHARWING_MEMORY_ROOT=<absolute-private-store-path>
-ZHARWING_MEMORY_HOST=127.0.0.1
-ZHARWING_MEMORY_PORT=37841
-ZHARWING_MEMORY_PROFILE=personal-preview
-ZHARWING_MEMORY_AUTH_MODE=none
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
-ZHARWING_PUBLIC_PROFILE=personal-preview
 ```
 
-Then use two terminals:
+Then start everything with one command:
 
 ```text
-corepack pnpm dev:daemon
-corepack pnpm dev:web
+corepack pnpm dev
 ```
 
-Open `http://localhost:5174/`. Both daemon and browser profiles must agree.
-No-auth is refused on a non-loopback host and must never be exposed through a
-proxy, LAN bind, tunnel, or public network.
+Open `http://127.0.0.1:5174/`. No token or launcher step is required. The
+two-terminal `dev:daemon` plus `dev:web` workflow selects the same mode. It is
+refused on a non-loopback host and must never be exposed through a proxy, LAN
+bind, tunnel, or public network.
 
 For authenticated preview or hardened-local browser work, use the trusted
 launcher/bootstrap procedure in [Browser session protocol](security/browser-session.md)
@@ -96,10 +90,8 @@ why browser mode has no native Browse action.
 
 ## Troubleshooting
 
-- **Locked immediately:** verify the daemon/public profiles agree. For
-  `personal-preview + none`, both explicit profile flags are required. For an
-  authenticated profile, obtain a fresh one-shot bootstrap from the trusted
-  launcher.
+- **Session refresh shown:** reload the app. Normal local mode establishes a
+  fresh session automatically.
 - **Daemon unavailable:** confirm `dev:daemon` is running at the exact value of
   `ZHARWING_PUBLIC_DAEMON_URL` and that Host remains loopback.
 - **401 or 403:** the old session is unusable. Do not copy a bearer into the

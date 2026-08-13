@@ -287,7 +287,10 @@ export class RootStore {
     if (this.initializePromise) {
       if (preferredProjectId && preferredProjectId !== this.projectScope.currentProjectId()) {
         const project = this.projects.list.find((candidate) => candidate.id === preferredProjectId);
-        if (project) return this.projects.selectProject(preferredProjectId).then(() => undefined);
+        if (project) {
+          this.projects.selectProject(preferredProjectId);
+          return Promise.resolve();
+        }
       }
       return this.initializePromise;
     }

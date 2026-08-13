@@ -60,7 +60,7 @@ export function memoryEnv(name: MemoryEnvName): string | undefined {
 export function loadDaemonConfig(): DaemonConfig {
   const host = memoryEnv("ZHARWING_MEMORY_HOST") || DEFAULT_DAEMON_HOST;
   const profile = rawProfile();
-  const authMode = memoryEnv("ZHARWING_MEMORY_AUTH_MODE") === "none" ? "none" : "token";
+  const authMode = resolveAuthMode(profile, memoryEnv("ZHARWING_MEMORY_AUTH_MODE"));
   if (authMode === "none" && !isLoopbackHost(host)) {
     throw new Error(
       "ZHARWING_MEMORY_AUTH_MODE=none is only allowed when ZHARWING_MEMORY_HOST is localhost, 127.0.0.1, or ::1."
@@ -109,6 +109,23 @@ export function loadDaemonConfig(): DaemonConfig {
     ...(desktopCredential ? { desktopCredential } : {}),
     ...(desktopProjectId ? { desktopProjectId } : {})
   };
+}
+
+/**
+ * Personal preview is the seamless single-user loopback mode. Authentication
+ * is opt-in there; hardened-local remains authenticated by construction.
+ */
+export function resolveAuthMode(
+  profile: DaemonConfig["profile"],
+  configured: string | undefined
+): DaemonConfig["authMode"] {
+  const value = configured?.trim();
+  if (value === "none") return "none";
+  if (value === "token") return "token";
+  if (value) {
+    throw new Error("ZHARWING_MEMORY_AUTH_MODE must be either 'none' or 'token'.");
+  }
+  return profile === "personal-preview" ? "none" : "token";
 }
 
 function directEnv(name: "ZHARWING_MEMORY_AGENT_CREDENTIAL" | "ZHARWING_MEMORY_AGENT_PROJECT_ID"): string | undefined {

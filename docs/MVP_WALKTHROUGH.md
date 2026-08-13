@@ -1,41 +1,20 @@
 # MVP Walkthrough
 
-## Start Daemon
+## Start The Local App
 
 ```text
-pnpm dev:daemon
+corepack pnpm dev
 ```
 
-The daemon listens locally at:
+Open:
 
 ```text
-http://127.0.0.1:37841
+http://127.0.0.1:5174/
 ```
 
-Choose an explicit runtime profile first. For this single-user browser
-walkthrough, use the loopback-only compatibility pair
-`ZHARWING_MEMORY_PROFILE=personal-preview` and
-`ZHARWING_MEMORY_AUTH_MODE=none`. The browser will still establish a bounded
-cookie/CSRF session; it does not send a bearer. See [Setup](SETUP.md).
-
-## Start The UI
-
-Browser UI:
-
-```text
-ZHARWING_PUBLIC_PROFILE=personal-preview
-ZHARWING_PUBLIC_DAEMON_URL=http://127.0.0.1:37841
-pnpm dev:web
-```
-
-Run this in a second terminal while `pnpm dev:daemon` remains active, then open
-`http://localhost:5174/`. The local browser UI contains the complete React
-interface. See [Browser UI](WEB_UI.md) for environment setup and
-troubleshooting.
-
-For token-authenticated or hardened operation, start the browser through the
-trusted one-shot bootstrap integration instead. Never put the administrator or
-agent credential into browser configuration.
+The normal single-user workflow starts both local processes and requires no
+token, launcher, or profile setup. The browser UI contains the complete React
+interface. See [Setup](SETUP.md) and [Browser UI](WEB_UI.md).
 
 Native Tauri window:
 
@@ -43,8 +22,8 @@ Native Tauri window:
 pnpm dev:desktop
 ```
 
-Use `dev:web` for daily browser-based use or development. Use `dev:desktop`
-when you want the same UI in a Tauri window with OS folder picker support.
+Use `dev` for daily browser-based use or development. Use `dev:desktop` when
+you want the same UI in a Tauri window with OS folder picker support.
 
 ## UI First Run
 

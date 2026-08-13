@@ -7,7 +7,7 @@ export function shouldMoveFocusToRouteHeading(
   previousPathname: string | undefined,
   nextPathname: string
 ): boolean {
-  if (previousPathname === undefined) return true;
+  if (previousPathname === undefined) return false;
   return normalizeRoutePath(previousPathname) !== normalizeRoutePath(nextPathname);
 }
 

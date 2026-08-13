@@ -47,6 +47,19 @@ test("desktop document filters keep imported and starter-draft behavior stable",
   assert.equal(documents.isStarterDraftDoc(docs[2]), false);
 });
 
+test("Search and Documents share one editor host with a rendered fallback for unsupported Markdown", () => {
+  const search = readSource("apps/desktop/src/screens/SearchScreen.tsx");
+  const docs = readSource("apps/desktop/src/screens/DocsScreen.tsx");
+  const host = readSource("apps/desktop/src/components/DocumentEditorHost.tsx");
+  const editor = readSource("apps/desktop/src/components/DocumentEditorModal.tsx");
+
+  assert.match(search, /<DocumentEditorHost\s+doc=\{editingDoc\}/);
+  assert.match(docs, /<DocumentEditorHost[\s\S]*doc=\{editingDoc\}/);
+  assert.match(host, /<DocumentEditorModal/);
+  assert.match(editor, /onError=\{\(\) => setRichEditorFailed\(true\)\}/);
+  assert.match(editor, /richEditorFailed[\s\S]*<MarkdownPreview body=\{body\}/);
+});
+
 test("desktop route registry covers critical workflows and generates the route outlet", async () => {
   const app = readFileSync(path.join(repoRoot, "apps/desktop/src/App.tsx"), "utf8");
   const registry = await importTypeScriptModule("apps/desktop/src/app/routing/route-registry.ts");

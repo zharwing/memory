@@ -80,8 +80,7 @@
       "description": "Create a project, start a session, save context, and resume work.",
       "group": "Start here",
       "headings": [
-        "Start Daemon",
-        "Start The UI",
+        "Start The Local App",
         "UI First Run",
         "Create Project Memory",
         "Link Additional Repos",

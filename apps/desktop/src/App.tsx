@@ -119,8 +119,8 @@ export const App = observer(function App() {
           <RecoveryPanel
             surface="session"
             error={recovery.error}
-            title="Session locked"
-            detail="Reload from the trusted launcher to establish a new local session."
+            title="Local session needs a refresh"
+            detail="Reload the app to reconnect to the local service."
           />
         </StartupRecoverySurface>
       );

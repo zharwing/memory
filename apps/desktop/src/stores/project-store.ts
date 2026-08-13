@@ -158,13 +158,13 @@ export class ProjectStore {
     }
   }
 
-  async selectProject(projectId: string): Promise<boolean> {
+  selectProject(projectId: string): boolean {
     const project = this.list.find((candidate) => candidate.id === projectId);
     if (!project) return false;
     const token = this.scope.activate(project.id, project.repos?.[0]?.path);
     if (!token) return false;
     this.coordinator.resetProjectTransient();
-    await this.coordinator.refreshAll();
+    void this.coordinator.refreshAll();
     return this.scope.isScopeCurrent(token);
   }
 

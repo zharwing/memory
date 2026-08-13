@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { shouldMoveFocusToRouteHeading } from "./route-focus-policy.js";
 
-test("route heading focus moves on first render and pathname transitions", () => {
-  assert.equal(shouldMoveFocusToRouteHeading(undefined, "/projects"), true);
+test("route heading focus stays quiet on reload and moves on pathname transitions", () => {
+  assert.equal(shouldMoveFocusToRouteHeading(undefined, "/projects"), false);
   assert.equal(shouldMoveFocusToRouteHeading("/projects", "/p/project-one/dashboard"), true);
 });
 

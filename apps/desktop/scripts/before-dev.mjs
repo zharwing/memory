@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 
 const devUrl =
-  process.env.ZHARWING_MEMORY_DESKTOP_DEV_URL || process.env.AIMEM_DESKTOP_DEV_URL || "http://localhost:5174/";
+  process.env.ZHARWING_MEMORY_DESKTOP_DEV_URL || process.env.AIMEM_DESKTOP_DEV_URL || "http://127.0.0.1:5174/";
 const expectedTitle = "<title>Zharwing Memory</title>";
 
 async function readExistingServer() {

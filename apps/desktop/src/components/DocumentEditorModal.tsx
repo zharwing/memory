@@ -58,11 +58,12 @@ export function DocumentEditorModal({
   const [savedBody, setSavedBody] = useState(doc.body || "");
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [editorRevision, setEditorRevision] = useState(0);
+  const [richEditorFailed, setRichEditorFailed] = useState(false);
   const [localSaving, setLocalSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const isDiagramDocument = doc.type === "diagram";
   const hasMermaidDiagram = containsMermaidDiagram(body);
-  const useRenderedPreview = mode === "preview" && (isDiagramDocument || hasMermaidDiagram);
+  const useRenderedPreview = mode === "preview" && (isDiagramDocument || hasMermaidDiagram || richEditorFailed);
   const dirty = title !== savedTitle || normalizeDocumentBody(body) !== normalizeDocumentBody(savedBody);
   const saveInProgress = saving || localSaving;
 
@@ -75,6 +76,7 @@ export function DocumentEditorModal({
     setShowDiscardDialog(false);
     setLocalSaving(false);
     setSaveFailed(false);
+    setRichEditorFailed(false);
     setEditorRevision((revision) => revision + 1);
   }, [doc.id]);
 
@@ -219,13 +221,21 @@ export function DocumentEditorModal({
         </div>
         <div className="document-editor-body">
           {useRenderedPreview ? (
-            <MarkdownPreview body={body} />
+            <>
+              {richEditorFailed && !isDiagramDocument && !hasMermaidDiagram ? (
+                <StatusNotice tone="warning" title="Showing rendered preview">
+                  This document contains Markdown the rich editor cannot safely import. The complete document is shown below; use the Markdown tab to edit its source.
+                </StatusNotice>
+              ) : null}
+              <MarkdownPreview body={body} />
+            </>
           ) : mode === "preview" ? (
             <MDXEditor
               key={`${doc.id}-${editorRevision}-rich-editor`}
               className="mdx-rich-editor"
               markdown={body}
               onChange={updateBodyFromRichEditor}
+              onError={() => setRichEditorFailed(true)}
               plugins={markdownEditorPlugins}
             />
           ) : (

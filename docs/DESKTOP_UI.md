@@ -7,17 +7,16 @@ durable memory, and recover deleted items.
 
 ## Runtime Modes
 
-Browser mode uses two processes. Start them in separate terminals:
+Start normal browser mode with one command:
 
 ```text
-pnpm dev:daemon
-pnpm dev:web
+corepack pnpm dev
 ```
 
 Open:
 
 ```text
-http://localhost:5174/
+http://127.0.0.1:5174/
 ```
 
 Native Tauri development mode:
@@ -26,8 +25,8 @@ Native Tauri development mode:
 pnpm dev:desktop
 ```
 
-`dev:web` starts only the browser UI and expects a separately running daemon.
-`dev:desktop` starts the Tauri desktop window and the same React app. The Rust
+`dev` starts the loopback daemon and browser UI together with no credential
+setup. `dev:desktop` starts the Tauri desktop window and the same React app. The Rust
 host starts and owns an exact-loopback `hardened-local` daemon and establishes
 a one-shot native credential outside the webview. It refuses to attach to an
 already-running unrelated daemon. A packaged build needs its daemon sidecar or
@@ -43,9 +42,9 @@ Repos, and Import can use OS folder picker buttons.
 | Behavior | Browser UI | Native Tauri app |
 | --- | --- | --- |
 | Pages and workflows | Full shared React UI | Full shared React UI |
-| Daemon | Start separately | Rust starts, owns, and rotates it per project |
+| Daemon | Started by `dev` | Rust starts, owns, and rotates it per project |
 | Folder selection | Type or paste absolute paths | OS folder picker buttons |
-| Window | `http://localhost:5174/` | Native application window |
+| Window | `http://127.0.0.1:5174/` | Native application window |
 
 For browser environment variables, token matching, first startup, and common
 errors, see the dedicated [Browser UI guide](WEB_UI.md).
