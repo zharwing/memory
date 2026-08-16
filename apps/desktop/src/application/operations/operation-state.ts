@@ -48,10 +48,29 @@ export class OperationLedger {
     return attempt;
   }
 
-  reconcile(attempt: OperationAttempt): boolean {
+  /**
+   * Claims a logical command for dispatch. A command whose outcome is still
+   * unknown is resumed with the same operation identity; a command already in
+   * flight is not dispatched a second time.
+   */
+  beginOrResume(key: string, scope?: ScopeToken): OperationAttempt | undefined {
+    const current = [...this.active.values()]
+      .filter((entry) => entry.attempt.key === key && sameScope(entry.attempt.scope, scope))
+      .sort((left, right) => right.sequence - left.sequence)[0];
+    if (!current) return this.begin(key, scope);
+    if (current.state.status !== "reconciling") return undefined;
+    current.state = {
+      status: "submitting",
+      operationId: current.attempt.operationId
+    };
+    this.active.set(current.attempt.operationId, current);
+    return current.attempt;
+  }
+
+  reconcile(attempt: OperationAttempt, error?: PublicError): boolean {
     const active = this.active.get(attempt.operationId);
     if (!active || !this.canSettle(attempt)) return false;
-    active.state = { status: "reconciling", operationId: attempt.operationId };
+    active.state = { status: "reconciling", operationId: attempt.operationId, error };
     this.active.set(attempt.operationId, active);
     return true;
   }
@@ -73,6 +92,23 @@ export class OperationLedger {
   }
 
   fail(attempt: OperationAttempt, error: unknown): boolean {
+    const active = this.active.get(attempt.operationId);
+    if (!active || !this.canSettle(attempt)) return false;
+    const publicError = toPublicError(error);
+    if (publicError.retry === "after-reconcile") {
+      active.state = {
+        status: "reconciling",
+        operationId: attempt.operationId,
+        error: publicError
+      };
+      this.active.set(attempt.operationId, active);
+      return true;
+    }
+    return this.failDefinitively(attempt, publicError);
+  }
+
+  /** Settles a retained reconciliation attempt only after definitive readback. */
+  failDefinitively(attempt: OperationAttempt, error: unknown): boolean {
     const active = this.active.get(attempt.operationId);
     if (!active || !this.canSettle(attempt)) return false;
     const publicError = toPublicError(error);
@@ -148,6 +184,11 @@ export class OperationLedger {
     const current = this.terminal.get(key);
     if (!current || current.sequence <= entry.sequence) this.terminal.set(key, entry);
   }
+}
+
+function sameScope(left: ScopeToken | undefined, right: ScopeToken | undefined): boolean {
+  if (!left || !right) return left === right;
+  return left.projectId === right.projectId && left.generation === right.generation;
 }
 
 function terminalFailure(operationId: string, error: PublicError): OperationState {

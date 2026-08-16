@@ -55,6 +55,7 @@ import {
   unionSchema,
   type RuntimeSchema
 } from "./runtime-schema.js";
+import { documentIdSchema, projectIdSchema } from "./identifiers.js";
 
 const strings = arraySchema(stringSchema);
 const optionalString = optionalSchema(stringSchema);
@@ -155,6 +156,7 @@ export const graphExtractionRuleSchema: RuntimeSchema<GraphExtractionRule> = obj
     match: stringSchema,
     nodeType: enumSchema(["topic", "service", "package", "diagram-group", "code-area", "external-reference"]),
     label: optionalString,
+    slug: optionalString,
     segment: optionalNumber,
     slugFromSegment: optionalNumber,
     labelFromSegment: optionalNumber,
@@ -166,7 +168,7 @@ export const graphExtractionRuleSchema: RuntimeSchema<GraphExtractionRule> = obj
 
 export const projectSchema: RuntimeSchema<Project> = objectSchema(
   {
-    id: stringSchema,
+    id: projectIdSchema,
     visibility: optionalSchema(visibilitySchema),
     name: stringSchema,
     slug: stringSchema,
@@ -202,7 +204,7 @@ export const sessionCheckpointSchema: RuntimeSchema<SessionCheckpoint> = objectS
 export const sessionSummarySchema: RuntimeSchema<SessionSummary> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     status: sessionStatusSchema,
     visibility: optionalSchema(visibilitySchema),
     taskTitle: stringSchema,
@@ -233,7 +235,7 @@ export const sessionSummarySchema: RuntimeSchema<SessionSummary> = objectSchema(
 export const sessionSchema: RuntimeSchema<Session> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     repoPath: stringSchema,
     workingDirectory: stringSchema,
     branch: optionalString,
@@ -257,7 +259,7 @@ export const sessionSchema: RuntimeSchema<Session> = objectSchema(
     blockers: strings,
     touchedFiles: strings,
     workstreamIds: strings,
-    relatedDocs: strings,
+    relatedDocs: arraySchema(documentIdSchema),
     relatedTasks: strings,
     contextBundleId: optionalString,
     checkpoints: arraySchema(sessionCheckpointSchema),
@@ -308,8 +310,8 @@ export const documentTypeSchema = enumSchema([
 
 export const memoryDocumentSchema: RuntimeSchema<MemoryDocument> = objectSchema(
   {
-    id: stringSchema,
-    projectId: stringSchema,
+    id: documentIdSchema,
+    projectId: projectIdSchema,
     title: stringSchema,
     type: documentTypeSchema,
     status: documentStatusSchema,
@@ -319,7 +321,7 @@ export const memoryDocumentSchema: RuntimeSchema<MemoryDocument> = objectSchema(
     relatedTasks: strings,
     relatedFiles: strings,
     relatedSessions: strings,
-    relatedDiagrams: strings,
+    relatedDiagrams: arraySchema(documentIdSchema),
     created: stringSchema,
     updated: stringSchema,
     lastVerified: optionalString,
@@ -339,7 +341,7 @@ export const memoryDocumentSchema: RuntimeSchema<MemoryDocument> = objectSchema(
 export const workstreamSchema: RuntimeSchema<Workstream> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     name: stringSchema,
     slug: stringSchema,
     status: workstreamStatusSchema,
@@ -372,7 +374,7 @@ export const workstreamDetailSchema: RuntimeSchema<WorkstreamDetail> = objectSch
 export const proposedMemoryUpdateSchema: RuntimeSchema<ProposedMemoryUpdate> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     type: enumSchema([
       "decision",
       "command",
@@ -403,7 +405,7 @@ export const proposedMemoryUpdateSchema: RuntimeSchema<ProposedMemoryUpdate> = o
 export const contextIncludedItemSchema: RuntimeSchema<ContextIncludedItem> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     type: enumSchema(["project", "session", "document", "diagram", "command", "gotcha", "global"]),
     title: stringSchema,
     sourcePath: optionalString,
@@ -421,7 +423,7 @@ export const contextIncludedItemSchema: RuntimeSchema<ContextIncludedItem> = obj
 export const contextExcludedItemSchema: RuntimeSchema<ContextExcludedItem> = objectSchema(
   {
     id: stringSchema,
-    projectId: optionalString,
+    projectId: optionalSchema(projectIdSchema),
     type: stringSchema,
     title: stringSchema,
     sourcePath: optionalString,
@@ -457,7 +459,7 @@ export const redactionSchema: RuntimeSchema<Redaction> = objectSchema(
 export const contextBundleSchema: RuntimeSchema<ContextBundle> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     visibility: optionalSchema(visibilitySchema),
     sessionId: optionalString,
     created: stringSchema,
@@ -476,7 +478,7 @@ export const contextBundleSchema: RuntimeSchema<ContextBundle> = objectSchema(
 export const searchResultSchema: RuntimeSchema<SearchResult> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     type: enumSchema(["workstream", "session", "document", "proposed-update", "context-bundle"]),
     title: stringSchema,
     path: optionalString,
@@ -531,7 +533,7 @@ export const graphEdgeTypeSchema = enumSchema([
 
 export const semanticGraphEvidenceSchema: RuntimeSchema<SemanticGraphEvidence> = objectSchema(
   {
-    documentId: optionalString,
+    documentId: optionalSchema(documentIdSchema),
     quote: stringSchema,
     location: optionalString,
     sourcePath: optionalString,
@@ -543,7 +545,7 @@ export const semanticGraphEvidenceSchema: RuntimeSchema<SemanticGraphEvidence> =
 export const graphNodeSchema: RuntimeSchema<GraphNode> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     type: graphNodeTypeSchema,
     label: stringSchema,
     status: optionalString,
@@ -557,7 +559,7 @@ export const graphNodeSchema: RuntimeSchema<GraphNode> = objectSchema(
 export const graphEdgeSchema: RuntimeSchema<GraphEdge> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     from: stringSchema,
     to: stringSchema,
     type: graphEdgeTypeSchema,
@@ -574,7 +576,7 @@ export const graphEdgeSchema: RuntimeSchema<GraphEdge> = objectSchema(
 
 export const projectGraphSchema: RuntimeSchema<ProjectGraph> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     visibility: optionalSchema(visibilitySchema),
     nodes: arraySchema(graphNodeSchema),
     edges: arraySchema(graphEdgeSchema),
@@ -586,7 +588,7 @@ export const projectGraphSchema: RuntimeSchema<ProjectGraph> = objectSchema(
 export const semanticGraphScopeSchema: RuntimeSchema<SemanticGraphScope> = objectSchema(
   {
     kind: enumSchema(["all-docs", "changed-docs", "selected-docs", "focused-graph-node", "workstream", "repo"]),
-    documentIds: optionalSchema(strings),
+    documentIds: optionalSchema(arraySchema(documentIdSchema)),
     nodeId: optionalString,
     workstreamId: optionalString,
     repoPath: optionalString
@@ -618,7 +620,7 @@ export const semanticGraphSettingsSchema: RuntimeSchema<SemanticGraphSettings> =
 export const semanticGraphEdgeSchema: RuntimeSchema<SemanticGraphEdge> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     from: stringSchema,
     to: stringSchema,
     type: graphEdgeTypeSchema,
@@ -649,7 +651,7 @@ export const semanticGraphEdgeSchema: RuntimeSchema<SemanticGraphEdge> = objectS
 const semanticGraphRunWireSchema = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     status: enumSchema(["pending", "running", "completed", "failed", "cancelled"]),
     visibility: optionalSchema(visibilitySchema),
     mode: enumSchema(["review", "auto", "dry-run"]),
@@ -694,7 +696,7 @@ export interface SemanticGraphStatus {
 
 export const semanticGraphStatusSchema: RuntimeSchema<SemanticGraphStatus> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     visibility: optionalSchema(visibilitySchema),
     settings: semanticGraphSettingsSchema,
     edgeCounts: recordSchema(numberSchema),
@@ -738,7 +740,7 @@ export const importProfileSchema: RuntimeSchema<ImportProfile> = objectSchema(
 export const importCandidateSchema: RuntimeSchema<ImportCandidate> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     sourcePath: stringSchema,
     relativePath: stringSchema,
     sourceHash: stringSchema,
@@ -761,7 +763,7 @@ export const importCandidateSchema: RuntimeSchema<ImportCandidate> = objectSchem
 export const importPlanSchema: RuntimeSchema<ImportPlan> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     sourceRoot: stringSchema,
     profileName: stringSchema,
     created: stringSchema,
@@ -780,7 +782,7 @@ export const importPlanSchema: RuntimeSchema<ImportPlan> = objectSchema(
 export const importCommitResultSchema: RuntimeSchema<ImportCommitResult> = objectSchema(
   {
     planId: stringSchema,
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     committed: numberSchema,
     documents: numberSchema,
     sessions: numberSchema,
@@ -794,7 +796,7 @@ export const trashItemSchema: RuntimeSchema<TrashItem> = objectSchema(
   {
     id: stringSchema,
     type: enumSchema(["project", "repo", "workstream", "session", "document", "inbox-proposal", "backup"]),
-    projectId: optionalString,
+    projectId: optionalSchema(projectIdSchema),
     visibility: optionalSchema(visibilitySchema),
     projectName: optionalString,
     itemId: stringSchema,
@@ -821,7 +823,7 @@ export interface BackupSnapshotItem {
 
 export const backupSnapshotItemSchema: RuntimeSchema<BackupSnapshotItem> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     visibility: optionalSchema(visibilitySchema),
     created: stringSchema,
     snapshotPath: stringSchema,
@@ -869,7 +871,7 @@ export const projectCreationPreviewSchema: RuntimeSchema<ProjectCreationPreview>
   {
     requestId: stringSchema,
     proposedProjectName: stringSchema,
-    proposedProjectId: stringSchema,
+    proposedProjectId: projectIdSchema,
     repoRoot: optionalString,
     memoryLocation: stringSchema,
     willCreatePointerFile: booleanSchema,
@@ -885,7 +887,7 @@ export const projectCreationPreviewSchema: RuntimeSchema<ProjectCreationPreview>
 
 const startupProjectSchema = objectSchema(
   {
-    id: stringSchema,
+    id: projectIdSchema,
     visibility: optionalSchema(visibilitySchema),
     name: stringSchema,
     updated: stringSchema,
@@ -944,7 +946,7 @@ const startupNotModifiedSchema = objectSchema(
     schema: literalSchema("zharwing.memory.startup.v2"),
     visibility: optionalSchema(visibilitySchema),
     notModified: literalSchema(true),
-    projectId: optionalString,
+    projectId: optionalSchema(projectIdSchema),
     sessionId: optionalString,
     revision: stringSchema
   },

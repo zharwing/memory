@@ -2,6 +2,9 @@ import path from "node:path";
 import {
   DEFAULT_MEMORY_ROOT_NAME,
   createProjectModel,
+  normalizeNewProjectId,
+  parseProjectId,
+  projectIdValue,
   type Project,
   type ProjectId
 } from "@zharwing/memory-core";
@@ -30,7 +33,16 @@ export class ProjectRegistry {
 
   async load(): Promise<RegistryFile> {
     await this.ensure();
-    return readJson<RegistryFile>(this.registryPath, { version: 1, projects: [] });
+    const raw = await readJson<unknown>(this.registryPath, { version: 1, projects: [] });
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Project registry must be a JSON object.");
+    const record = raw as Record<string, unknown>;
+    if (record.version !== 1 || !Array.isArray(record.projects)) throw new Error("Project registry schema is invalid.");
+    for (const project of record.projects) {
+      if (!project || typeof project !== "object" || Array.isArray(project)) throw new Error("Project registry contains an invalid project record.");
+      const id = (project as Record<string, unknown>).id;
+      if (typeof id !== "string" || !projectIdValue(parseProjectId(id))) throw new Error("Project registry contains an invalid project identifier.");
+    }
+    return { version: 1, projects: record.projects as Project[] };
   }
 
   async save(registry: RegistryFile): Promise<void> {
@@ -43,6 +55,7 @@ export class ProjectRegistry {
   }
 
   async getProject(projectId: ProjectId): Promise<Project | undefined> {
+    if (!projectIdValue(parseProjectId(projectId))) return undefined;
     const registry = await this.load();
     return registry.projects.find((project) => project.id === projectId);
   }
@@ -56,6 +69,7 @@ export class ProjectRegistry {
   }
 
   async register(project: Project): Promise<Project> {
+    if (!projectIdValue(parseProjectId(project.id))) throw new Error(`Project ID is invalid: ${project.id}`);
     const registry = await this.load();
     const existingIndex = registry.projects.findIndex((candidate) => candidate.id === project.id);
     const nextProjects =
@@ -67,6 +81,7 @@ export class ProjectRegistry {
   }
 
   async unregister(projectId: ProjectId): Promise<Project> {
+    if (!projectIdValue(parseProjectId(projectId))) throw new Error(`Project ID is invalid: ${projectId}`);
     const registry = await this.load();
     const project = registry.projects.find((candidate) => candidate.id === projectId);
     if (!project) throw new Error(`Project not found: ${projectId}`);
@@ -78,8 +93,8 @@ export class ProjectRegistry {
   }
 
   async createModel(args: { name: string; repoPath?: string; slug?: string }): Promise<Project> {
-    const slug = args.slug;
-    const memoryRoot = path.join(this.memoryRoot, "projects", slug || args.name);
+    const slug = normalizeNewProjectId(args.slug || args.name);
+    const memoryRoot = path.join(this.memoryRoot, "projects", slug);
     return createProjectModel({
       name: args.name,
       slug,

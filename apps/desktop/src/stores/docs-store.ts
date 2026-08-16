@@ -1,8 +1,8 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { DocsClientPort } from "../application/ports/features.js";
 import type { MemoryDocument, SearchResult } from "@zharwing/memory-core";
 import { OperationLedger, type OperationState } from "../application/operations/operation-state.js";
-import { executeConfirmedDestructiveOperation } from "../application/operations/destructive-operation.js";
+import { prepareDestructiveDispatch } from "../application/operations/destructive-operation.js";
 import type {
   DocsStoreCoordinator,
   ScopedProjectPort,
@@ -14,6 +14,7 @@ import {
   publicErrorCopy,
   type ResourceState
 } from "../application/resources/resource-state.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 
 export class DocsStore {
   readonly listResource: ResourceSlot<MemoryDocument[]>;
@@ -22,7 +23,7 @@ export class DocsStore {
   searchQuery = "";
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: DocsClientPort,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: DocsStoreCoordinator,
     runtime: StoreAsyncRuntimePort
@@ -47,6 +48,9 @@ export class DocsStore {
   get searchState(): ResourceState<SearchResult[]> {
     return this.searchResource.state;
   }
+
+  get listRead() { return resourceReadModel(this.listResource); }
+  get searchRead() { return resourceReadModel(this.searchResource); }
 
   get list(): MemoryDocument[] {
     return this.listResource.data ?? [];
@@ -98,61 +102,40 @@ export class DocsStore {
   ): Promise<MemoryDocument | undefined> {
     const token = this.scope.captureScope();
     if (!token) return undefined;
-    const attempt = this.operations.begin(`document:update:${documentId}`, token);
-    try {
-      const updated = await this.client.operation(
-        "memory.update_doc",
-        {
-          projectId: token.projectId,
-          documentId,
-          title: args.title,
-          body: args.body
-        },
-        {
-          signal: token.signal,
-          idempotencyKey: attempt.operationId
-        }
-      );
-      if (!this.scope.isScopeCurrent(token) || !this.operations.succeed(attempt, updated)) {
-        this.operations.abandon(attempt);
-        return undefined;
-      }
-      await Promise.all([this.load(token), this.coordinator.refreshGraph()]);
-      return updated;
-    } catch (error) {
-      this.settleFailure(attempt, token, error);
-      return undefined;
-    }
+    return this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_doc",
+      input: {
+        projectId: token.projectId,
+        documentId,
+        title: args.title,
+        body: args.body
+      },
+      ledger: this.operations,
+      key: `document:update:${documentId}`,
+      scope: token
+    });
   }
 
   async deleteDocument(documentId: string): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const attempt = this.operations.begin(`document:delete:${documentId}`, token);
-    try {
-      const result = await executeConfirmedDestructiveOperation(
+    const input = { projectId: token.projectId, documentId };
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.delete_doc",
+      input,
+      ledger: this.operations,
+      key: `document:delete:${documentId}`,
+      scope: token,
+      prepareDispatch: (operationId) => prepareDestructiveDispatch(
         this.client,
         token.projectId,
         "memory.delete_doc",
-        { projectId: token.projectId, documentId },
-        {
-          signal: token.signal,
-          idempotencyKey: attempt.operationId
-        }
-      );
-      if (!this.scope.isScopeCurrent(token) || !this.operations.succeed(attempt, result)) {
-        this.operations.abandon(attempt);
-        return;
-      }
-      await Promise.all([
-        this.load(token),
-        this.coordinator.refreshProjectSummary(),
-        this.coordinator.refreshGraph(),
-        this.coordinator.refreshTrash()
-      ]);
-    } catch (error) {
-      this.settleFailure(attempt, token, error);
-    }
+        input,
+        { signal: token.signal, idempotencyKey: operationId }
+      )
+    });
   }
 
   async search(query: string): Promise<void> {
@@ -178,12 +161,4 @@ export class DocsStore {
     }
   }
 
-  private settleFailure(
-    attempt: Parameters<OperationLedger["fail"]>[0],
-    token: ScopeToken,
-    error: unknown
-  ): void {
-    if (this.scope.isScopeCurrent(token)) this.operations.fail(attempt, error);
-    else this.operations.abandon(attempt);
-  }
 }

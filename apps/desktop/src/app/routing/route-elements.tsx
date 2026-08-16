@@ -15,6 +15,7 @@ import {
   useRoutes,
   type RouteObject
 } from "react-router-dom";
+import { observer } from "mobx-react-lite";
 import {
   registeredRouteEntries,
   projectIdFromRegisteredPath,
@@ -23,6 +24,7 @@ import {
   type AppScreenId
 } from "./route-registry.js";
 import { shouldMoveFocusToRouteHeading } from "./route-focus-policy.js";
+import { useStore } from "../../stores/store-context.js";
 
 export type RegisteredScreens = Readonly<Record<AppScreenId, ComponentType>>;
 
@@ -61,7 +63,12 @@ export function createRegisteredRouteObjects(screens: RegisteredScreens): RouteO
         </RouteScreenFrame>
       );
       routes.push({ path: route.path, element });
-      if (route.legacyPath) routes.push({ path: route.legacyPath, element });
+      if (route.legacyPath) {
+        routes.push({
+          path: route.legacyPath,
+          element: <LegacyProjectRouteRedirect target={route.id as AppRouteId} />
+        });
+      }
       continue;
     }
 
@@ -79,10 +86,26 @@ export function createRegisteredRouteObjects(screens: RegisteredScreens): RouteO
   return routes;
 }
 
+/** Canonicalizes old project-less links once without dropping query/hash state. */
+const LegacyProjectRouteRedirect = observer(function LegacyProjectRouteRedirect(
+  { target }: { target: AppRouteId }
+) {
+  const store = useStore();
+  const location = useLocation();
+  const projectId = store.projects.selectedProjectId;
+  if (!projectId) return <RoutePending title="project" />;
+  return (
+    <Navigate
+      to={`${routePath(target, { projectId })}${location.search}${location.hash}`}
+      replace
+    />
+  );
+});
+
 function RegisteredRedirect({ target, preserveProject }: { target: AppRouteId; preserveProject: boolean }) {
   const location = useLocation();
   const projectId = preserveProject ? projectIdFromRegisteredPath(location.pathname) : undefined;
-  return <Navigate to={routePath(target, { projectId })} replace />;
+  return <Navigate to={`${routePath(target, { projectId })}${location.search}${location.hash}`} replace />;
 }
 
 function RouteScreenFrame({

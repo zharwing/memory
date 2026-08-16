@@ -1,13 +1,12 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
-import { parseOperationInput } from "@zharwing/memory-core";
+import type { ProjectsClientPort } from "../application/ports/features.js";
+import { parseOperationInput, type OperationOutput } from "@zharwing/memory-core";
 import type {
   MemoryWritePolicy,
   MemoryReviewMode,
   Project,
   ProjectCreationPreview,
-  RepoLink,
-  Session
+  RepoLink
 } from "@zharwing/memory-core";
 import {
   ProjectScopeCoordinator,
@@ -18,7 +17,7 @@ import {
   type OperationAttempt,
   type OperationState
 } from "../application/operations/operation-state.js";
-import { executeConfirmedDestructiveOperation } from "../application/operations/destructive-operation.js";
+import { prepareDestructiveDispatch } from "../application/operations/destructive-operation.js";
 import type {
   ProjectStoreCoordinator,
   ScopeToken,
@@ -29,22 +28,10 @@ import {
   publicErrorCopy,
   type ResourceState
 } from "../application/resources/resource-state.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 
-/** Result shape of `memory.get_project_summary`. */
-export interface ProjectSummarySnapshot {
-  project: Project;
-  latestSession?: Session;
-  activeSession?: Session;
-  counts: {
-    sessions: number;
-    documents: number;
-    workstreams: number;
-    diagrams: number;
-    pendingInbox: number;
-    warnings: number;
-  };
-  warnings: string[];
-}
+/** Result shape of `memory.get_project_summary`, owned by the core operation contract. */
+export type ProjectSummarySnapshot = OperationOutput<"memory.get_project_summary">;
 
 export interface SelectProjectOptions {
   /** Set false when the caller owns the subsequent coordinated refresh. */
@@ -64,7 +51,7 @@ export class ProjectStore {
   readonly operations: OperationLedger;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: ProjectsClientPort,
     private readonly scope: ProjectScopeCoordinator,
     applicationScope: ApplicationScopePort,
     private readonly coordinator: ProjectStoreCoordinator,
@@ -93,6 +80,10 @@ export class ProjectStore {
   get projectCreationPreviewState(): ResourceState<ProjectCreationPreview | undefined> {
     return this.projectCreationPreviewResource.state;
   }
+  get projectsRead() { return resourceReadModel(this.projectsResource); }
+  get summaryRead() { return resourceReadModel(this.summaryResource); }
+  get repoLinksRead() { return resourceReadModel(this.repoLinksResource); }
+  get projectCreationPreviewRead() { return resourceReadModel(this.projectCreationPreviewResource); }
   get list(): Project[] { return this.projectsResource.data ?? []; }
   get selectedProjectId(): string { return this.scope.currentProjectId(); }
   get projectCreationPreview(): ProjectCreationPreview | undefined {
@@ -177,7 +168,6 @@ export class ProjectStore {
     if (!project) return false;
     const token = this.scope.activate(project.id, project.repos?.[0]?.path);
     if (!token) return false;
-    this.coordinator.resetProjectTransient();
     if (options.refresh !== false) void this.coordinator.refreshAll();
     return this.scope.isScopeCurrent(token);
   }
@@ -210,43 +200,40 @@ export class ProjectStore {
   async createProjectFromPreview(): Promise<boolean> {
     const preview = this.projectCreationPreview;
     if (!preview) return false;
-    const attempt = this.operations.begin("project:create");
-    try {
-      const project = await this.client.operation(
-        "memory.create_project",
-        { preview },
-        { idempotencyKey: attempt.operationId }
-      );
-      if (!this.operations.succeed(attempt, project)) return false;
-      await this.load(project.id);
-      this.projectCreationPreviewResource.reset();
-      if (this.selectedProjectId === project.id) await this.coordinator.refreshAll();
-      return this.selectedProjectId === project.id;
-    } catch (error) {
-      this.operations.fail(attempt, error);
-      return false;
-    }
+    const project = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.create_project",
+      input: { preview },
+      ledger: this.operations,
+      key: "project:create"
+    });
+    if (!project) return false;
+    await this.load(project.id);
+    this.projectCreationPreviewResource.reset();
+    if (this.selectedProjectId === project.id) await this.refreshSelectedProject();
+    return this.selectedProjectId === project.id;
   }
 
   async deleteProject(projectId: string): Promise<void> {
     const selectedToken = this.selectedProjectId === projectId ? this.scope.captureScope() : undefined;
-    const attempt = this.operations.begin(`project:delete:${projectId}`);
-    try {
-      const result = await executeConfirmedDestructiveOperation(
+    const input = { projectId };
+    const result = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.delete_project",
+      input,
+      ledger: this.operations,
+      key: `project:delete:${projectId}`,
+      prepareDispatch: (operationId) => prepareDestructiveDispatch(
         this.client,
         projectId,
         "memory.delete_project",
-        { projectId },
-        { idempotencyKey: attempt.operationId }
-      );
-      if (!this.operations.succeed(attempt, result)) return;
-      if (selectedToken && this.scope.isScopeCurrent(selectedToken)) this.scope.clear();
-      await this.load(this.selectedProjectId || undefined);
-      if (this.selectedProjectId) await this.coordinator.refreshAll();
-      await this.coordinator.refreshTrash();
-    } catch (error) {
-      this.operations.fail(attempt, error);
-    }
+        input,
+        { idempotencyKey: operationId }
+      )
+    });
+    if (!result) return;
+    if (selectedToken && this.scope.isScopeCurrent(selectedToken)) this.scope.clear();
+    await this.load(this.selectedProjectId || undefined);
   }
 
   async updateMemoryWritePolicy(args: {
@@ -259,17 +246,14 @@ export class ProjectStore {
       projectId: token.projectId,
       ...args
     });
-    const result = await this.scopedMutation(
-      "project:policy",
-      token,
-      (operationId) => this.client.operation("memory.update_memory_write_policy", input, {
-        signal: token.signal,
-        idempotencyKey: operationId
-      })
-    );
-    if (result !== undefined && this.scope.isScopeCurrent(token)) {
-      await Promise.all([this.load(), this.loadSummary(token)]);
-    }
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_memory_write_policy",
+      input,
+      ledger: this.operations,
+      key: "project:policy",
+      scope: token
+    });
   }
 
   async loadRepoLinks(token = this.scope.captureScope()): Promise<void> {
@@ -303,8 +287,7 @@ export class ProjectStore {
   }
 
   async deleteRepo(repoPath: string, removePointerFile = true): Promise<void> {
-    const changed = await this.repoMutation("repo:delete", "memory.delete_repo", { repoPath, removePointerFile });
-    if (changed) await this.coordinator.refreshTrash();
+    await this.repoMutation("repo:delete", "memory.delete_repo", { repoPath, removePointerFile });
   }
 
   private async repoMutation(
@@ -314,63 +297,65 @@ export class ProjectStore {
   ): Promise<boolean> {
     const token = this.scope.captureScope();
     if (!token) return false;
-    const result = await this.scopedMutation<unknown>(key, token, (operationId) => {
-      const options = { signal: token.signal, idempotencyKey: operationId };
-      if (operation === "memory.link_repo") {
-        return this.client.operation(operation, {
-          projectId: token.projectId,
-          repoPath: String(args.repoPath),
-          role: typeof args.role === "string" ? args.role : undefined,
-          name: typeof args.name === "string" ? args.name : undefined,
-          description: typeof args.description === "string" ? args.description : undefined,
-          defaultBranch: typeof args.defaultBranch === "string" ? args.defaultBranch : undefined,
-          writePointerFile: typeof args.writePointerFile === "boolean" ? args.writePointerFile : undefined
-        }, options);
-      }
-      const input = {
-        projectId: token.projectId,
-        repoPath: String(args.repoPath),
-        removePointerFile: typeof args.removePointerFile === "boolean" ? args.removePointerFile : undefined
-      };
-      return operation === "memory.unlink_repo"
-        ? this.client.operation(operation, input, options)
-        : executeConfirmedDestructiveOperation(this.client, token.projectId, "memory.delete_repo", input, options);
-    });
+    const common = {
+      projectId: token.projectId,
+      repoPath: String(args.repoPath)
+    };
+    const result = operation === "memory.link_repo"
+      ? await this.coordinator.executeCommand({
+          port: this.client,
+          operation,
+          input: {
+            ...common,
+            role: typeof args.role === "string" ? args.role : undefined,
+            name: typeof args.name === "string" ? args.name : undefined,
+            description: typeof args.description === "string" ? args.description : undefined,
+            defaultBranch: typeof args.defaultBranch === "string" ? args.defaultBranch : undefined,
+            writePointerFile: typeof args.writePointerFile === "boolean" ? args.writePointerFile : undefined
+          },
+          ledger: this.operations,
+          key,
+          scope: token
+        })
+      : operation === "memory.unlink_repo"
+        ? await this.coordinator.executeCommand({
+            port: this.client,
+            operation,
+            input: {
+              ...common,
+              removePointerFile: typeof args.removePointerFile === "boolean" ? args.removePointerFile : undefined
+            },
+            ledger: this.operations,
+            key,
+            scope: token
+          })
+        : await this.coordinator.executeCommand({
+            port: this.client,
+            operation,
+            input: {
+              ...common,
+              removePointerFile: typeof args.removePointerFile === "boolean" ? args.removePointerFile : undefined
+            },
+            ledger: this.operations,
+            key,
+            scope: token,
+            prepareDispatch: (operationId) => prepareDestructiveDispatch(
+              this.client,
+              token.projectId,
+              "memory.delete_repo",
+              {
+                ...common,
+                removePointerFile: typeof args.removePointerFile === "boolean" ? args.removePointerFile : undefined
+              },
+              { signal: token.signal, idempotencyKey: operationId }
+            )
+          });
     if (result === undefined || !this.scope.isScopeCurrent(token)) return false;
-    await Promise.all([
-      this.load(),
-      this.loadSummary(token),
-      this.loadRepoLinks(token),
-      this.coordinator.refreshGraph()
-    ]);
     return this.scope.isScopeCurrent(token);
   }
 
-  private async scopedMutation<Result>(
-    key: string,
-    token: ScopeToken,
-    work: (operationId: string) => Promise<Result>
-  ): Promise<Result | undefined> {
-    const attempt = this.operations.begin(key, token);
-    try {
-      const result = await work(attempt.operationId);
-      if (!this.scope.isScopeCurrent(token) || !this.operations.succeed(attempt, result)) {
-        this.operations.abandon(attempt);
-        return undefined;
-      }
-      return result;
-    } catch (error) {
-      this.settleFailure(attempt, token, error);
-      return undefined;
-    }
-  }
-
-  private settleFailure(
-    attempt: OperationAttempt,
-    token: ScopeToken | undefined,
-    error: unknown
-  ): void {
-    if (!token || this.scope.isScopeCurrent(token)) this.operations.fail(attempt, error);
-    else this.operations.abandon(attempt);
+  private async refreshSelectedProject(): Promise<void> {
+    const token = this.scope.captureScope();
+    if (token) await this.coordinator.refreshAll();
   }
 }

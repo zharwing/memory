@@ -52,10 +52,30 @@ const moduleUrl = dataModuleUrl(
     .replaceAll(
       'from "../application/operations/destructive-operation.js"',
       `from "${dataModuleUrl(`
+        export function prepareDestructiveDispatch(client, projectId, operation, input, options) {
+          return () => client.operation(operation, input, options);
+        }
         export async function executeConfirmedDestructiveOperation(client, projectId, operation, input, options) {
           return client.operation(operation, input, options);
         }
       `)}"`
+    )
+    .replaceAll(
+      'from "../application/read-models/workstream-detail-snapshot.js"',
+      `from "${typescriptModuleUrl("apps/desktop/src/application/read-models/workstream-detail-snapshot.ts", {
+        "@zharwing/memory-core": "export {}"
+      })}"`
+    )
+    .replaceAll(
+      'from "../application/resources/resource-read-model.js"',
+      `from "${typescriptModuleUrl("apps/desktop/src/application/resources/resource-read-model.ts", {
+        "@zharwing/memory-core": "export {}",
+        "./resource-state.js": typescriptModuleUrl("apps/desktop/src/application/resources/resource-state.ts", {
+          mobx: "export function makeAutoObservable() {}",
+          "@zharwing/memory-core": "export function createPublicError() { return { code: 'INTERNAL', category: 'internal', messageId: 'operation.internal', retry: 'never' }; }"
+          ,"../errors/public-error-presenter.js": "export const publicErrorPresenter = { present: (error) => error };"
+        })
+      })}"`
     )
 );
 const { WorkstreamStore } = await import(moduleUrl);
@@ -88,7 +108,7 @@ test("switching projects clears stale workstream selection and detail", async ()
   assert.deepEqual(store.list, []);
   assert.equal(store.selectedWorkstreamId, "");
   assert.equal(store.detail, undefined);
-  assert.equal(store.error, "");
+  assert.equal(store.error, undefined);
 });
 
 test("clear removes every project-scoped workstream value", async () => {
@@ -134,7 +154,7 @@ test("an in-flight detail response cannot restore the previous project's detail"
 
   assert.equal(store.selectedWorkstreamId, "");
   assert.equal(store.detail, undefined);
-  assert.equal(store.error, "");
+  assert.equal(store.error, undefined);
 });
 
 test("an in-flight detail failure cannot restore the previous project's error", async () => {
@@ -161,7 +181,7 @@ test("an in-flight detail failure cannot restore the previous project's error", 
   await pendingDetail;
 
   assert.equal(store.detail, undefined);
-  assert.equal(store.error, "");
+  assert.equal(store.error, undefined);
 });
 
 function deferred() {
@@ -220,8 +240,12 @@ function typescriptModuleUrl(relativePath, mocks) {
     }
   ).outputText;
   for (const [specifier, mockSource] of Object.entries(mocks)) {
-    output = output.replaceAll(`from "${specifier}"`, `from "${dataModuleUrl(mockSource)}"`);
+    output = output.replaceAll(`from "${specifier}"`, `from "${mockSource.startsWith("data:") ? mockSource : dataModuleUrl(mockSource)}"`);
   }
+  output = output.replaceAll(
+    'from "../errors/public-error-presenter.js"',
+    `from "${dataModuleUrl("export const publicErrorPresenter = { present: (error) => error };")}"`
+  );
   return dataModuleUrl(output);
 }
 

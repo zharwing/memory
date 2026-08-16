@@ -1,4 +1,4 @@
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SemanticClientPort } from "../../application/ports/features.js";
 import type { ScopeToken } from "../../application/operations/store-ports.js";
 import type {
   SemanticAuthoritativeSnapshot,
@@ -10,7 +10,7 @@ import type {
 
 /** Read-only semantic RPCs, kept separate from the facade's mutation authority. */
 export class SemanticSnapshotClient {
-  constructor(private readonly client: MemoryClient) {}
+  constructor(private readonly client: SemanticClientPort) {}
 
   getStatus(scope: ScopeToken): Promise<SemanticSettingsStatusSnapshot["status"]> {
     return this.client.operation(

@@ -1,14 +1,14 @@
 import {
-  createContext,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
-  useContext,
   useEffect,
   useId,
   useLayoutEffect,
   useRef
 } from "react";
 import { createPortal } from "react-dom";
+import { useLayerStack } from "./LayerProvider.js";
+export { DialogStackProvider, LayerProvider } from "./LayerProvider.js";
 
 const FOCUSABLE = [
   "a[href]",
@@ -18,43 +18,6 @@ const FOCUSABLE = [
   "textarea:not([disabled])",
   "[tabindex]:not([tabindex='-1'])"
 ].join(",");
-
-interface DialogStackRegistry {
-  readonly push: (instanceId: string) => void;
-  readonly remove: (instanceId: string) => void;
-  readonly isTop: (instanceId: string) => boolean;
-}
-
-const DialogStackContext = createContext<DialogStackRegistry | null>(null);
-
-/**
- * Owns dialog ordering for one mounted application runtime. Keeping the stack
- * in React ownership prevents multiple app roots, previews, or tests from
- * sharing hidden module state.
- */
-export function DialogStackProvider({ children }: { children: ReactNode }) {
-  const stackRef = useRef<string[]>([]);
-  const registryRef = useRef<DialogStackRegistry | null>(null);
-  if (!registryRef.current) {
-    registryRef.current = {
-      push(instanceId) {
-        stackRef.current.push(instanceId);
-      },
-      remove(instanceId) {
-        const index = stackRef.current.lastIndexOf(instanceId);
-        if (index >= 0) stackRef.current.splice(index, 1);
-      },
-      isTop(instanceId) {
-        return stackRef.current.at(-1) === instanceId;
-      }
-    };
-  }
-  return (
-    <DialogStackContext.Provider value={registryRef.current}>
-      {children}
-    </DialogStackContext.Provider>
-  );
-}
 
 interface DialogProps {
   ariaLabel?: string;
@@ -88,11 +51,7 @@ export function Dialog({
   initialFocus = "first",
   children
 }: DialogProps) {
-  const dialogStack = useContext(DialogStackContext);
-  if (!dialogStack) {
-    throw new Error("DialogStackProvider is missing.");
-  }
-  const ownedDialogStack = dialogStack;
+  const layerStack = useLayerStack();
   const instanceId = useId();
   const titleId = `${instanceId}-title`;
   const descriptionId = `${instanceId}-description`;
@@ -108,7 +67,7 @@ export function Dialog({
     returnFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    ownedDialogStack.push(instanceId);
+    layerStack.push(instanceId);
 
     const background = Array.from(document.body.children)
       .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== backdrop)
@@ -130,7 +89,7 @@ export function Dialog({
     (candidate ?? panel).focus({ preventScroll: true });
 
     return () => {
-      ownedDialogStack.remove(instanceId);
+      layerStack.remove(instanceId);
       for (const state of background) {
         state.element.inert = state.inert;
         if (state.ariaHidden === null) state.element.removeAttribute("aria-hidden");
@@ -141,23 +100,23 @@ export function Dialog({
         returnTarget.focus({ preventScroll: true });
       }
     };
-  }, [ownedDialogStack, initialFocus, instanceId]);
+  }, [initialFocus, instanceId, layerStack]);
 
   useEffect(() => {
     if (!closeOnEscape) return;
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (!ownedDialogStack.isTop(instanceId)) return;
+      if (!layerStack.isTop(instanceId)) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
     }
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [closeOnEscape, ownedDialogStack, instanceId, onClose]);
+  }, [closeOnEscape, instanceId, layerStack, onClose]);
 
   function containFocus(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key !== "Tab" || !ownedDialogStack.isTop(instanceId)) return;
+    if (event.key !== "Tab" || !layerStack.isTop(instanceId)) return;
     const panel = panelRef.current;
     if (!panel) return;
     const focusable = focusableElements(panel);
@@ -184,7 +143,7 @@ export function Dialog({
       role="presentation"
       onMouseDown={closeOnBackdropClick
         ? (event) => {
-            if (event.target === event.currentTarget && ownedDialogStack.isTop(instanceId)) onClose();
+            if (event.target === event.currentTarget && layerStack.isTop(instanceId)) onClose();
           }
         : undefined}
     >

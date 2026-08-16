@@ -4,6 +4,17 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./contracts": "./dist/contracts/index.js",
+    "./contracts/entities": "./dist/contracts/entities.js",
+    "./contracts/operations": "./dist/contracts/operations.js",
+    "./contracts/resources": "./dist/contracts/resources.js",
+    "./contracts/public-errors": "./dist/contracts/public-errors.js",
+    "./identifiers": "./dist/contracts/identifiers.js",
+    "./project-id": "./dist/project-id.js",
+    "./document-id": "./dist/document-id.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

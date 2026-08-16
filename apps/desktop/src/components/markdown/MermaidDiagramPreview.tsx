@@ -183,11 +183,6 @@ function DiagramFullscreenViewer({ svg, onClose }: { svg: string; onClose: () =>
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }
       if ((event.metaKey || event.ctrlKey) && (event.key === "+" || event.key === "=")) {
         event.preventDefault();
         zoomIn();
@@ -240,7 +235,6 @@ function DiagramFullscreenViewer({ svg, onClose }: { svg: string; onClose: () =>
       backdropClassName="diagram-viewer-backdrop"
       className="diagram-viewer"
       onClose={onClose}
-      closeOnEscape={false}
     >
         <header className="diagram-viewer-header">
           <div className="diagram-viewer-title">

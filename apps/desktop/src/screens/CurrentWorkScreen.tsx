@@ -110,6 +110,7 @@ export const CurrentWorkScreen = observer(function CurrentWorkScreen() {
       </section>
       {closeoutOpen ? (
         <SessionCloseoutDialog
+          key={active.id}
           session={active}
           sessions={store.sessions}
           title="Close this work log?"

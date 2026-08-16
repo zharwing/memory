@@ -39,6 +39,13 @@ The browser UI cannot browse arbitrary local folders. In browser mode, path
 fields accept typed or pasted absolute paths. In the Tauri window, Setup,
 Repos, and Import can use OS folder picker buttons.
 
+The Shell stays mounted while a project generation is being selected; only the
+scoped route outlet is gated. Search, Docs, Graph, and Diagrams use the same
+document editor host and canonical document target. URL parameters are bounded
+and canonicalized, and legacy project routes preserve their query/hash during
+redirects. Cross-tab changes trigger body-free revalidation, with focus/resume
+reads providing the authoritative fallback.
+
 | Behavior | Browser UI | Native Tauri app |
 | --- | --- | --- |
 | Pages and workflows | Full shared React UI | Full shared React UI |

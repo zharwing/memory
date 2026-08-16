@@ -32,11 +32,20 @@ function runRunner(root) {
   return spawnSync(process.execPath, [RUNNER_PATH, "--root", root], { encoding: "utf8" });
 }
 
-test("discovery fails the runner when no source tests exist", () => {
+function skipIfSandboxed(t, result) {
+  if (result.error?.code === "EPERM") {
+    t.skip("sandbox forbids nested process execution");
+    return true;
+  }
+  return false;
+}
+
+test("discovery fails the runner when no source tests exist", (t) => {
   const root = makeFixtureRepo();
   try {
     addWorkspace(root, "packages/empty");
     const result = runRunner(root);
+    if (skipIfSandboxed(t, result)) return;
     assert.equal(result.status, 1);
     assert.match(result.stderr, /No source test files/);
   } finally {
@@ -44,12 +53,13 @@ test("discovery fails the runner when no source tests exist", () => {
   }
 });
 
-test("discovery reports a missing compiled counterpart", () => {
+test("discovery reports a missing compiled counterpart", (t) => {
   const root = makeFixtureRepo();
   try {
     const dir = addWorkspace(root, "packages/lib");
     writeFileSync(path.join(dir, "src", "thing.test.ts"), "");
     const result = runRunner(root);
+    if (skipIfSandboxed(t, result)) return;
     assert.equal(result.status, 1);
     assert.match(result.stderr, /missing/i);
     assert.match(result.stderr, /packages\/lib\/dist\/thing\.test\.js/);
@@ -58,7 +68,7 @@ test("discovery reports a missing compiled counterpart", () => {
   }
 });
 
-test("discovery reports stale compiled output without a source counterpart", () => {
+test("discovery reports stale compiled output without a source counterpart", (t) => {
   const root = makeFixtureRepo();
   try {
     const dir = addWorkspace(root, "packages/lib");
@@ -68,6 +78,7 @@ test("discovery reports stale compiled output without a source counterpart", () 
     writeFileSync(path.join(dir, "dist", "nested", "keep.test.js"), "import { test } from 'node:test'; test('x', () => {});");
     writeFileSync(path.join(dir, "dist", "removed.test.js"), "");
     const result = runRunner(root);
+    if (skipIfSandboxed(t, result)) return;
     assert.equal(result.status, 1);
     assert.match(result.stderr, /[Ss]tale/);
     assert.match(result.stderr, /packages\/lib\/dist\/removed\.test\.js/);
@@ -76,12 +87,13 @@ test("discovery reports stale compiled output without a source counterpart", () 
   }
 });
 
-test("discovery fails when a noEmit workspace contains tests", () => {
+test("discovery fails when a noEmit workspace contains tests", (t) => {
   const root = makeFixtureRepo();
   try {
     const dir = addWorkspace(root, "apps/ui", { noEmit: true });
     writeFileSync(path.join(dir, "src", "view.test.tsx"), "");
     const result = runRunner(root);
+    if (skipIfSandboxed(t, result)) return;
     assert.equal(result.status, 1);
     assert.match(result.stderr, /do not emit compiled output/);
     assert.match(result.stderr, /apps\/ui\/src\/view\.test\.tsx/);
@@ -114,7 +126,7 @@ test("discovery routes desktop TS and TSX tests only to the explicit source lane
   }
 });
 
-test("runner executes discovered compiled tests and propagates child failure", () => {
+test("runner executes discovered compiled tests and propagates child failure", (t) => {
   const root = makeFixtureRepo();
   try {
     const dir = addWorkspace(root, "packages/lib");
@@ -125,6 +137,7 @@ test("runner executes discovered compiled tests and propagates child failure", (
       "import { test } from 'node:test'; import assert from 'node:assert'; test('fails', () => { assert.equal(1, 2); });"
     );
     const result = runRunner(root);
+    if (skipIfSandboxed(t, result)) return;
     assert.equal(result.status, 1);
     assert.match(result.stdout, /Discovered 1 source test files; running 1 compiled test files\./);
   } finally {
@@ -132,7 +145,7 @@ test("runner executes discovered compiled tests and propagates child failure", (
   }
 });
 
-test("runner succeeds when compiled tests pass", () => {
+test("runner succeeds when compiled tests pass", (t) => {
   const root = makeFixtureRepo();
   try {
     const dir = addWorkspace(root, "packages/lib");
@@ -143,6 +156,7 @@ test("runner succeeds when compiled tests pass", () => {
       "import { test } from 'node:test'; import assert from 'node:assert'; test('ok', () => { assert.equal(1, 1); });"
     );
     const result = runRunner(root);
+    if (skipIfSandboxed(t, result)) return;
     assert.equal(result.status, 0);
   } finally {
     rmSync(root, { recursive: true, force: true });

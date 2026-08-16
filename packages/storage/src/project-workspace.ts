@@ -5,8 +5,10 @@ import {
   DEFAULT_PROJECT_FOLDERS,
   createId,
   createProjectModel,
+  normalizeNewProjectId,
+  parseProjectId,
+  projectIdValue,
   nowIso,
-  slugify,
   type Project,
   type ProjectCreationPreview,
   type ProjectDetectionResult,
@@ -15,6 +17,11 @@ import {
 import { ensureDir, normalizePath, pathExists, readJson, writeJson, writeText } from "./fs.js";
 import { ProjectRegistry } from "./registry.js";
 import { defaultProjectDocument } from "./templates.js";
+import { createStoredDocumentIdentity } from "./document-identity.js";
+import {
+  materializeDocumentIdentities,
+  type DocumentIdentityMigrationReport
+} from "./migrations/document-identities.js";
 
 export interface PointerFile {
   schema?: string;
@@ -83,7 +90,7 @@ export async function detectProject(args: {
 
   if (pointerFilePath) {
     const pointer = await readJson<PointerFile | undefined>(pointerFilePath, undefined);
-    if (pointer?.projectId) {
+    if (pointer?.projectId && projectIdValue(parseProjectId(pointer.projectId))) {
       return {
         workingDirectory,
         repoRoot,
@@ -128,7 +135,7 @@ export async function prepareProjectCreation(args: {
   if (!projectName) {
     throw new Error("Project name is required when creating a project without an initial repo.");
   }
-  const slug = slugify(projectName);
+  const slug = normalizeNewProjectId(projectName);
   const memoryLocation = normalizePath(path.join(args.registry.memoryRoot, "projects", slug));
   const willCreatePointerFile = Boolean(repoRoot && (args.createPointerFile ?? true));
 
@@ -188,9 +195,24 @@ export async function ensureProjectWorkspace(project: Project): Promise<void> {
     if (file === "project.json") {
       await writeJson(target, project);
     } else if (!(await pathExists(target))) {
-      await writeText(target, defaultProjectDocument(project, file));
+      const canonical = DEFAULT_PROJECT_FILES.find((candidate) => candidate === file);
+      await writeText(
+        target,
+        defaultProjectDocument(project, file, canonical ? createStoredDocumentIdentity("doc") : undefined)
+      );
     }
   }
+}
+
+/**
+ * Explicit maintenance entry point for the versioned legacy-ID migration.
+ * Normal workspace ensure/read/start flows never call this mutating action.
+ */
+export async function migrateProjectWorkspaceDocumentIdentities(
+  project: Project
+): Promise<DocumentIdentityMigrationReport> {
+  await ensureProjectWorkspace(project);
+  return materializeDocumentIdentities(project);
 }
 
 export async function writeProjectFile(project: Project): Promise<void> {

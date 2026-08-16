@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { MemoryClient } from "@zharwing/memory-api-client";
 import type { OperationName } from "@zharwing/memory-core";
-import type { AppServices } from "../app/composition/ports.js";
 import {
   fixtureProject,
   populatedOperationResults
 } from "../testing/fixture-data.js";
 import { RootStore } from "./root-store.js";
+import { createDesktopFeaturePorts } from "../app/composition/feature-port-adapter.js";
+import type { RootStoreServices } from "./root-store.js";
+import { LocalResourceInvalidationBus } from "../application/resources/resource-invalidation-bus.js";
 
 test("initialization applies the latest requested route and aborts all scope work on disposal", async () => {
   const projectA = { ...fixtureProject, id: "project-a", slug: "project-a", name: "Project A" };
@@ -83,21 +85,19 @@ test("provider-secret status participates in recovery and is reloaded after a fa
   store.dispose();
 });
 
-function createServices(memory: MemoryClient): Pick<
-  AppServices,
-  "memory" | "scheduler" | "clock" | "ids" | "preferences" | "browserSession"
-> {
+function createServices(memory: MemoryClient): RootStoreServices {
   let sequence = 0;
   const preferences = new Map<string, string>();
   return {
-    memory,
+    features: createDesktopFeaturePorts(memory),
+    invalidations: new LocalResourceInvalidationBus(),
     clock: { now: () => new Date("2031-04-05T12:00:00.000Z") },
     ids: { create: () => `root-store-test-${++sequence}` },
-    preferences: {
-      get: (key) => preferences.get(key),
-      set: (key, value) => value === undefined
-        ? void preferences.delete(key)
-        : void preferences.set(key, value)
+    graphPreferences: {
+      read: () => preferences.get("aimem.graph.relationshipMode") === "deterministic"
+        ? "deterministic"
+        : "ai-reviewed",
+      write: (value) => void preferences.set("aimem.graph.relationshipMode", value)
     },
     scheduler: {
       setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
@@ -107,3 +107,17 @@ function createServices(memory: MemoryClient): Pick<
     }
   };
 }
+
+test("application routes never wait for a project generation", () => {
+  const baseResults = populatedOperationResults();
+  const client = {
+    async operation(name: OperationName) {
+      return baseResults[name];
+    }
+  } as unknown as MemoryClient;
+  const store = new RootStore(createServices(client));
+
+  assert.equal(store.isProjectRouteReady(undefined), true);
+  assert.equal(store.isProjectRouteReady(fixtureProject.id), false);
+  store.dispose();
+});

@@ -16,8 +16,8 @@ test("desktop typed routes preserve valid project scope and reject malformed lin
   assert.equal(routes.projectIdFromRegisteredPath("/p/project-one/dashboard"), "project-one");
   assert.equal(routes.projectIdFromRegisteredPath("/dashboard"), undefined);
   assert.equal(
-    routes.routePath("docs", { projectId: "project-one", search: { filter: "draft" } }),
-    "/p/project-one/library/docs?filter=draft"
+    routes.routePath("search", { projectId: "project-one", query: { q: "draft" } }),
+    "/p/project-one/search?q=draft"
   );
   assert.deepEqual(routes.decodeRouteLocation("/p/project%20one/dashboard"), {
     status: "malformed",
@@ -62,16 +62,14 @@ test("desktop document filters keep imported and starter-draft behavior stable",
   );
 });
 
-test("Search and Documents share one editor host with a rendered fallback for unsupported Markdown", () => {
+test("Search and Documents share the document editing contract with a rendered fallback for unsupported Markdown", () => {
   const search = readSource("apps/desktop/src/screens/SearchScreen.tsx");
   const docs = readSource("apps/desktop/src/screens/DocsScreen.tsx");
   const host = readSource("apps/desktop/src/components/DocumentEditorHost.tsx");
   const editor = readSource("apps/desktop/src/components/DocumentEditorModal.tsx");
   const editorStyles = readSource("apps/desktop/src/styles/11-document-modal.css");
 
-  assert.match(search, /<DocumentEditorHost\s+doc=\{editingDoc\}/);
-  assert.match(search, /const editingDoc = store\.docs\.list\.find\(\(doc\) => doc\.id === editingDocId\)/);
-  assert.match(search, /if \(row\.resultType === "document"\) \{[\s\S]*findDocumentForSearchResult\(store\.docs\.list, row\)[\s\S]*setEditingDocId\(document\.id\)/);
+  assert.match(search, /resolveSearchTarget[\s\S]*searchTargetPath/);
   assert.match(docs, /<DocumentEditorHost[\s\S]*doc=\{editingDoc\}/);
   assert.match(host, /<DocumentEditorModal/);
   assert.match(editor, /markdown=\{body\}/);
@@ -160,11 +158,11 @@ test("dashboard keeps an explicit zero graph snapshot for authoritative empty da
 test("modal stack is runtime-owned and enforces topmost focus behavior", () => {
   const modal = readSource("apps/desktop/src/components/Modal.tsx");
   const provider = readSource("apps/desktop/src/stores/store-context.tsx");
-  assert.match(provider, /<DialogStackProvider>\{children\}<\/DialogStackProvider>/);
-  assert.match(modal, /throw new Error\("DialogStackProvider is missing\."\)/);
-  assert.match(modal, /ownedDialogStack\.push\(instanceId\)/);
-  assert.match(modal, /ownedDialogStack\.remove\(instanceId\)/);
-  assert.match(modal, /if \(!ownedDialogStack\.isTop\(instanceId\)\) return;/);
+  assert.match(provider, /<LayerProvider>\{children\}<\/LayerProvider>/);
+  assert.match(modal, /useLayerStack\(\)/);
+  assert.match(modal, /layerStack\.push\(instanceId\)/);
+  assert.match(modal, /layerStack\.remove\(instanceId\)/);
+  assert.match(modal, /if \(!layerStack\.isTop\(instanceId\)\) return;/);
   assert.match(modal, /\(candidate \?\? panel\)\.focus\(\{ preventScroll: true \}\)/);
   assert.match(modal, /returnTarget\.focus\(\{ preventScroll: true \}\)/);
   assert.match(modal, /onKeyDown=\{containFocus\}/);
@@ -211,6 +209,7 @@ test("desktop route registry covers critical workflows and generates the route o
   const routeElements = readSource("apps/desktop/src/app/routing/route-elements.tsx");
   const accessibilityStyles = readSource("apps/desktop/src/styles/19-accessibility.css");
   assert.match(routeElements, /for \(const route of registeredRouteEntries\(\)\)/);
+  assert.match(routeElements, /const LegacyProjectRouteRedirect = observer/);
   assert.match(routeElements, /shouldMoveFocusToRouteHeading/);
   assert.match(routeElements, /RouteNotFoundScreen/);
   assert.match(accessibilityStyles, /\[data-route-heading="true"\][\s\S]*inset-inline-start:\s*-10000px/);
@@ -269,10 +268,10 @@ test("graph adapters keep a synchronized structured fallback and bounded canvas"
   assert.match(structured, /Nodes \(\{nodes\.length\}\)[\s\S]*<select/);
   assert.match(structured, /Spatial position and color are not required/);
 
-  assert.match(appPorts, /graphPositions:\s*GraphPositionStore/);
-  assert.match(storeProvider, /GraphPositionStoreProvider store=\{runtime\.services\.graphPositions\}/);
-  assert.match(browserComposition, /graphPositions:\s*createLocalGraphPositionStore\(\)/);
-  assert.match(tauriComposition, /graphPositions:\s*createLocalGraphPositionStore\(\)/);
+  assert.match(appPorts, /persistence:\s*AppPersistence/);
+  assert.match(storeProvider, /GraphPositionStoreProvider store=\{runtime\.services\.persistence\.graphPositions\}/);
+  assert.match(browserComposition, /persistence:[\s\S]*createLocalGraphPositionStore\(\)/);
+  assert.match(tauriComposition, /persistence:[\s\S]*createLocalGraphPositionStore\(\)/);
   assert.doesNotMatch(graphMap, /\blocalGraphPositionStore\b/);
   assert.doesNotMatch(graphController, /\blocalGraphPositionStore\b/);
 });
@@ -298,15 +297,15 @@ test("SystemStore facade preserves one ledger and exact collaborator resource id
 test("extracted graph route state preserves compatible bounded query keys and defaults", () => {
   const routeState = readSource("apps/desktop/src/screens/graph/useGraphRouteState.ts");
 
-  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "view", \{ maximumLength: 16 \}\)/);
+  assert.match(routeState, /const rawViewParam = query\.view/);
   assert.match(routeState, /rawViewParam === "all" \? "all" : "context"/);
-  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "relationships", \{ maximumLength: 32 \}\)/);
-  assert.match(routeState, /viewMode === "all" \? "" : parseBoundedSearchParam\(searchParams, "focus"\)/);
-  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "doc"\)/);
-  assert.match(routeState, /parseBoundedSearchParam\(searchParams, "edge", \{ maximumLength: 320 \}\)/);
+  assert.match(routeState, /const rawRelationshipModeParam = query\.relationships/);
+  assert.match(routeState, /const focusedNodeId = viewMode === "all" \? "" : query\.focus/);
+  assert.match(routeState, /const editingDocumentId = query\.doc/);
+  assert.match(routeState, /const selectedEdgeId = query\.edge/);
   assert.match(routeState, /patch\.view = nextState\.viewMode === "all" \? "all" : null/);
   assert.match(routeState, /patch\.relationships = nextState\.relationshipMode === "ai-reviewed" \? null : nextState\.relationshipMode/);
-  assert.match(routeState, /relationshipModeFromSearchParam\(rawRelationshipModeParam\) \|\| "ai-reviewed"/);
+  assert.match(routeState, /resolveGraphRelationshipMode\([\s\S]*rawRelationshipModeParam,[\s\S]*relationshipMode[\s\S]*\)/);
   assert.match(routeState, /patchSearchParams\(invalidPatch, \{ replace: true \}\)/);
 });
 
@@ -428,8 +427,9 @@ test("application runtime creates and disposes one owned root graph", async () =
   const fakeRootStore = `
     export class RootStore {
       constructor(services) {
-        this.onDispose = () => { services.__lifecycle.rootDisposed += 1; };
-        services.__lifecycle.rootCreated += 1;
+        globalThis.__runtimeLifecycle ??= { rootCreated: 0, rootDisposed: 0 };
+        this.onDispose = () => { globalThis.__runtimeLifecycle.rootDisposed += 1; };
+        globalThis.__runtimeLifecycle.rootCreated += 1;
       }
       dispose() {
         this.onDispose();
@@ -440,6 +440,7 @@ test("application runtime creates and disposes one owned root graph", async () =
     "../../stores/root-store.js": fakeRootStore
   });
   const lifecycle = { rootCreated: 0, rootDisposed: 0 };
+  globalThis.__runtimeLifecycle = lifecycle;
   const events = [];
   const scheduler = Object.freeze({
     setTimeout: () => 1,
@@ -453,6 +454,7 @@ test("application runtime creates and disposes one owned root graph", async () =
     clock: { now: () => new Date(0) },
     ids: { create: () => "test-id" },
     preferences: { get: () => undefined, set: () => undefined },
+    persistence: { graphRelationshipMode: { get: () => "ai-reviewed", set: () => undefined } },
     diagnostics: { recordEvent: (event) => events.push(event.name) },
     browserSession: {
       subscribe(listener) {
@@ -644,9 +646,9 @@ test("operation identities stay independent and stale scoped effects cannot sett
     }
   }), true);
   assert.equal(ledger.state("document:publish").status, "reconciling");
-  assert.equal(ledger.isBusy("document:publish"), false);
+  assert.equal(ledger.isBusy("document:publish"), true);
   assert.equal(ledger.error.messageId, "operation.outcome_unknown");
-  assert.equal(ledger.abandon(uncertain), false);
+  assert.equal(ledger.abandon(uncertain), true);
 
   const stale = ledger.begin("document:delete", scope);
   controller.abort();
@@ -1023,28 +1025,68 @@ async function importTypeScriptModule(relativePath) {
 }
 
 async function importTypeScriptModuleWithMocks(relativePath, mocks) {
-  let output = transpileTypeScript(relativePath);
+  const compiledModules = new Map();
   const compiledMocks = new Map();
-  for (const specifier of Object.keys(mocks)) compileMock(specifier);
-  for (const [specifier, mockUrl] of compiledMocks) {
-    output = output.replaceAll(`from "${specifier}"`, `from "${mockUrl}"`);
-  }
-  return import(dataModuleUrl(output));
+  return import(await compileModule(relativePath));
 
-  function compileMock(specifier) {
+  async function compileModule(modulePath) {
+    const existing = compiledModules.get(modulePath);
+    if (existing) return existing;
+    let output = transpileTypeScript(modulePath);
+    const url = dataModuleUrl(output);
+    compiledModules.set(modulePath, url);
+    const imports = [...output.matchAll(/(?:from|import\()\s*["']([^"']+)["']/g)];
+    for (const [, specifier] of imports) {
+      let replacement;
+      if (Object.prototype.hasOwnProperty.call(mocks, specifier)) {
+        replacement = await compileMock(specifier, modulePath);
+      } else if (specifier.startsWith(".")) {
+        replacement = await compileModule(resolveSourceModule(modulePath, specifier));
+      }
+      if (replacement) output = output.replaceAll(`"${specifier}"`, `"${replacement}"`);
+    }
+    const finalUrl = dataModuleUrl(output);
+    compiledModules.set(modulePath, finalUrl);
+    return finalUrl;
+  }
+
+  async function compileMock(specifier, fromPath) {
     const existing = compiledMocks.get(specifier);
     if (existing) return existing;
-    let mockOutput = transpileTypeScriptSource(mocks[specifier], `mock:${specifier}.ts`);
-    for (const dependency of Object.keys(mocks)) {
-      if (dependency === specifier) continue;
-      if (mockOutput.includes(`from "${dependency}"`)) {
-        mockOutput = mockOutput.replaceAll(`from "${dependency}"`, `from "${compileMock(dependency)}"`);
-      }
-    }
+    const mockPath = specifier.startsWith(".")
+      ? resolveSourceModule(fromPath, specifier)
+      : `mock:${specifier}.ts`;
+    let mockOutput = transpileTypeScriptSource(mocks[specifier], mockPath);
     const url = dataModuleUrl(mockOutput);
     compiledMocks.set(specifier, url);
-    return url;
+    const imports = [...mockOutput.matchAll(/(?:from|import\()\s*["']([^"']+)["']/g)];
+    for (const [, dependency] of imports) {
+      let replacement;
+      if (Object.prototype.hasOwnProperty.call(mocks, dependency)) {
+        replacement = await compileMock(dependency, mockPath);
+      } else if (dependency.startsWith(".")) {
+        replacement = await compileModule(resolveSourceModule(mockPath, dependency));
+      }
+      if (replacement) mockOutput = mockOutput.replaceAll(`"${dependency}"`, `"${replacement}"`);
+    }
+    const finalUrl = dataModuleUrl(mockOutput);
+    compiledMocks.set(specifier, finalUrl);
+    return finalUrl;
   }
+}
+
+function resolveSourceModule(fromPath, specifier) {
+  const base = path.resolve(repoRoot, path.dirname(fromPath), specifier);
+  const candidates = [
+    base,
+    base.replace(/\.js$/, ".ts"),
+    base.replace(/\.js$/, ".tsx"),
+    `${base}.ts`,
+    `${base}.tsx`
+  ];
+  const match = candidates.find((candidate) => existsSync(candidate));
+  assert.ok(match, `missing source module for ${fromPath}: ${specifier}`);
+  return path.relative(repoRoot, match).split(path.sep).join("/");
 }
 
 async function importStoreModules(storePath) {
@@ -1061,6 +1103,9 @@ async function importStoreModules(storePath) {
     mobx,
     "@zharwing/memory-core": core,
     "../application/operations/destructive-operation.js": `
+      export function prepareDestructiveDispatch(client, projectId, operation, input, options) {
+        return () => client.operation(operation, input, options);
+      }
       export async function executeConfirmedDestructiveOperation(client, projectId, operation, input, options) {
         return client.operation(operation, input, options);
       }

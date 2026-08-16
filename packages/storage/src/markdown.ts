@@ -6,17 +6,18 @@ export interface ParsedMarkdown {
 }
 
 export function parseMarkdown(raw: string): ParsedMarkdown {
-  if (!raw.startsWith("---\n")) {
+  const text = raw.startsWith("\uFEFF") ? raw.slice(1) : raw;
+  const opening = /^---(\r\n|\n|$)/.exec(text);
+  if (!opening) {
     return { frontmatter: {}, body: raw };
   }
-
-  const end = raw.indexOf("\n---", 4);
-  if (end === -1) {
+  const contentStart = opening[0].length;
+  const closing = findClosingDelimiter(text, contentStart);
+  if (!closing) {
     return { frontmatter: {}, body: raw };
   }
-
-  const yaml = raw.slice(4, end).trim();
-  const body = raw.slice(end + 4).replace(/^\n/, "");
+  const yaml = text.slice(contentStart, closing.start).replace(/^\r?\n/, "").replace(/\r?\n$/, "");
+  const body = text.slice(closing.end);
   const frontmatter: Record<string, FrontmatterValue> = {};
   const lines = yaml.split(/\r?\n/);
 
@@ -49,6 +50,19 @@ export function parseMarkdown(raw: string): ParsedMarkdown {
   }
 
   return { frontmatter, body };
+}
+
+function findClosingDelimiter(text: string, start: number): { start: number; end: number } | undefined {
+  let cursor = start;
+  while (cursor <= text.length) {
+    const lineEnd = text.indexOf("\n", cursor);
+    const end = lineEnd === -1 ? text.length : lineEnd + 1;
+    const line = text.slice(cursor, lineEnd === -1 ? text.length : lineEnd).replace(/\r$/, "");
+    if (line === "---") return { start: cursor, end };
+    cursor = end;
+    if (lineEnd === -1) break;
+  }
+  return undefined;
 }
 
 export function formatMarkdown(frontmatter: Record<string, FrontmatterValue>, body: string): string {

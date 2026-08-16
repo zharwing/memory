@@ -3,23 +3,37 @@ import {
   GRAPH_TOPIC_STOPWORDS,
   dedupeById,
   isDefined,
-  normalizeSlug,
   nowIso,
-  numberValue,
   slugify,
-  stringValue,
   type GraphEdge,
   type GraphExtractionRule,
   type GraphNode,
   type GraphNodeType,
-  type GraphRuleEdgeType,
-  type GraphRuleNodeType,
   type MemoryDocument,
   type Project,
   type ProjectGraph,
   type Session,
   type Workstream
 } from "@zharwing/memory-core";
+export {
+  normalizeGraphExtractionRule,
+  normalizeGraphExtractionRules,
+  parseGraphExtractionRules,
+  normalizeGraphRuleNodeType,
+  normalizeGraphRuleEdgeType,
+  readGraphRuleString,
+  readGraphRuleNumber
+} from "./rules.js";
+export { projectGraphDomainProjection } from "./domain-projection.js";
+export { labelForSlug, normalizeGraphSlug } from "./naming.js";
+import {
+  normalizeGraphExtractionRules,
+  normalizeGraphRuleNodeType,
+  normalizeGraphRuleEdgeType,
+  readGraphRuleString,
+  readGraphRuleNumber
+} from "./rules.js";
+import { labelForSlug, normalizeGraphSlug } from "./naming.js";
 
 export interface BuildGraphInput {
   project: Project;
@@ -537,56 +551,8 @@ export function areaNode(projectId: string, type: GraphNodeType, slug: string, l
   };
 }
 
-export function normalizeGraphSlug(input: string | undefined): string {
-  return normalizeSlug(input, { strip: /['"]/g, mapToDash: /_/g });
-}
-
-export function labelForSlug(slug: string): string {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((part) => {
-      if (part === "api") return "API";
-      if (part === "ui") return "UI";
-      if (part === "sdk") return "SDK";
-      if (part === "mcp") return "MCP";
-      if (part === "rbac") return "RBAC";
-      if (part === "trpc") return "tRPC";
-      return part.slice(0, 1).toUpperCase() + part.slice(1);
-    })
-    .join(" ");
-}
-
 function graphRulesForProject(project: Project): GraphExtractionRule[] {
-  return (Array.isArray(project.graphRules) ? project.graphRules : [])
-    .map((rule) => normalizeGraphRule(rule))
-    .filter(isDefined);
-}
-
-function normalizeGraphRule(input: unknown): GraphExtractionRule | undefined {
-  if (!input || typeof input !== "object") return undefined;
-  const rule = input as Record<string, unknown>;
-  const match = stringValue(rule.match);
-  const nodeType = normalizeGraphRuleNodeType(stringValue(rule.nodeType) || stringValue(rule.node_type));
-  if (!match || !nodeType) return undefined;
-
-  const edgeType = normalizeGraphRuleEdgeType(stringValue(rule.edgeType) || stringValue(rule.edge_type));
-  const normalized: GraphExtractionRule = {
-    match,
-    nodeType
-  };
-  const label = stringValue(rule.label);
-  const topic = stringValue(rule.topic);
-  const segment = numberValue(rule.segment);
-  const slugFromSegment = numberValue(rule.slugFromSegment ?? rule.slug_from_segment);
-  const labelFromSegment = numberValue(rule.labelFromSegment ?? rule.label_from_segment);
-  if (label) normalized.label = label;
-  if (topic) normalized.topic = topic;
-  if (segment !== undefined) normalized.segment = segment;
-  if (slugFromSegment !== undefined) normalized.slugFromSegment = slugFromSegment;
-  if (labelFromSegment !== undefined) normalized.labelFromSegment = labelFromSegment;
-  if (edgeType) normalized.edgeType = edgeType;
-  return normalized;
+  return normalizeGraphExtractionRules(project);
 }
 
 function graphRulePatternSegments(pattern: string): string[] {
@@ -628,34 +594,6 @@ function graphRuleSegmentIndex(input: number | undefined, pathSegments: string[]
   const candidate = input === undefined ? fallback : input;
   if (!Number.isFinite(candidate)) return fallback;
   return Math.max(0, Math.min(pathSegments.length - 1, Math.trunc(candidate)));
-}
-
-function normalizeGraphRuleNodeType(input: string | undefined): GraphRuleNodeType | undefined {
-  const value = normalizeGraphSlug(input);
-  return GRAPH_RULE_NODE_TYPES.has(value as GraphRuleNodeType) ? value as GraphRuleNodeType : undefined;
-}
-
-function normalizeGraphRuleEdgeType(input: string | undefined): GraphRuleEdgeType | undefined {
-  const value = normalizeGraphSlug(input);
-  return GRAPH_RULE_EDGE_TYPES.has(value as GraphRuleEdgeType) ? value as GraphRuleEdgeType : undefined;
-}
-
-function readGraphRuleString(rule: GraphExtractionRule, ...keys: string[]): string | undefined {
-  const record = rule as unknown as Record<string, unknown>;
-  for (const key of keys) {
-    const value = stringValue(record[key]);
-    if (value) return value;
-  }
-  return undefined;
-}
-
-function readGraphRuleNumber(rule: GraphExtractionRule, ...keys: string[]): number | undefined {
-  const record = rule as unknown as Record<string, unknown>;
-  for (const key of keys) {
-    const value = numberValue(record[key]);
-    if (value !== undefined) return value;
-  }
-  return undefined;
 }
 
 function isServiceSlug(slug: string): boolean {
@@ -747,25 +685,6 @@ function hasAliasOverlap(left: Set<string>, right: Set<string>): boolean {
   }
   return false;
 }
-
-const GRAPH_RULE_NODE_TYPES = new Set<GraphRuleNodeType>([
-  "topic",
-  "service",
-  "package",
-  "diagram-group",
-  "code-area",
-  "external-reference"
-]);
-
-const GRAPH_RULE_EDGE_TYPES = new Set<GraphRuleEdgeType>([
-  "supports",
-  "explains",
-  "mentions",
-  "uses",
-  "contains",
-  "depends-on",
-  "related"
-]);
 
 function edge(projectId: string, from: string, to: string, type: GraphEdge["type"], reason: string): GraphEdge {
   return {

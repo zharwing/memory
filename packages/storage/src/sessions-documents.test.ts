@@ -175,6 +175,35 @@ test("checkpoint state replaces, omission preserves, and explicit empty arrays c
   assert.deepEqual(preservedOnClose.blockers, ["Waiting for review"]);
 });
 
+test("closing a session atomically persists graph inclusion and generated summary metadata", async (t) => {
+  const { project } = await createTempProject(t, "Atomic Session Close");
+  const session = await startSession({
+    project,
+    repoPath: project.memoryRoot,
+    workingDirectory: project.memoryRoot,
+    taskTitle: "Close in one write"
+  });
+
+  const closed = await closeSession({
+    project,
+    sessionId: session.id,
+    summary: "Generated summary.",
+    closeoutSummary: "User closeout note.",
+    topics: ["closeout"],
+    touchedFiles: ["src/closeout.ts"],
+    includeInGraph: true,
+    summaryGeneratedAt: "2031-04-05T12:00:00.000Z",
+    summarySource: "deterministic"
+  });
+
+  assert.equal(closed.status, "closed");
+  assert.equal(closed.includeInGraph, true);
+  assert.equal(closed.summary, "Generated summary.");
+  assert.deepEqual(closed.touchedFiles, ["src/closeout.ts"]);
+  assert.match(closed.body || "", /User closeout note\./);
+  assert.match(closed.body || "", /## Summary\s+Generated summary\./);
+});
+
 test("legacy sessions without graph visibility metadata stay out of the graph", async (t) => {
   const { project } = await createTempProject(t, "Legacy Session Graph Visibility");
   const session = await startSession({

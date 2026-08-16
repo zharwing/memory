@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import {
   ProjectRegistry,
   projectGeneration,
+  SessionRepository,
   type DurableDomainEffect
 } from "@zharwing/memory-store";
 import { AssistantService } from "./services/assistant-service.js";
@@ -29,6 +30,16 @@ export interface MemoryServiceOptions {
   authorityKey?: Buffer;
   providerSecretStateRoot?: string;
   providerSecretKey?: Buffer;
+  /** Supplied by the daemon composition root; omitted for legacy callers. */
+  dependencies?: Partial<MemoryServiceDependencies>;
+}
+
+export interface MemoryServiceDependencies {
+  registry: ProjectRegistry;
+  sessionAuthority: SessionAuthorityStore;
+  providerSecrets: ProviderSecretService;
+  documents: DocumentService;
+  sessions: SessionRepository;
 }
 
 interface AgentEffectContext {
@@ -58,38 +69,42 @@ export class MemoryService {
   private readonly assistant: AssistantService;
   private readonly providerSecrets: ProviderSecretService;
   private readonly destructiveIntents: DestructiveIntentService;
+  private readonly sessionRepository: SessionRepository;
   private readonly agentEffectContext = new AsyncLocalStorage<AgentEffectContext>();
+  private disposed = false;
 
   constructor(options: MemoryServiceOptions) {
-    this.registry = new ProjectRegistry(options.memoryRoot);
+    const dependencies = options.dependencies;
+    this.registry = dependencies?.registry ?? new ProjectRegistry(options.memoryRoot);
     const authorityNamespace = crypto.createHash("sha256")
       .update("zharwing.memory-root.v1\0", "utf8")
       .update(path.resolve(options.memoryRoot), "utf8")
       .digest("hex");
-    const sessionAuthority = new SessionAuthorityStore({
+    const sessionAuthority = dependencies?.sessionAuthority ?? new SessionAuthorityStore({
       stateRoot: options.authorityStateRoot,
       key: options.authorityKey,
       namespace: authorityNamespace
     });
-    this.providerSecrets = new ProviderSecretService({
+    this.providerSecrets = dependencies?.providerSecrets ?? new ProviderSecretService({
       namespace: authorityNamespace,
       stateRoot: options.providerSecretStateRoot,
       key: options.providerSecretKey
     });
     this.destructiveIntents = new DestructiveIntentService();
-    this.projects = new ProjectService(this.registry, sessionAuthority);
+    this.documents = dependencies?.documents ?? new DocumentService(this.registry);
+    this.sessionRepository = dependencies?.sessions ?? new SessionRepository();
+    this.projects = new ProjectService(this.registry, sessionAuthority, this.documents.repository, this.sessionRepository);
     this.workstreams = new WorkstreamService(this.registry);
-    this.sessions = new SessionService(this.registry, sessionAuthority, this.providerSecrets);
-    this.documents = new DocumentService(this.registry);
-    this.imports = new ImportService(this.registry);
-    this.context = new ContextService(this.registry, sessionAuthority);
-    this.searchService = new SearchService(this.registry, sessionAuthority);
-    this.graph = new GraphService(this.registry);
-    this.semanticGraph = new SemanticGraphService(this.registry, this.providerSecrets);
+    this.sessions = new SessionService(this.registry, sessionAuthority, this.providerSecrets, this.sessionRepository);
+    this.imports = new ImportService(this.registry, this.documents.repository);
+    this.context = new ContextService(this.registry, sessionAuthority, this.documents.repository, this.sessionRepository);
+    this.searchService = new SearchService(this.registry, sessionAuthority, this.documents.repository, this.sessionRepository);
+    this.graph = new GraphService(this.registry, this.documents.repository, this.sessionRepository);
+    this.semanticGraph = new SemanticGraphService(this.registry, this.documents.repository, this.providerSecrets);
     this.inbox = new InboxService(this.registry);
-    this.backups = new BackupService(this.registry);
+    this.backups = new BackupService(this.registry, this.documents.repository);
     this.trash = new TrashService(this.registry);
-    this.assistant = new AssistantService(this.registry);
+    this.assistant = new AssistantService(this.registry, this.documents.repository, this.sessionRepository);
   }
 
   // Projects, repos, policies
@@ -520,5 +535,12 @@ export class MemoryService {
 
   memoryRoot(): string {
     return this.registry.memoryRoot;
+  }
+
+  /** Application boundary owns repository/cache disposal exactly once. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.sessionRepository.dispose();
   }
 }

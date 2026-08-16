@@ -3,9 +3,9 @@ import crypto from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { test, type TestContext } from "node:test";
 import {
+  OPERATION_REGISTRY,
   markPrincipalAuthenticated,
   type ContextBundle,
   type OperationName,
@@ -40,8 +40,6 @@ function envelope(response: RpcResponse): {
 } {
   return response;
 }
-
-const RPC_SOURCE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "daemon", "src", "rpc.ts");
 
 async function tempMemoryRoot(t: TestContext): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-facade-"));
@@ -102,8 +100,7 @@ function scanForMarkers(value: unknown, markers: string[], where = "$"): string[
 }
 
 test("every RPC method is classified: MCP-supported or control-plane-only", async () => {
-  const source = await fs.readFile(RPC_SOURCE, "utf8");
-  const methods = [...new Set([...source.matchAll(/case "(memory\.[a-z_]+)"/g)].map((match) => match[1]))];
+  const methods = Object.keys(OPERATION_REGISTRY);
   assert.ok(methods.length > 50, `expected the full RPC inventory, found ${methods.length}`);
   const service = {} as MemoryService;
   for (const method of methods) {

@@ -183,6 +183,21 @@ async function startComposedServer(
   return { base: `http://${host}`, host };
 }
 
+async function startRealComposedServer(
+  t: TestContext,
+  config: DaemonConfig,
+  service: MemoryService,
+  admission: DaemonAdmissionServices
+): Promise<{ base: string; host: string }> {
+  const server = createDaemonServer(config, { service, admission });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("Expected TCP address");
+  const host = `127.0.0.1:${address.port}`;
+  return { base: `http://${host}`, host };
+}
+
 interface SimpleResponse {
   status: number;
   headers: http.IncomingHttpHeaders;
@@ -591,6 +606,102 @@ test("personal preview has a bounded loopback authMode=none session path and tok
     body: "{}"
   });
   assert.equal(hardenedRefusal.status, 404);
+});
+
+test("browser RPC closes a large session with one compact bounded result", async (t) => {
+  const memoryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "zharwing-browser-close-"));
+  t.after(() => fs.rm(memoryRoot, { recursive: true, force: true }));
+  const config = testConfig({
+    profile: "personal-preview",
+    authMode: "none",
+    authToken: "",
+    memoryRoot
+  });
+  const service = new MemoryService({ memoryRoot });
+  t.after(() => service.dispose());
+  let observedCompactClose = false;
+  const closeSession = service.closeSession.bind(service);
+  service.closeSession = async (params) => {
+    observedCompactClose = params.compact === true;
+    return closeSession(params);
+  };
+  const preview = await service.prepareProjectCreation({
+    projectName: "Large Browser Close",
+    createPointerFile: false
+  });
+  const project = await service.createProject({ preview });
+  const active = await service.startSession({
+    projectId: project.id,
+    workingDirectory: memoryRoot,
+    taskTitle: "Large browser session"
+  });
+  await service.saveCheckpoint({
+    projectId: project.id,
+    sessionId: active.id,
+    summary: "x".repeat(2 * 1024 * 1024 + 4096)
+  });
+
+  const server = await startRealComposedServer(t, config, service, deterministicAdmission(t));
+  const origin = "http://127.0.0.1:5173";
+  const established = await request(`${server.base}/browser-session/preview`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: "{}"
+  });
+  assert.equal(established.status, 200);
+  const establishedBody = JSON.parse(established.body) as Record<string, unknown>;
+  const selected = await request(`${server.base}/browser-session/project`, {
+    method: "POST",
+    headers: {
+      origin,
+      cookie: sessionCookie(established),
+      "content-type": "application/json",
+      "x-csrf-token": String(establishedBody.csrfToken)
+    },
+    body: JSON.stringify({ projectId: project.id })
+  });
+  assert.equal(selected.status, 200);
+  const selectedBody = JSON.parse(selected.body) as Record<string, unknown>;
+  const closed = await request(`${server.base}/rpc`, {
+    method: "POST",
+    headers: {
+      origin,
+      cookie: sessionCookie(selected),
+      "content-type": "application/json",
+      "x-csrf-token": String(selectedBody.csrfToken),
+      "x-idempotency-key": "operation:browser-close-large-session"
+    },
+    body: JSON.stringify({
+      id: "browser-close-large",
+      version: 1,
+      method: "memory.close_session",
+      params: {
+        projectId: project.id,
+        sessionId: active.id,
+        includeInGraph: true,
+        compact: true,
+        autoSummarize: false
+      }
+    })
+  });
+
+  assert.equal(closed.status, 200, closed.body);
+  assert.equal(observedCompactClose, true, "browser RPC must forward compact close input");
+  const rpc = JSON.parse(closed.body) as {
+    ok: boolean;
+    result?: Record<string, unknown>;
+  };
+  const responseBytes = Buffer.byteLength(closed.body, "utf8");
+  assert.ok(
+    responseBytes < 32 * 1024,
+    `compact close returned ${responseBytes} bytes with keys ${Object.keys(rpc.result || {}).join(",")}`
+  );
+  assert.equal(rpc.ok, true);
+  assert.equal(rpc.result?.status, "closed");
+  assert.equal(rpc.result?.includeInGraph, true);
+  assert.equal("body" in (rpc.result || {}), false);
+  assert.equal("checkpoints" in (rpc.result || {}), false);
+  assert.equal((await service.getLatestSession({ projectId: project.id }))?.status, "closed");
 });
 
 test("agent ingress accepts only a distinct project-bound agent credential", async (t) => {

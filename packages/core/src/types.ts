@@ -1,8 +1,11 @@
+import type { ProjectId as CanonicalProjectId } from "./project-id.js";
+import type { DocumentId as CanonicalDocumentId } from "./document-id.js";
+
 export type ISODateString = string;
 
-export type ProjectId = string;
+export type ProjectId = CanonicalProjectId;
 export type SessionId = string;
-export type DocumentId = string;
+export type DocumentId = CanonicalDocumentId;
 export type ContextBundleId = string;
 export type ProposedUpdateId = string;
 export type WorkstreamId = string;
@@ -714,6 +717,8 @@ export interface GraphExtractionRule {
   match: string;
   nodeType: GraphRuleNodeType;
   label?: string;
+  /** Optional configured stable slug retained by legacy graph-rule payloads. */
+  slug?: string;
   segment?: number;
   slugFromSegment?: number;
   labelFromSegment?: number;

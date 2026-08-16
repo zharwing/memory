@@ -7,6 +7,7 @@ import {
   matchesAnyPattern,
   matchesPattern,
   nowIso,
+  parseDocumentId,
   truncate,
   unique,
   type DocumentStatus,
@@ -22,9 +23,11 @@ import {
   type Session,
   type Visibility
 } from "@zharwing/memory-core";
+import { getDocumentRepository } from "./documents.js";
+import type { DocumentRepository } from "./repositories/document-repository.js";
 import { pathExists, readText } from "./fs.js";
 import { parseMarkdown } from "./markdown.js";
-import { writeDocument } from "./documents.js";
+import { createStoredDocumentIdentity } from "./document-identity.js";
 import { writeSession } from "./sessions.js";
 
 const MARKDOWN_INCLUDE = ["**/*.md", "**/*.txt"];
@@ -196,7 +199,9 @@ export async function commitImportPlan(args: {
   profile?: string | ImportProfile;
   conflictStrategy?: ImportConflictStrategy;
   limit?: number;
+  documentRepository?: Pick<DocumentRepository, "read" | "save">;
 }): Promise<ImportCommitResult> {
+  const documentRepository = args.documentRepository ?? getDocumentRepository();
   const plan =
     args.plan ??
     (await prepareImportPlan({
@@ -218,20 +223,20 @@ export async function commitImportPlan(args: {
       continue;
     }
 
-    const targetPath = await targetForCommit(candidate.targetPath, candidate.sourceHash, strategy);
-    if (!targetPath) {
+    const target = await targetForCommit(candidate.targetPath, candidate.sourceHash, strategy);
+    if (!target) {
       skipped += 1;
       continue;
     }
 
     if (candidate.kind === "document") {
-      await commitDocument({ project: args.project, plan, candidate, targetPath });
+      await commitDocument({ project: args.project, plan, candidate, target, documentRepository });
       documents += 1;
     } else if (candidate.kind === "session") {
-      await commitSession({ project: args.project, plan, candidate, targetPath });
+      await commitSession({ project: args.project, plan, candidate, targetPath: target.path });
       sessions += 1;
     }
-    writtenPaths.push(targetPath);
+    writtenPaths.push(target.path);
   }
 
   return {
@@ -353,14 +358,23 @@ async function commitDocument(args: {
   project: Project;
   plan: ImportPlan;
   candidate: ImportCandidate;
-  targetPath: string;
+  target: ImportCommitTarget;
+  documentRepository: Pick<DocumentRepository, "read" | "save">;
 }): Promise<void> {
   const importedAt = nowIso();
   const raw = stripBom(await readText(args.candidate.sourcePath));
   const parsed = parseMarkdown(raw);
   const created = scalar(parsed.frontmatter.created) || inferDateFromPath(args.candidate.relativePath) || importedAt;
+  const sourceIdValue = scalar(parsed.frontmatter.id);
+  const sourceId = sourceIdValue ? parseDocumentId(sourceIdValue) : undefined;
+  let id = sourceId ?? createStoredDocumentIdentity(args.candidate.documentType === "diagram" ? "diagram" : "doc");
+  if (args.target.mode === "overwrite") {
+    id = (await args.documentRepository.read(args.project, args.target.path)).id;
+  } else if (args.target.mode === "duplicate") {
+    id = createStoredDocumentIdentity(args.candidate.documentType === "diagram" ? "diagram" : "doc");
+  }
   const doc: MemoryDocument = {
-    id: scalar(parsed.frontmatter.id) || createId(args.candidate.documentType === "diagram" ? "diagram" : "doc"),
+    id,
     projectId: args.project.id,
     title: args.candidate.title,
     type: args.candidate.documentType || "scratch-note",
@@ -376,7 +390,7 @@ async function commitDocument(args: {
     updated: scalar(parsed.frontmatter.updated) || created,
     lastVerified: scalar(parsed.frontmatter.last_verified),
     confidence: asConfidence(parsed.frontmatter.confidence),
-    filePath: args.targetPath,
+    filePath: args.target.path,
     body: importedBody(parsed.body, raw, args.candidate.title),
     diagramType: scalar(parsed.frontmatter.diagram_type),
     format: args.candidate.format || "markdown",
@@ -385,7 +399,7 @@ async function commitDocument(args: {
     importedAt,
     importProfile: args.plan.profileName
   };
-  await writeDocument(doc);
+  await args.documentRepository.save(doc, args.project);
 }
 
 async function commitSession(args: {
@@ -442,21 +456,26 @@ async function targetForCommit(
   targetPath: string,
   sourceHash: string,
   strategy: ImportConflictStrategy
-): Promise<string | undefined> {
-  if (!(await pathExists(targetPath))) return targetPath;
+): Promise<ImportCommitTarget | undefined> {
+  if (!(await pathExists(targetPath))) return { path: targetPath, mode: "create" };
   if (strategy === "skip") return undefined;
-  if (strategy === "overwrite") return targetPath;
+  if (strategy === "overwrite") return { path: targetPath, mode: "overwrite" };
 
   const extension = path.extname(targetPath) || ".md";
   const stem = targetPath.slice(0, -extension.length);
   for (let index = 0; index < 100; index += 1) {
     const suffix = index === 0 ? sourceHash.slice(0, 8) : `${sourceHash.slice(0, 8)}-${index + 1}`;
     const candidate = `${stem}__${suffix}${extension}`;
-    if (!(await pathExists(candidate))) return candidate;
+    if (!(await pathExists(candidate))) return { path: candidate, mode: "duplicate" };
   }
 
   throw new Error(`Could not allocate duplicate import target for ${targetPath}`);
 }
+
+type ImportCommitTarget = {
+  path: string;
+  mode: "create" | "overwrite" | "duplicate";
+};
 
 function importedTargetPath(
   project: Project,

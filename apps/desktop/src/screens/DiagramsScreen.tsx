@@ -5,12 +5,12 @@ import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { DocumentEditorHost } from "../components/DocumentEditorHost.js";
-import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import { useCloseWhenMissing, useRouteQueryParam } from "../hooks/useSearchParamState.js";
 import { timestampRenderers } from "../utils/format.js";
 
 export const DiagramsScreen = observer(function DiagramsScreen() {
   const store = useStore();
-  const [editingDocId, setDocSearchParam] = useSearchParamState("doc");
+  const [editingDocId, setDocSearchParam] = useRouteQueryParam("diagrams", "doc");
   const diagrams = store.docs.list.filter((doc) => doc.type === "diagram");
   const docsState = store.docs.listState;
   const docsCompleteness = store.docs.listResource.completeness;

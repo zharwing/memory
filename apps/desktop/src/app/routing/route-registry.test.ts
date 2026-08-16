@@ -29,7 +29,7 @@ test("route builders encode typed project and search inputs", () => {
   assert.equal(routePath("dashboard", { projectId: "project-one" }), "/p/project-one/dashboard");
   assert.equal(routePath("dashboard"), "/dashboard");
   assert.equal(
-    routePath("inbox", { projectId: "project-one", search: { proposal: "proposal:one/two" } }),
+    routePath("inbox", { projectId: "project-one", query: { proposal: "proposal:one/two" } }),
     "/p/project-one/library/inbox?proposal=proposal%3Aone%2Ftwo"
   );
 });
@@ -37,7 +37,7 @@ test("route builders encode typed project and search inputs", () => {
 test("malformed direct links fail closed without throwing", () => {
   assert.deepEqual(decodeRouteLocation("/p/%E0%A4%A/dashboard"), { status: "malformed", reason: "encoding" });
   assert.deepEqual(decodeRouteLocation("/p/..%2Fother/dashboard"), { status: "malformed", reason: "encoding" });
-  assert.deepEqual(decodeRouteLocation(`/p/${"a".repeat(81)}/dashboard`), { status: "malformed", reason: "project" });
+  assert.deepEqual(decodeRouteLocation(`/p/${"a".repeat(80)}!/dashboard`), { status: "malformed", reason: "project" });
   assert.deepEqual(decodeRouteLocation("/p/project-one/not-registered"), { status: "not_found" });
 });
 

@@ -1,25 +1,33 @@
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import { MoreHorizontal, X } from "lucide-react";
 import type { Session, SessionSummary } from "@zharwing/memory-core";
 import { Modal } from "./Modal.js";
+import { AnchoredSurface } from "./AnchoredSurface.js";
 import { ConfirmDeleteButton } from "./ConfirmDeleteButton.js";
 import { MarkdownPreview } from "./markdown/MarkdownPreview.js";
 import { formatShortDateTime } from "../utils/format.js";
 import { IconButton } from "./IconButton.js";
 import { StatusNotice } from "./AccessibleStatus.js";
+import {
+  executeSessionCloseout,
+  type SessionCloseoutMutationPort,
+  type SessionCloseoutOutcome
+} from "./session-closeout.js";
 
 const SUMMARY_CLAMP_CHARS = 260;
 
 export type SessionReaderModel = Session | (SessionSummary & { body?: string });
 
-export interface SessionDetailPort {
+export interface SessionDetailPort extends SessionCloseoutMutationPort {
   readonly loading: boolean;
-  readonly list: readonly SessionReaderModel[];
+  readonly error: string;
   generateSummary(sessionId: string, force?: boolean): Promise<void>;
   deleteSession(sessionId: string): Promise<void>;
-  updateGraphVisibility(sessionId: string, includeInGraph: boolean): Promise<void>;
-  closeSession(sessionId: string, summary?: string): Promise<void>;
+  updateGraphVisibility(
+    sessionId: string,
+    includeInGraph: boolean
+  ): Promise<SessionCloseoutOutcome | undefined>;
 }
 
 /**
@@ -254,8 +262,9 @@ export const SessionDetailModal = observer(function SessionDetailModal({
       </Modal>
       {/* Sibling, not a child: the reader is a two-row grid and a nested
           dialog would become a third row of it. */}
-      {closeoutOpen ? (
+      {closeoutOpen && isActive ? (
         <SessionCloseoutDialog
+          key={session.id}
           session={session}
           sessions={sessions}
           onCancel={() => setCloseoutOpen(false)}
@@ -286,23 +295,31 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
   const [summary, setSummary] = useState("");
   const [includeInGraph, setIncludeInGraph] = useState(Boolean(session.includeInGraph));
   const [operationFailed, setOperationFailed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const busy = sessions.loading || submitting;
 
   async function closeSession() {
-    if (sessions.loading) return;
+    if (sessions.loading || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     setOperationFailed(false);
     try {
-      if (includeInGraph !== Boolean(session.includeInGraph)) {
-        await sessions.updateGraphVisibility(session.id, includeInGraph);
-      }
-      await sessions.closeSession(session.id, summary);
-      const latest = sessions.list.find((candidate) => candidate.id === session.id);
-      if (latest && latest.status !== "active") {
+      const closed = await executeSessionCloseout({
+        sessions,
+        sessionId: session.id,
+        summary,
+        includeInGraph
+      });
+      if (closed) {
         onCancel();
         return;
       }
     } catch {
       // The owned notice below intentionally avoids exposing raw exception text.
     }
+    submittingRef.current = false;
+    setSubmitting(false);
     setOperationFailed(true);
   }
 
@@ -312,11 +329,11 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
       description="Optionally describe the final outcome or what is still open. A TL;DR is generated either way."
       backdropClassName="modal-backdrop session-closeout-backdrop"
       className="session-closeout-dialog"
-      onClose={() => { if (!sessions.loading) onCancel(); }}
+      onClose={() => { if (!busy) onCancel(); }}
     >
       {operationFailed ? (
         <StatusNotice tone="danger" assertive title="Session not closed">
-          Your closeout text is still here. Review the current session and try again.
+          {sessions.error || "Your closeout text is still here. Review the current session and try again."}
         </StatusNotice>
       ) : null}
       <label className="stacked-field" htmlFor="session-closeout-summary">
@@ -326,6 +343,7 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
           rows={4}
           value={summary}
           autoFocus
+          disabled={busy}
           onChange={(event) => setSummary(event.target.value)}
           placeholder="Optional"
         />
@@ -334,14 +352,15 @@ export const SessionCloseoutDialog = observer(function SessionCloseoutDialog({
         <input
           type="checkbox"
           checked={includeInGraph}
+          disabled={busy}
           onChange={(event) => setIncludeInGraph(event.target.checked)}
         />
         <span>Include this session in the project graph</span>
       </label>
       <div className="session-closeout-actions">
-        <button type="button" data-dialog-cancel disabled={sessions.loading} onClick={onCancel}>Cancel</button>
-        <button type="button" className="icon-text-button primary" disabled={sessions.loading} aria-busy={sessions.loading} onClick={() => void closeSession()}>
-          {sessions.loading ? "Closing…" : confirmLabel}
+        <button type="button" data-dialog-cancel disabled={busy} onClick={onCancel}>Cancel</button>
+        <button type="button" className="icon-text-button primary" disabled={busy} aria-busy={busy} onClick={() => void closeSession()}>
+          {busy ? "Closing…" : confirmLabel}
         </button>
       </div>
     </Modal>
@@ -366,48 +385,29 @@ function OverflowMenu({
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const controlsId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    // Capture phase so Escape closes the menu instead of the dialog behind it.
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setOpen(false);
-      containerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    }
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [open]);
 
   return (
-    <div className="overflow-menu" ref={containerRef}>
-      <IconButton
-        className={`icon-only ${open ? "selected" : ""}`}
-        onClick={() => setOpen((current) => !current)}
-        label={label}
-        aria-expanded={open}
-        aria-controls={controlsId}
-      >
-        <MoreHorizontal size={16} aria-hidden="true" />
-      </IconButton>
-      {open ? (
-        <div id={controlsId} className="overflow-menu-items" role="group" aria-label={label}>
-          {children(() => setOpen(false))}
-        </div>
-      ) : null}
-    </div>
+    <AnchoredSurface
+      open={open}
+      onClose={() => setOpen(false)}
+      className="overflow-menu"
+      surfaceClassName="overflow-menu-items"
+      surfaceRole="group"
+      ariaLabel={label}
+      anchor={({ controlsId, expanded }) => (
+        <IconButton
+          className={`icon-only ${expanded ? "selected" : ""}`}
+          onClick={() => setOpen((current) => !current)}
+          label={label}
+          aria-expanded={expanded}
+          aria-controls={controlsId}
+        >
+          <MoreHorizontal size={16} aria-hidden="true" />
+        </IconButton>
+      )}
+    >
+      {children(() => setOpen(false))}
+    </AnchoredSurface>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SystemClientPort } from "../../application/ports/features.js";
 import { parseOperationInput } from "@zharwing/memory-core";
 import type {
   ImportCommitResult,
@@ -22,13 +22,10 @@ export class SystemImportStore {
   readonly resultResource: ResourceSlot<ImportCommitResult>;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: SystemClientPort,
     private readonly scope: ScopedProjectPort,
     applicationScope: ApplicationScopePort,
-    private readonly coordinator: Pick<
-      SystemStoreCoordinator,
-      "refreshDocs" | "refreshSessions" | "refreshProjectSummary" | "refreshGraph"
-    >,
+    private readonly coordinator: Pick<SystemStoreCoordinator, "executeCommand">,
     private readonly operations: OperationLedger,
     runtime: StoreAsyncRuntimePort
   ) {
@@ -84,34 +81,30 @@ export class SystemImportStore {
     if (!token || !plan) return;
     const resourceAttempt = this.resultResource.begin(token);
     if (!resourceAttempt) return;
-    const operation = this.operations.begin("commit-import", token);
     try {
       const input = parseOperationInput("memory.commit_import", {
         projectId: token.projectId,
         plan,
         conflictStrategy
       });
-      const result = await this.client.operation("memory.commit_import", input, {
-        signal: token.signal
+      const result = await this.coordinator.executeCommand({
+        port: this.client,
+        operation: "memory.commit_import",
+        input,
+        ledger: this.operations,
+        key: "import:commit",
+        scope: token
       });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
+      if (!result || !this.scope.isScopeCurrent(token)) {
+        const error = this.operations.error;
+        if (error) this.resultResource.fail(resourceAttempt, error);
         return;
       }
-      this.operations.succeed(operation, result);
       this.resultResource.succeed(resourceAttempt, result);
-      await this.coordinator.refreshDocs();
-      if (!this.scope.isScopeCurrent(token)) return;
-      await this.coordinator.refreshSessions();
-      if (!this.scope.isScopeCurrent(token)) return;
-      await this.coordinator.refreshProjectSummary();
-      if (this.scope.isScopeCurrent(token)) await this.coordinator.refreshGraph();
     } catch (error) {
       if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
         return;
       }
-      this.operations.fail(operation, error);
       this.resultResource.fail(resourceAttempt, error);
     }
   }

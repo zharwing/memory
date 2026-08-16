@@ -1,10 +1,15 @@
 import type {
   BrowserSessionBootstrapResult,
-  BrowserSessionState,
+  BrowserSessionObservable,
   MemoryClient
 } from "@zharwing/memory-api-client";
 import type { DiagnosticJournal } from "../../platform/diagnostics/diagnostic-journal.js";
 import type { GraphPositionStore } from "../../features/graph/persistence/graph-position-store.js";
+import type { ResourceInvalidationBus } from "../../application/resources/resource-invalidation-bus.js";
+import type {
+  AppPersistence,
+  RawPreferenceStore
+} from "../../application/persistence/app-persistence.js";
 
 export interface Clock {
   now(): Date;
@@ -14,14 +19,11 @@ export interface IdSource {
   create(): string;
 }
 
-export interface UiPreferenceStore {
-  get(key: string): string | undefined;
-  set(key: string, value: string | undefined): void;
-}
+/** @deprecated Raw storage adapter; application features consume AppPersistence. */
+export type UiPreferenceStore = RawPreferenceStore;
 
-export interface BrowserSessionPort {
-  readonly state: BrowserSessionState;
-  subscribe(listener: (state: BrowserSessionState) => void): () => void;
+/** Browser composition owns the controller; consumers see only its explicit port. */
+export interface BrowserSessionPort extends BrowserSessionObservable {
   bootstrap(code: string, signal?: AbortSignal): Promise<BrowserSessionBootstrapResult>;
   bootstrapPersonalPreview(signal?: AbortSignal): Promise<BrowserSessionBootstrapResult>;
   rotate(signal?: AbortSignal): Promise<BrowserSessionBootstrapResult>;
@@ -41,10 +43,10 @@ export interface AppServices {
   browserSession?: BrowserSessionPort;
   clock: Clock;
   ids: IdSource;
-  preferences: UiPreferenceStore;
-  graphPositions: GraphPositionStore;
+  persistence: AppPersistence;
   diagnostics: DiagnosticJournal;
   scheduler: Scheduler;
+  invalidations?: ResourceInvalidationBus;
 }
 
 export const systemClock: Clock = { now: () => new Date() };

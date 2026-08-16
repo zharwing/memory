@@ -1,10 +1,7 @@
 import type { ContextBundle } from "@zharwing/memory-core";
 import { buildContextBundle } from "@zharwing/memory-context-engine";
-import type { DurableDomainEffect, ProjectRegistry } from "@zharwing/memory-store";
+import type { DurableDomainEffect, DocumentRepository, ProjectRegistry, SessionRepository } from "@zharwing/memory-store";
 import {
-  getSession,
-  listProjectDocuments,
-  listProjectSessions,
   saveContextBundle
 } from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
@@ -13,7 +10,9 @@ import { SessionAuthorityStore } from "./session-visibility.js";
 export class ContextService {
   constructor(
     private readonly registry: ProjectRegistry,
-    private readonly sessionAuthority: SessionAuthorityStore
+    private readonly sessionAuthority: SessionAuthorityStore,
+    private readonly documents: Pick<DocumentRepository, "list">,
+    private readonly sessions: SessionRepository
   ) {}
 
   async previewContextBundle(params: {
@@ -23,11 +22,11 @@ export class ContextService {
     requestedBy?: string;
   }): Promise<ContextBundle> {
     const project = await resolveProject(this.registry, params.projectId);
-    const sessions = await this.sessionAuthority.applyVisibilities(project, await listProjectSessions(project));
+    const sessions = await this.sessionAuthority.applyVisibilities(project, await this.sessions.listProjectSessions(project));
     const activeSession = params.sessionId
-      ? await getSession(project, params.sessionId)
+      ? await this.sessions.getSession(project, params.sessionId)
       : sessions.find((session) => session.status === "active") || sessions[0];
-    const documents = await listProjectDocuments(project);
+    const documents = await this.documents.list(project);
 
     return buildContextBundle({
       project,
@@ -52,14 +51,14 @@ export class ContextService {
     const project = await resolveProject(this.registry, params.projectId);
     const sessions = (await this.sessionAuthority.applyVisibilities(
       project,
-      await listProjectSessions(project)
+      await this.sessions.listProjectSessions(project)
     )).filter((session) =>
       session.visibility === "ai-eligible" || session.visibility === "ai-pinned"
     );
     const activeSession = params.sessionId
       ? sessions.find((session) => session.id === params.sessionId)
       : sessions.find((session) => session.status === "active") || sessions[0];
-    const documents = await listProjectDocuments(project);
+    const documents = await this.documents.list(project);
     return buildContextBundle({
       project,
       activeSession,

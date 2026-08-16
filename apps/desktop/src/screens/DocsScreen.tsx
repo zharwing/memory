@@ -9,6 +9,7 @@ import type {
   SemanticGraphRun,
   SemanticGraphRunCounts
 } from "@zharwing/memory-core";
+import { isPublicError } from "@zharwing/memory-core";
 import { useStore } from "../stores/store-context.js";
 import { Empty, Screen } from "../components/layout.js";
 import { LibraryTabs } from "../components/SectionTabs.js";
@@ -17,7 +18,7 @@ import { DocumentEditorHost } from "../components/DocumentEditorHost.js";
 import { Modal } from "../components/Modal.js";
 import { IconButton } from "../components/IconButton.js";
 import { ToggleGroup } from "../components/ToggleGroup.js";
-import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import { useCloseWhenMissing, useRouteQueryParam } from "../hooks/useSearchParamState.js";
 import {
   SemanticRunField,
   SemanticRunForm,
@@ -31,10 +32,11 @@ import { providerLabel } from "../utils/labels.js";
 import { routePath } from "../utils/routes.js";
 import { semanticEdgesFromProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
 import { pendingInboxItems } from "../utils/inbox.js";
+import { publicErrorPresenter } from "../application/errors/public-error-presenter.js";
 
 export const DocsScreen = observer(function DocsScreen() {
   const store = useStore();
-  const [editingDocId, setDocSearchParam] = useSearchParamState("doc");
+  const [editingDocId, setDocSearchParam] = useRouteQueryParam("docs", "doc");
   const selectedDocId = editingDocId;
   const [filter, setFilter] = useState("all");
   const [showStarterDocsHelp, setShowStarterDocsHelp] = useState(false);
@@ -103,7 +105,7 @@ export const DocsScreen = observer(function DocsScreen() {
   const semanticProposalId = semanticResult?.proposal?.id || pendingRelationshipApprovals[0]?.id;
   const semanticInboxPath = routePath("inbox", {
     projectId: store.projects.selectedProjectId,
-    search: { proposal: semanticProposalId }
+    query: { proposal: semanticProposalId }
   });
   const showSemanticRunBanner = Boolean(semanticDisplayRun && !showLinkDiscoveryDialog && (semanticRunRunning || semanticRunFinished));
 
@@ -535,11 +537,8 @@ function semanticRunCompletionCopy(run: SemanticGraphRun, pendingSuggestions: nu
 }
 
 function semanticRunErrorCopy(error: unknown): string {
-  const message = String(error || "");
-  if (message.includes("invalid JSON") || message.includes("no parseable JSON")) {
-    return "The AI provider answered without valid JSON. Keep strict JSON output enabled, or use a model/provider that supports JSON object responses for document analysis.";
-  }
-  return message || "The provider or daemon stopped before suggestions could be created.";
+  if (isPublicError(error)) return publicErrorPresenter.present(error);
+  return "The provider or daemon stopped before suggestions could be created.";
 }
 
 function modelDisplayNameForLinkDiscovery(args: {

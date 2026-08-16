@@ -19,6 +19,10 @@ export default defineConfig({
     alias: {
       "@zharwing/memory-api-client": fileURLToPath(new URL("../../packages/api-client/src/index.ts", import.meta.url)),
       "@zharwing/memory-core": fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url)),
+      "@zharwing/memory-graph/rules": fileURLToPath(new URL("../../packages/graph/src/rules.ts", import.meta.url)),
+      "@zharwing/memory-graph/projection": fileURLToPath(new URL("../../packages/graph/src/projection.ts", import.meta.url)),
+      "@zharwing/memory-graph/naming": fileURLToPath(new URL("../../packages/graph/src/naming.ts", import.meta.url)),
+      "@zharwing/memory-graph/domain-projection": fileURLToPath(new URL("../../packages/graph/src/domain-projection.ts", import.meta.url)),
       "@zharwing/memory-graph": fileURLToPath(new URL("../../packages/graph/src/index.ts", import.meta.url)),
       // The /proposals alias must come before the package alias so the
       // browser-safe subpath does not resolve through the node-only barrel.

@@ -4,7 +4,8 @@ import {
   DEFAULT_MEMORY_WRITE_POLICY,
   DEFAULT_PRIVACY_POLICY
 } from "./constants.js";
-import { nowIso, slugify } from "./ids.js";
+import { nowIso } from "./ids.js";
+import { normalizeNewProjectId } from "./project-id.js";
 import type {
   MemoryWritePolicy,
   PrivacyPolicy,
@@ -32,7 +33,7 @@ export function createProjectModel(args: {
   privacyPolicy?: Partial<PrivacyPolicy>;
 }): Project {
   const now = nowIso();
-  const slug = args.slug || slugify(args.name);
+  const slug = normalizeNewProjectId(args.slug || args.name);
   const repos: RepoLink[] = args.repoPath
     ? [
         {

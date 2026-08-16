@@ -80,6 +80,19 @@ passing credential-shaped content to an agent.
 nodes from imported folder layouts. It belongs in `project.json`, not in
 application code. See [Graph Rules](GRAPH_RULES.md).
 
+### Identity and migration
+
+`ProjectId` accepts canonical newly-created slugs and validated historical
+identifiers without rewriting registered bytes. `DocumentId` accepts existing
+nonblank stored values. A document with no top-level `id` is read using
+`doc-legacy-<32 lowercase hex>` derived from
+`zharwing-document-id-v1\0<exact-project-id>\0<normalized-relative-path>`.
+This derivation is pure and deterministic. An explicit workspace migration may
+materialize a missing ID, but reports blank, malformed, or duplicate fields
+instead of silently adding a competing identity. Frontmatter writes preserve
+the BOM, line endings, comments, unknown fields, field order, multiline YAML,
+and body bytes outside owned fields.
+
 ## Workstream
 
 ```yaml
@@ -237,6 +250,7 @@ Visibility:
 
 - `ai-eligible`
 - `ai-pinned`
+- `review-required` (missing or malformed classification; withheld until reviewed)
 - `human-only`
 - `private`
 - `never-send`

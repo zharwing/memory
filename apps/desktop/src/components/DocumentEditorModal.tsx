@@ -122,30 +122,12 @@ export function DocumentEditorModal({
     }
   }
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        if (event.defaultPrevented) return;
-        event.preventDefault();
-        if (showDiscardDialog) {
-          dispatch({ type: "close-discard-dialog" });
-          return;
-        }
-        void requestClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  });
-
   return (
     <Modal
       ariaLabel={`Edit ${doc.title}`}
       backdropClassName="modal-backdrop"
       className="document-modal"
       onClose={() => void requestClose()}
-      closeOnEscape={false}
     >
         <header className="document-modal-header">
           <div className="document-title-block">
@@ -242,7 +224,6 @@ export function DocumentEditorModal({
             backdropClassName="dialog-backdrop"
             className="confirm-dialog"
             onClose={() => dispatch({ type: "close-discard-dialog" })}
-            closeOnEscape={false}
             initialFocus="least-destructive"
           >
             <div className="button-row">

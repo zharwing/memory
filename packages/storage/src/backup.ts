@@ -2,23 +2,32 @@ import path from "node:path";
 import { isDefined, nowIso, type Project } from "@zharwing/memory-core";
 import { promises as fs } from "node:fs";
 import { ensureDir, listFiles, readJson, writeJson } from "./fs.js";
+import { getDocumentRepository } from "./documents.js";
+import type { DocumentRepository } from "./repositories/document-repository.js";
 
 export interface BackupSnapshot {
   projectId: string;
   created: string;
   snapshotPath: string;
   note: string;
+  documentIdentities?: Array<{
+    id: string;
+    relativePath: string;
+    materialized: boolean;
+  }>;
 }
 
-export async function createProjectSnapshot(project: Project): Promise<BackupSnapshot> {
+export async function createProjectSnapshot(project: Project, documents: Pick<DocumentRepository, "snapshotIdentities"> = getDocumentRepository()): Promise<BackupSnapshot> {
   const safeTime = nowIso().replace(/[:.]/g, "-");
   const snapshotPath = path.join(project.memoryRoot, "backups", "snapshots", safeTime);
   await ensureDir(snapshotPath);
+  const documentIdentities = await documents.snapshotIdentities(project);
   await copyProjectContents(project.memoryRoot, snapshotPath);
   const snapshot: BackupSnapshot = {
     projectId: project.id,
     created: nowIso(),
     snapshotPath,
+    documentIdentities,
     note: "Directory snapshot. Zip export can be layered on this when an archive dependency is available."
   };
   await writeJson(path.join(snapshotPath, "backup-manifest.json"), snapshot);

@@ -30,7 +30,11 @@ export function DiagnosticReportAction() {
   return (
     <span className="diagnostic-report-action">
       <button type="button" onClick={exportReport}>Download safe diagnostic report</button>
-      <span className="sr-only" role="status" aria-live="polite">
+      <span
+        className={status === "failed" ? "panel-help" : "sr-only"}
+        role="status"
+        aria-live="polite"
+      >
         {status === "exported"
           ? "Safe diagnostic report downloaded."
           : status === "failed"

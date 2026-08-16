@@ -1,4 +1,4 @@
-import type { ProjectRegistry } from "@zharwing/memory-store";
+import type { DocumentRepository, ProjectRegistry } from "@zharwing/memory-store";
 import {
   createProjectSnapshot,
   listProjectSnapshots,
@@ -7,10 +7,10 @@ import {
 import { resolveProject } from "./project-resolver.js";
 
 export class BackupService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(private readonly registry: ProjectRegistry, private readonly documents: Pick<DocumentRepository, "snapshotIdentities">) {}
 
   async backupProject(params: { projectId: string }) {
-    return createProjectSnapshot(await resolveProject(this.registry, params.projectId));
+    return createProjectSnapshot(await resolveProject(this.registry, params.projectId), this.documents);
   }
 
   async listBackups(params: { projectId: string }) {
