@@ -20,13 +20,12 @@ import {
 } from "@zharwing/memory-core";
 import {
   ProjectRegistry,
+  type DocumentRepository,
   createProjectFromPreview,
   detectProject,
   ensureProjectWorkspace,
   linkProjectRepo,
-  listProjectDocuments,
-  listProjectSessionSummaries,
-  listProjectSessions,
+  type SessionRepository,
   listProjectWorkstreams,
   listProposedUpdates,
   movePathToTrash,
@@ -38,22 +37,24 @@ import {
   writeJsonToTrash,
   writeProjectFile
 } from "@zharwing/memory-store";
+import { normalizeGraphExtractionRules } from "@zharwing/memory-graph/rules";
 import { resolveProject } from "./project-resolver.js";
 import { SessionAuthorityStore } from "./session-visibility.js";
-import { normalizeGraphExtractionRules } from "./graph-rules.js";
 
 export class ProjectService {
   constructor(
     private readonly registry: ProjectRegistry,
-    private readonly sessionAuthority: SessionAuthorityStore
+    private readonly sessionAuthority: SessionAuthorityStore,
+    private readonly documents: Pick<DocumentRepository, "list">,
+    private readonly sessions: SessionRepository
   ) {}
 
   async listProjects(): Promise<Project[]> {
-    return this.registry.listProjects();
+    return (await this.registry.listProjects()).map(projectWithNormalizedGraphRules);
   }
 
   async getProject(projectId: string): Promise<Project> {
-    return resolveProject(this.registry, projectId);
+    return projectWithNormalizedGraphRules(await resolveProject(this.registry, projectId));
   }
 
   async detectProject(params: { workingDirectory: string }) {
@@ -101,7 +102,7 @@ export class ProjectService {
     const project = await this.getProject(projectId);
     const allSessionSummaries = await this.sessionAuthority.applyVisibilities(
       project,
-      await listProjectSessionSummaries(project)
+      await this.sessions.listProjectSessionSummaries(project)
     );
     const sessions = allSessionSummaries.map(compactStartupSession);
     const activeSession = sessions.find((session) => session.status === "active");
@@ -195,8 +196,8 @@ export class ProjectService {
 
   async getProjectSummary(params: { projectId: string }) {
     const project = await this.getProject(params.projectId);
-    const sessions = await listProjectSessions(project);
-    const docs = await listProjectDocuments(project);
+    const sessions = await this.sessions.listProjectSessions(project);
+    const docs = await this.documents.list(project);
     const workstreams = await listProjectWorkstreams(project);
     const inbox = await listProposedUpdates(project);
     const warnings = await validateProjectWorkspace(project);
@@ -416,11 +417,22 @@ export class ProjectService {
     return {
       exported: nowIso(),
       project,
-      sessions: await listProjectSessions(project),
-      documents: (await listProjectDocuments(project)).map(({ body, ...doc }) => doc),
+      sessions: await this.sessions.listProjectSessions(project),
+      documents: (await this.documents.list(project)).map(({ body, ...doc }) => doc),
       inbox: await listProposedUpdates(project)
     };
   }
+}
+
+function projectWithNormalizedGraphRules(project: Project): Project {
+  const legacyProject = project as Project & { graph_rules?: unknown };
+  if (legacyProject.graphRules === undefined && legacyProject.graph_rules === undefined) return project;
+  const normalizedProject: Project & { graph_rules?: unknown } = {
+    ...project,
+    graphRules: normalizeGraphExtractionRules(legacyProject)
+  };
+  delete normalizedProject.graph_rules;
+  return normalizedProject;
 }
 
 function previewSecurityContract(preview: ProjectCreationPreview): string {
@@ -581,7 +593,7 @@ function withStartupRevision(
 }
 
 function boundedString(input: string, maxChars: number): string {
-  return input.length <= maxChars ? input : `${input.slice(0, Math.max(0, maxChars - 1))}…`;
+  return input.length <= maxChars ? input : `${input.slice(0, Math.max(0, maxChars - 1))}â€¦`;
 }
 
 function boundedOptionalString(input: string | undefined, maxChars: number): string | undefined {

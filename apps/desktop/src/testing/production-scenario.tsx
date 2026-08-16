@@ -16,7 +16,9 @@ import { StoreProvider } from "../stores/store-context.js";
 import { FIXTURE_NOW } from "./fixture-data.js";
 import { FakeMemoryTransport } from "./fake-memory-transport.js";
 import { createLocalGraphPositionStore } from "../features/graph/persistence/graph-position-store.js";
+import { LocalResourceInvalidationBus } from "../application/resources/resource-invalidation-bus.js";
 import { getFrontendScenario, type FrontendScenario } from "./scenario-registry.js";
+import { createAppPersistence } from "../application/persistence/app-persistence.js";
 
 export interface ProductionScenarioHarness {
   readonly scenario: FrontendScenario;
@@ -44,13 +46,13 @@ export function createProductionScenario(id: string): ProductionScenarioHarness 
     memory: new OperationClient(transport, clock.clientRuntime, "desktop"),
     clock: { now: () => new Date(FIXTURE_NOW) },
     ids: { create: () => clock.nextId() },
-    preferences: {
+    persistence: createAppPersistence({
       get: (key) => preferences.get(key),
       set: (key, value) => value === undefined ? preferences.delete(key) : void preferences.set(key, value)
-    },
-    graphPositions: createLocalGraphPositionStore(),
+    }, createLocalGraphPositionStore()),
     diagnostics,
-    scheduler: clock.scheduler
+    scheduler: clock.scheduler,
+    invalidations: new LocalResourceInvalidationBus()
   };
   const runtime = createAppRuntime(services);
   let disposed = false;

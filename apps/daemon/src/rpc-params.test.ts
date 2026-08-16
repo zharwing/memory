@@ -4,16 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { OPERATION_REGISTRY } from "@zharwing/memory-core";
+import { createOperationHandlerRegistry } from "./application/operation-handler-registry.js";
 import { requireParams, RpcValidationError } from "./rpc-params.js";
 
 const RPC_SOURCE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "apps", "daemon", "src", "rpc.ts");
 
 test("the daemon switch and operation registry have exact parity", async () => {
-  const source = await fs.readFile(RPC_SOURCE, "utf8");
-  const methods = [...new Set([
-    ...source.matchAll(/case "(memory\.[a-z_]+)"/g),
-    ...source.matchAll(/invocation\.name === "(memory\.[a-z_]+)"/g)
-  ].map((match) => match[1]))].sort();
+  const methods = [...createOperationHandlerRegistry().keys()].sort();
   const registered = Object.keys(OPERATION_REGISTRY).sort();
   assert.ok(methods.length > 50, `expected the full inventory, found ${methods.length}`);
   assert.deepEqual(methods, registered, "rpc.ts and the core operation authority drifted");

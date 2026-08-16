@@ -12,9 +12,10 @@ export const ProjectsScreen = observer(function ProjectsScreen() {
   const projectsState = store.projects.projectsState;
 
   function openProject(projectId: string) {
-    if (store.projects.selectProject(projectId)) {
-      navigate(routePath("dashboard", { projectId }));
-    }
+    // Navigation is the project-selection intent. App/RootStore owns accepting
+    // the matching generation, so the clicked card never flashes selected on
+    // the old route before the new route is ready.
+    navigate(routePath("dashboard", { projectId }));
   }
 
   return (

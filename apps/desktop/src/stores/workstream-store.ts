@@ -1,12 +1,12 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { WorkstreamsClientPort } from "../application/ports/features.js";
 import type { Workstream, WorkstreamDetail, WorkstreamStatus } from "@zharwing/memory-core";
 import {
   OperationLedger,
   type OperationAttempt,
   type OperationState
 } from "../application/operations/operation-state.js";
-import { executeConfirmedDestructiveOperation } from "../application/operations/destructive-operation.js";
+import { prepareDestructiveDispatch } from "../application/operations/destructive-operation.js";
 import type {
   ScopedProjectPort,
   ScopeToken,
@@ -18,26 +18,32 @@ import {
   publicErrorCopy,
   type ResourceState
 } from "../application/resources/resource-state.js";
+import {
+  createWorkstreamDetailSnapshot,
+  type WorkstreamDetailSnapshot
+} from "../application/read-models/workstream-detail-snapshot.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 
 export class WorkstreamStore {
   readonly listResource: ResourceSlot<Workstream[]>;
-  readonly detailResource: ResourceSlot<WorkstreamDetail | undefined>;
+  readonly detailResource: ResourceSlot<WorkstreamDetailSnapshot | undefined>;
   readonly operations: OperationLedger;
   selectedWorkstreamId = "";
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: WorkstreamsClientPort,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: WorkstreamStoreCoordinator,
-    runtime: StoreAsyncRuntimePort
+    private readonly runtime: StoreAsyncRuntimePort
   ) {
     this.listResource = new ResourceSlot(scope, runtime);
     this.detailResource = new ResourceSlot(scope, runtime);
     this.operations = new OperationLedger(runtime);
-    makeAutoObservable<this, "client" | "scope" | "coordinator">(this, {
+    makeAutoObservable<this, "client" | "scope" | "coordinator" | "runtime">(this, {
       client: false,
       scope: false,
       coordinator: false,
+      runtime: false,
       listResource: false,
       detailResource: false,
       operations: false
@@ -48,8 +54,16 @@ export class WorkstreamStore {
     return this.listResource.state;
   }
 
-  get detailState(): ResourceState<WorkstreamDetail | undefined> {
+  get detailState(): ResourceState<WorkstreamDetailSnapshot | undefined> {
     return this.detailResource.state;
+  }
+
+  get listRead() {
+    return resourceReadModel(this.listResource);
+  }
+
+  get detailRead() {
+    return resourceReadModel(this.detailResource);
   }
 
   get list(): Workstream[] {
@@ -57,6 +71,10 @@ export class WorkstreamStore {
   }
 
   get detail(): WorkstreamDetail | undefined {
+    return this.detailResource.data?.detail;
+  }
+
+  get detailSnapshot(): WorkstreamDetailSnapshot | undefined {
     return this.detailResource.data;
   }
 
@@ -113,18 +131,17 @@ export class WorkstreamStore {
     relatedTasks?: string[];
     relatedFiles?: string[];
   }): Promise<void> {
-    const completed = await this.mutate(
-      "workstream:create",
-      (token, operationId) => this.client.operation(
-        "memory.create_workstream",
-        { projectId: token.projectId, ...args },
-        { signal: token.signal, idempotencyKey: operationId }
-      )
-    );
-    if (!completed) return;
-    const { result: created, token } = completed;
-    if (!this.scope.isScopeCurrent(token)) return;
-    await this.load(token);
+    const token = this.scope.captureScope();
+    if (!token) return;
+    const created = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.create_workstream",
+      input: { projectId: token.projectId, ...args },
+      ledger: this.operations,
+      key: "workstream:create",
+      scope: token
+    });
+    if (!created) return;
     if (!this.scope.isScopeCurrent(token)) return;
     this.selectedWorkstreamId = created.id;
     await this.loadDetail(created.id, token);
@@ -149,80 +166,57 @@ export class WorkstreamStore {
         { projectId: attempt.scope.projectId, workstreamId },
         { signal: attempt.scope.signal }
       );
-      if (this.detailResource.succeed(attempt, detail)) this.selectedWorkstreamId = workstreamId;
+      const snapshot = createWorkstreamDetailSnapshot(
+        detail,
+        attempt.requestId,
+        this.runtime.now()
+      );
+      if (this.detailResource.succeed(attempt, snapshot)) this.selectedWorkstreamId = workstreamId;
     } catch (error) {
       this.detailResource.fail(attempt, error);
     }
   }
 
   async updateStatus(workstreamId: string, status: WorkstreamStatus): Promise<void> {
-    const completed = await this.mutate(
-      `workstream:status:${workstreamId}`,
-      (token, operationId) => this.client.operation(
-        "memory.update_workstream_status",
-        { projectId: token.projectId, workstreamId, status },
-        { signal: token.signal, idempotencyKey: operationId }
-      )
-    );
-    if (!completed) return;
-    const { token } = completed;
+    const token = this.scope.captureScope();
+    if (!token) return;
+    const updated = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_workstream_status",
+      input: { projectId: token.projectId, workstreamId, status },
+      ledger: this.operations,
+      key: `workstream:status:${workstreamId}`,
+      scope: token
+    });
+    if (!updated) return;
     if (!this.scope.isScopeCurrent(token)) return;
-    await Promise.all([
-      this.load(token),
-      this.selectedWorkstreamId === workstreamId
-        ? this.loadDetail(workstreamId, token)
-        : Promise.resolve()
-    ]);
+    if (this.selectedWorkstreamId === workstreamId) await this.loadDetail(workstreamId, token);
   }
 
   async deleteWorkstream(workstreamId: string): Promise<void> {
-    const completed = await this.mutate(
-      `workstream:delete:${workstreamId}`,
-      (token, operationId) => executeConfirmedDestructiveOperation(
+    const token = this.scope.captureScope();
+    if (!token) return;
+    const input = { projectId: token.projectId, workstreamId };
+    const deleted = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.delete_workstream",
+      input,
+      ledger: this.operations,
+      key: `workstream:delete:${workstreamId}`,
+      scope: token,
+      prepareDispatch: (operationId) => prepareDestructiveDispatch(
         this.client,
         token.projectId,
         "memory.delete_workstream",
-        { projectId: token.projectId, workstreamId },
+        input,
         { signal: token.signal, idempotencyKey: operationId }
       )
-    );
-    if (!completed) return;
-    const { token } = completed;
+    });
+    if (!deleted) return;
     if (!this.scope.isScopeCurrent(token)) return;
     if (this.selectedWorkstreamId === workstreamId) {
       this.selectedWorkstreamId = "";
       this.detailResource.reset();
     }
-    await Promise.all([
-      this.load(token),
-      this.coordinator.refreshProjectSummary(),
-      this.coordinator.refreshGraph(),
-      this.coordinator.refreshTrash()
-    ]);
-  }
-
-  private async mutate<Result>(
-    key: string,
-    work: (token: ScopeToken, operationId: string) => Promise<Result>
-  ): Promise<{ readonly result: Result; readonly token: ScopeToken } | undefined> {
-    const token = this.scope.captureScope();
-    if (!token) return undefined;
-    const attempt = this.operations.begin(key, token);
-    try {
-      const result = await work(token, attempt.operationId);
-      if (!this.scope.isScopeCurrent(token) || !this.operations.succeed(attempt, result)) {
-        this.operations.abandon(attempt);
-        return undefined;
-      }
-      return { result, token };
-    } catch (error) {
-      this.settleFailure(attempt, token, error);
-      return undefined;
-    }
-  }
-
-  private settleFailure(attempt: OperationAttempt, token: ScopeToken, error: unknown): void {
-    if (this.scope.isScopeCurrent(token)) this.operations.fail(attempt, error);
-    else this.operations.abandon(attempt);
   }
 }

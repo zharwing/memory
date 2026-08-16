@@ -5,13 +5,13 @@ import { Empty, Screen } from "../components/layout.js";
 import { WorkTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { SessionDetailModal } from "../components/SessionDetailModal.js";
-import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import { useCloseWhenMissing, useRouteQueryParam } from "../hooks/useSearchParamState.js";
 import { timestampRenderers } from "../utils/format.js";
 import { isStaleActiveSession } from "../utils/sessions.js";
 
 export const SessionsScreen = observer(function SessionsScreen() {
   const store = useStore();
-  const [selectedSessionId, setSessionSearchParam] = useSearchParamState("session");
+  const [selectedSessionId, setSessionSearchParam] = useRouteQueryParam("sessions", "session");
   const selectedSession = store.sessions.list.find((session) => session.id === selectedSessionId);
   const staleSessions = store.sessions.list.filter(isStaleActiveSession);
   const listState = store.sessions.listState;
@@ -136,6 +136,7 @@ export const SessionsScreen = observer(function SessionsScreen() {
       ) : null}
       {selectedSession ? (
         <SessionDetailModal
+          key={selectedSession.id}
           session={selectedSession}
           sessions={store.sessions}
           onClose={() => closeSessionDetail()}

@@ -71,8 +71,8 @@ This folder contains product and engineering documentation for the Zharwing Memo
   and residual risk.
 
 - [Frontend Qualification Matrix](qualification/frontend-qualification-matrix.md)
-  Honest per-surface source observations, unrun candidate gates, deferred
-  device evidence, and release claim rules.
+  What each surface has actually been tested against, which gates have not been
+  run, what still needs a real device, and the rules for claiming a release.
 
 - [Testing With AI Providers](AI_TESTING.md)
   Manual LM Studio/Ollama/llama.cpp-style provider checks, session TLDR tests, and semantic graph smoke tests.

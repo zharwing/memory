@@ -9,10 +9,16 @@ import type {
   ScopedProjectPort
 } from "../project-scope/project-scope-coordinator.js";
 import type { StoreAsyncRuntimePort } from "../operations/store-ports.js";
+import { publicErrorPresenter } from "../errors/public-error-presenter.js";
 
 export type Completeness =
   | { readonly kind: "complete" }
   | { readonly kind: "partial"; readonly nextCursor?: string; readonly total?: number };
+
+/** Compatibility projection while stores migrate to the presenter directly. */
+export function publicErrorCopy(error: PublicError | undefined): string {
+  return publicErrorPresenter.present(error);
+}
 
 export const complete: Completeness = Object.freeze({ kind: "complete" });
 
@@ -225,24 +231,6 @@ export function toPublicError(error: unknown): PublicError {
   if (isPublicError(error)) return error;
   if (isRecord(error) && isPublicError(error.publicError)) return error.publicError;
   return createPublicError("internal");
-}
-
-export function publicErrorCopy(error: PublicError | undefined): string {
-  if (!error) return "";
-  switch (error.messageId) {
-    case "operation.validation": return "Check the entered values and try again.";
-    case "operation.unauthorized": return "Authentication is required.";
-    case "operation.forbidden": return "This action is not allowed.";
-    case "operation.not_found": return "The requested item was not found.";
-    case "operation.conflict": return "The data changed elsewhere. Refresh and try again.";
-    case "operation.unavailable": return "The service is unavailable. Try again.";
-    case "operation.timeout": return "The operation timed out. Reconcile before retrying.";
-    case "operation.cancelled": return "The operation was cancelled.";
-    case "operation.protocol": return "The service returned an invalid response.";
-    case "operation.compatibility": return "This app and service version are incompatible.";
-    case "operation.outcome_unknown": return "The outcome is unknown. Refresh before retrying.";
-    case "operation.internal": return "The operation could not be completed.";
-  }
 }
 
 function defaultIsEmpty(value: unknown): boolean {

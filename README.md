@@ -4,30 +4,27 @@ Zharwing Memory is a local-first project context manager for AI-assisted coding 
 
 The product keeps project knowledge, AI session history, context bundles, diagrams, decisions, commands, gotchas, and optional review proposals organized per project. A human can open the local browser UI or native desktop app to understand current work, inspect AI context, inspect the graph, search previous work, and enable review workflows only when wanted.
 
-> **Status: local developer preview; not release-qualified.** Source includes
-> the explicit `personal-preview` compatibility profile and the
-> `hardened-local` target security profile. Neither is a production,
-> multi-tenant, public-network, installer, or device qualification claim. See
+> **Status: local developer preview. Not release-qualified.** The code ships two
+> profiles: `personal-preview` for compatibility and `hardened-local` as the
+> security target. Both are implemented; neither has been through installer,
+> device, or production testing. See
 > [Frontend V2 status](docs/FRONTEND_V2_IMPLEMENTATION_STATUS.md), the
 > [developer preview boundary](docs/DEVELOPER_PREVIEW.md), and the
 > [qualification matrix](docs/qualification/frontend-qualification-matrix.md).
 
-Frontend V2 is a compatibility-preserving internal refactor, not a breaking
-API release. Supported operation names and canonical project data remain
-compatible, while dated adapters and aliases preserve existing clients,
-bookmarks, and local preview workflows during migration.
+Frontend V2 is an internal refactor, not a breaking release. Operation names and
+project data stay compatible; dated adapters and aliases keep existing clients,
+bookmarks, and local preview setups working through the migration.
 
 ![Zharwing Memory project dashboard](docs/assets/zharwing-memory-dashboard.png)
 
-The dependency-free [public documentation website](https://zharwing.barbutsa.com/memory/)
-and its [structured documentation portal](https://zharwing.barbutsa.com/memory/docs/)
-are maintained in this repository. They explain the downloadable local
-application; they are not a hosted version of Memory and cannot access a user's
-memory store. Every public guide has a stable direct URL, and essential content
-and navigation remain available without JavaScript. The
-[website source and maintenance guide](website/memory/README.md) and
-[source-context boundary](docs/SOURCE_CONTEXT.md) remain available in the
-repository.
+The [documentation website](https://zharwing.barbutsa.com/memory/) and its
+[guide portal](https://zharwing.barbutsa.com/memory/docs/) are built from this
+repository and pull in no external dependencies. They document the local app;
+they are not a hosted copy of it and cannot reach your memory store. Every guide
+has its own URL and reads fine with JavaScript turned off. See the
+[website maintenance guide](website/memory/README.md) and the
+[source-context boundary](docs/SOURCE_CONTEXT.md).
 
 ## Current Implementation Status
 
@@ -78,32 +75,27 @@ the focused MCP surface as follows:
 
 Context preview/load and health checks complete the eleven-tool surface. Project
 creation, repository linking, imports, graph settings, backups, and destructive
-operations remain administrative UI/CLI actions by design; they are not missing
-daily-memory features.
+operations are handled in the UI or CLI instead, where a person can review them.
 
 The daemon, CLI, MCP adapter, browser UI, and desktop UI are present in source.
 Optional semantic graph analysis is implemented for local OpenAI-compatible
 providers. Graph context map, context, session, docs, import, inbox, backup,
 and trash workflows do not require an AI provider.
 
-The current candidate must not inherit historical workspace pass claims.
-Candidate-bound or release/device validation includes broad desktop workflow
-coverage, live-provider checks for each claimed configuration, assistive-device
-and responsive evidence, public-doc generation/drift checks, installer and
-signing checks, packaged application smoke, and rollback rehearsal.
+### What has actually been tested
 
-Local validation of the uncommitted 2026-08-12 working tree passed the
-workspace typecheck, 333 automated tests with zero failures and two intentional
-Windows symlink-safety skips, the production web build and unchanged bundle
-budgets, the isolated secret-canary build, fixture and source-artifact guards,
-the accessibility source contract, generated public docs, and a truthful
-headless Edge startup-recovery smoke. Six Rust unit tests and the
-CI-equivalent Tauri compile/package mechanics passed with an explicitly inert
-sidecar fixture; this does not qualify a production daemon, signed installer,
-or packaged runtime. These local results are not commit-bound release evidence;
-assistive-device, live-provider, installer/signing, packaged application, and
-rollback evidence still require the exact release candidate. See
-[Testing](docs/TESTING.md).
+Run locally against the 2026-08-12 working tree: workspace typecheck, 333
+automated tests passing with two skipped for Windows symlink safety, the
+production web build within its bundle budgets, the secret-canary build,
+fixture and source-artifact guards, the accessibility source checks, generated
+public docs, and a headless Edge smoke confirming the browser UI reports a
+missing daemon accurately instead of showing a loaded page. Six Rust unit tests
+and the Tauri compile/package steps passed against an inert sidecar fixture.
+
+Not tested yet: a real packaged application, a signed installer, live AI
+providers, screen readers and other assistive devices, and rollback. All of the
+above ran on a working tree rather than a tagged commit, so treat it as a good
+sign about the code, not as release evidence. See [Testing](docs/TESTING.md).
 
 ## Product Principles
 
@@ -111,9 +103,9 @@ rollback evidence still require the exact release candidate. See
    Sessions, docs, graph, search, context, and startup state all resolve to the current project unless the user explicitly asks for all-project behavior.
 
 2. Markdown is the source of truth.
-   The supported index is a versioned, dependency-free JSON projection rebuilt
-   from Markdown. SQLite/FTS5 remains an optional future optimization for very
-   large stores, not unfinished core functionality.
+   The index is a versioned JSON cache rebuilt from the Markdown, with no
+   database dependency. SQLite/FTS5 is on the table if stores ever get large
+   enough to need it.
 
 3. UI, CLI, and MCP share daemon behavior.
    The daemon owns project/session/context logic. Each adapter exposes its
@@ -209,9 +201,8 @@ ZHARWING_MEMORY_ROOT=<absolute-private-store-path>
 
 ### Local Browser UI
 
-The browser UI is a complete local interface for normal daily use, not a demo
-or a reduced documentation view. It exposes the same React pages and workflows
-as the native desktop window.
+The browser UI is the full local interface for daily use. It runs the same React
+pages and workflows as the native desktop window.
 
 Start the local daemon and browser UI together:
 
@@ -481,7 +472,7 @@ coding-memory loop:
 - `memory.save_checkpoint`
 - `memory.close_session`
 
-The full daemon API is intentionally broader. Use the desktop UI or CLI for
+The daemon API is much broader. Use the desktop UI or CLI for
 project administration, repository links, workstreams, document editing,
 imports, graph settings, backups, Trash, and other administrative operations.
 See [API Reference](docs/API_REFERENCE.md) for both surfaces.
@@ -492,7 +483,7 @@ The local browser UI and native desktop app share the same React human
 interface. The fastest source workflow is `corepack pnpm dev`, then open
 `http://127.0.0.1:5174/`. It starts the loopback daemon and browser UI together;
 normal single-user use needs no token or launcher setup.
-The sidebar stays intentionally small:
+The sidebar is short:
 
 - project switcher for selecting, creating, and deleting projects
 - Dashboard

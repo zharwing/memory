@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SemanticClientPort } from "../../application/ports/features.js";
 import { parseOperationInput } from "@zharwing/memory-core";
 import type {
   OperationInput,
@@ -46,7 +46,7 @@ interface ReconciliationFlight {
 }
 
 export interface SemanticAnalysisControllerOptions {
-  readonly client: MemoryClient;
+  readonly client: SemanticClientPort;
   readonly scope: ScopedProjectPort;
   readonly coordinator: SemanticStoreCoordinator;
   readonly scheduler: StoreSchedulerPort;
@@ -163,7 +163,7 @@ export class SemanticAnalysisController {
     const input = parseOperationInput("memory.preview_semantic_graph_analysis", {
       projectId: scope.projectId,
       scope: analysisScope,
-      persistCandidateIndex: true
+      persistCandidateIndex: false
     });
 
     const operation = this.options.operations.begin(SEMANTIC_PREVIEW_OPERATION, scope);

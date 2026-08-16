@@ -10,6 +10,7 @@
       "group": "Start here",
       "headings": [
         "Current Implementation Status",
+        "What has actually been tested",
         "Product Principles",
         "Repository Layout",
         "First Run",
@@ -355,6 +356,7 @@
       "headings": [
         "Entity Overview",
         "Project",
+        "Identity and migration",
         "Workstream",
         "Session",
         "Document",

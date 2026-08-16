@@ -1,5 +1,5 @@
 import { runInAction } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SemanticClientPort } from "../../application/ports/features.js";
 import { parseOperationInput } from "@zharwing/memory-core";
 import type {
   OperationInput,
@@ -20,7 +20,7 @@ import type { SemanticSnapshotClient } from "./semantic-snapshot-client.js";
 import type { SemanticStatus } from "./semantic-types.js";
 
 export interface SemanticCommandStoreOptions {
-  readonly client: MemoryClient;
+  readonly client: SemanticClientPort;
   readonly scope: ScopedProjectPort;
   readonly coordinator: SemanticStoreCoordinator;
   readonly snapshots: SemanticSnapshotClient;

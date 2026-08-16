@@ -4,6 +4,18 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./repositories": "./dist/repositories/document-repository.js",
+    "./repositories/document": "./dist/repositories/document-repository.js",
+    "./repositories/session": "./dist/repositories/session-repository.js",
+    "./repositories/session-summary-cache": "./dist/repositories/session-summary-cache.js",
+    "./document-identity": "./dist/document-identity.js",
+    "./documents": "./dist/documents.js",
+    "./document-markdown": "./dist/document-markdown.js",
+    "./sessions": "./dist/sessions.js",
+    "./migrations": "./dist/migrations/document-identities.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

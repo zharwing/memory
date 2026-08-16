@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MemoryClient } from "@zharwing/memory-api-client";
-import type { UiPreferenceStore } from "../app/composition/ports.js";
+import type { GraphRelationshipPreferenceStore } from "../application/persistence/app-persistence.js";
 import { ProjectScopeCoordinator } from "../application/project-scope/project-scope-coordinator.js";
 import { fixtureGraph } from "../testing/fixture-data.js";
 import { GraphStore, graphRelationshipParams } from "./graph-store.js";
@@ -19,14 +19,14 @@ test("graph state maps relationship modes to closed typed operation parameters",
 
 test("graph relationship preferences use the injected store and preserve the compatibility key", async () => {
   const reads: string[] = [];
-  const writes: Array<{ key: string; value: string | undefined }> = [];
-  const preferences: UiPreferenceStore = {
-    get(key) {
-      reads.push(key);
+  const writes: string[] = [];
+  const preferences: GraphRelationshipPreferenceStore = {
+    read() {
+      reads.push("aimem.graph.relationshipMode");
       return "ai-reviewed";
     },
-    set(key, value) {
-      writes.push({ key, value });
+    write(value) {
+      writes.push(value);
     }
   };
   const requests: Array<{ name: string; input: unknown }> = [];
@@ -39,6 +39,7 @@ test("graph relationship preferences use the injected store and preserve the com
   const scope = new ProjectScopeCoordinator();
   scope.activate(fixtureGraph.projectId);
   const store = new GraphStore(client, scope, {
+    executeCommand: async () => undefined,
     refreshProjects: async () => undefined,
     refreshProjectSummary: async () => undefined,
     refreshInbox: async () => undefined
@@ -52,7 +53,7 @@ test("graph relationship preferences use the injected store and preserve the com
 
   await store.setRelationshipMode("deterministic");
 
-  assert.deepEqual(writes, [{ key: "aimem.graph.relationshipMode", value: "deterministic" }]);
+  assert.deepEqual(writes, ["deterministic"]);
   assert.deepEqual(requests, [{
     name: "memory.get_graph",
     input: {

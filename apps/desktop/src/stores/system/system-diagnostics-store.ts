@@ -1,6 +1,9 @@
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SystemClientPort } from "../../application/ports/features.js";
 import type { OperationLedger } from "../../application/operations/operation-state.js";
-import type { StoreAsyncRuntimePort } from "../../application/operations/store-ports.js";
+import type {
+  StoreAsyncRuntimePort,
+  SystemStoreCoordinator
+} from "../../application/operations/store-ports.js";
 import type { ApplicationScopePort } from "../../application/project-scope/project-scope-coordinator.js";
 import { ResourceSlot } from "../../application/resources/resource-state.js";
 import type {
@@ -16,8 +19,9 @@ export class SystemDiagnosticsStore {
   readonly mcpInstallResource: ResourceSlot<McpInstallResult>;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: SystemClientPort,
     applicationScope: ApplicationScopePort,
+    private readonly coordinator: Pick<SystemStoreCoordinator, "executeCommand">,
     private readonly operations: OperationLedger,
     runtime: StoreAsyncRuntimePort
   ) {
@@ -58,19 +62,24 @@ export class SystemDiagnosticsStore {
   ): Promise<void> {
     const resourceAttempt = this.mcpInstallResource.begin();
     if (!resourceAttempt) return;
-    const operation = this.operations.begin("install-mcp-client");
-    try {
-      const result = await this.client.operation("memory.mcp_install", {
+    const result = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.mcp_install",
+      input: {
         client,
         transport,
         authMode: "auto"
-      }, { signal: resourceAttempt.scope.signal });
-      this.operations.succeed(operation, result);
+      },
+      ledger: this.operations,
+      key: `mcp:install:${client}:${transport}`,
+      call: { signal: resourceAttempt.scope.signal }
+    });
+    if (result) {
       this.mcpInstallResource.succeed(resourceAttempt, result);
       await this.loadMcpDoctor();
-    } catch (error) {
-      this.operations.fail(operation, error);
-      this.mcpInstallResource.fail(resourceAttempt, error);
+      return;
     }
+    const error = this.operations.error;
+    if (error) this.mcpInstallResource.fail(resourceAttempt, error);
   }
 }

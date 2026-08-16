@@ -1,6 +1,7 @@
+import { parseProjectId, projectIdValue } from "@zharwing/memory-core";
+
 export type NavigationSection = "primary" | "utility";
 export type TabSection = "work" | "library" | "settings";
-
 export interface NavigationMetadata {
   section: NavigationSection;
   label: string;
@@ -29,8 +30,10 @@ export interface ScreenRouteDefinition {
 
 export interface RedirectRouteDefinition {
   kind: "redirect";
+  /** Literal redirect identifiers are derived from APP_ROUTE_REGISTRY. */
   id: string;
   path: string;
+  /** The registry factory rejects targets that are not registered screens. */
   target: string;
   preserveProject: boolean;
 }
@@ -43,6 +46,27 @@ export interface WildcardRouteDefinition {
 
 export type RouteDefinition = ScreenRouteDefinition | RedirectRouteDefinition | WildcardRouteDefinition;
 
+type ScreenRouteIdIn<Entries extends readonly RouteDefinition[]> =
+  Extract<Entries[number], { readonly kind: "screen" }>["id"];
+
+type RouteEntriesWithValidTargets<Entries extends readonly RouteDefinition[]> = {
+  readonly [Index in keyof Entries]: Entries[Index] extends {
+    readonly kind: "redirect";
+    readonly target: infer Target;
+  }
+    ? Target extends ScreenRouteIdIn<Entries>
+      ? Entries[Index]
+      : never
+    : Entries[Index];
+};
+
+/** Preserves route literals while rejecting redirects to unregistered screens. */
+function defineRouteRegistry<const Entries extends readonly RouteDefinition[]>(
+  entries: Entries & RouteEntriesWithValidTargets<Entries>
+): Entries {
+  return entries;
+}
+
 /**
  * The only route authority in the desktop application.
  *
@@ -50,7 +74,7 @@ export type RouteDefinition = ScreenRouteDefinition | RedirectRouteDefinition | 
  * redirects, wildcard recovery, and coverage checks are all derived from this
  * value. Add a route here before adding a consumer.
  */
-export const APP_ROUTE_REGISTRY = [
+export const APP_ROUTE_REGISTRY = defineRouteRegistry([
   {
     kind: "redirect", id: "homeRedirect", path: "/", target: "projects", preserveProject: false
   },
@@ -135,18 +159,49 @@ export const APP_ROUTE_REGISTRY = [
   { kind: "redirect", id: "projectLibraryRedirect", path: "/p/:projectId/library", target: "docs", preserveProject: true },
   { kind: "redirect", id: "projectSettingsRedirect", path: "/p/:projectId/settings", target: "settings", preserveProject: true },
   { kind: "wildcard", id: "notFound", path: "*" }
-] as const satisfies readonly RouteDefinition[];
+] as const);
 
-type RegistryEntry = (typeof APP_ROUTE_REGISTRY)[number];
-type ScreenEntry = Extract<RegistryEntry, { kind: "screen" }>;
-export type AppRouteId = ScreenEntry["id"];
-export type AppScreenId = ScreenEntry["screen"];
+/** Closed route/screen vocabulary, derived from the single literal registry. */
+export type AppRouteId = Extract<(typeof APP_ROUTE_REGISTRY)[number], { readonly kind: "screen" }>['id'];
+export type AppScreenId = Extract<(typeof APP_ROUTE_REGISTRY)[number], { readonly kind: "screen" }>['screen'];
+export type RegisteredRouteId = (typeof APP_ROUTE_REGISTRY)[number]["id"];
+
 export type RouteRegistryEntry = RouteDefinition;
 
-export interface RouteLocationOptions {
-  projectId?: string;
-  search?: Readonly<Record<string, string | number | boolean | null | undefined>>;
-  hash?: string;
+type EmptyRouteQuery = Readonly<Record<never, never>>;
+
+/** Query ownership is closed per route; screens no longer invent generic keys. */
+export interface RouteQueryById {
+  projects: EmptyRouteQuery;
+  setup: EmptyRouteQuery;
+  dashboard: EmptyRouteQuery;
+  repositories: EmptyRouteQuery;
+  currentWork: EmptyRouteQuery;
+  sessions: { readonly session?: string };
+  workstreams: { readonly workstream?: string };
+  docs: { readonly doc?: string };
+  diagrams: { readonly doc?: string };
+  inbox: { readonly proposal?: string };
+  graph: {
+    readonly view?: "all";
+    readonly relationships?: "deterministic" | "ai-reviewed";
+    readonly focus?: string;
+    readonly doc?: string;
+    readonly edge?: string;
+  };
+  context: { readonly bundle?: string };
+  import: EmptyRouteQuery;
+  search: { readonly q?: string };
+  settings: EmptyRouteQuery;
+  assistant: EmptyRouteQuery;
+  backups: EmptyRouteQuery;
+  trash: { readonly item?: string };
+}
+
+export interface RouteLocationOptions<RouteId extends AppRouteId> {
+  readonly projectId?: string;
+  readonly query?: RouteQueryById[RouteId];
+  readonly hash?: string;
 }
 
 export interface RouteNavigationEntry {
@@ -164,7 +219,7 @@ export interface RouteTabEntry {
 }
 
 export type DecodedRouteLocation =
-  | { status: "matched"; routeId: string; projectId?: string }
+  | { status: "matched"; routeId: RegisteredRouteId; projectId?: string }
   | { status: "not_found" }
   | { status: "malformed"; reason: "encoding" | "project" | "length" };
 
@@ -173,7 +228,10 @@ const screenRoutes = registry.filter(
   (entry): entry is ScreenRouteDefinition & { id: AppRouteId; screen: AppScreenId } => entry.kind === "screen"
 );
 
-export function routePath(routeId: AppRouteId, options: RouteLocationOptions = {}): string {
+export function routePath<RouteId extends AppRouteId>(
+  routeId: RouteId,
+  options: RouteLocationOptions<RouteId> = {}
+): string {
   const route = screenRoutes.find((candidate) => candidate.id === routeId);
   if (!route) return "/projects";
 
@@ -185,7 +243,7 @@ export function routePath(routeId: AppRouteId, options: RouteLocationOptions = {
       : route.legacyPath ?? "/projects";
   }
 
-  const search = buildRouteSearch(options.search);
+  const search = buildRouteSearch(routeId, options.query);
   const hash = buildRouteHash(options.hash);
   return `${pathname}${search}${hash}`;
 }
@@ -227,7 +285,7 @@ export function decodeRouteLocation(pathname: string): DecodedRouteLocation {
       const match = matchRegisteredPath(pattern, pathname);
       if (!match.matched) continue;
       if (match.projectMalformed) return { status: "malformed", reason: "project" };
-      return { status: "matched", routeId: route.id, projectId: match.projectId };
+      return { status: "matched", routeId: route.id as RegisteredRouteId, projectId: match.projectId };
     }
   }
   if (pathname === "/p" || pathname.startsWith("/p/")) {
@@ -258,15 +316,30 @@ export function currentScreenRouteId(pathname: string): AppRouteId | undefined {
 export function parseBoundedSearchParam(
   searchParams: URLSearchParams,
   key: string,
-  options: { maximumLength?: number; pattern?: RegExp } = {}
+  options: { maximumLength?: number; pattern?: RegExp; preserveWhitespace?: boolean } = {}
 ): string | undefined {
   const values = searchParams.getAll(key);
   if (values.length !== 1) return undefined;
-  const value = values[0]?.trim();
+  const rawValue = values[0];
+  if (!rawValue || !rawValue.trim()) return undefined;
+  const value = options.preserveWhitespace ? rawValue : rawValue.trim();
   const maximumLength = options.maximumLength ?? 256;
   if (!value || value.length > maximumLength) return undefined;
   if (options.pattern && !options.pattern.test(value)) return undefined;
   return value;
+}
+
+/** Parses only the keys owned by the matched route and drops malformed values. */
+export function decodeRouteQuery<RouteId extends AppRouteId>(
+  routeId: RouteId,
+  searchParams: URLSearchParams
+): RouteQueryById[RouteId] {
+  const result: Record<string, string> = {};
+  for (const [key, codec] of Object.entries(ROUTE_QUERY_CODECS[routeId])) {
+    const value = parseBoundedSearchParam(searchParams, key, codec);
+    if (value) result[key] = value;
+  }
+  return result as RouteQueryById[RouteId];
 }
 
 export function registeredRouteEntries(): readonly RouteRegistryEntry[] {
@@ -314,10 +387,7 @@ export function assertRouteRegistryIntegrity(): void {
 assertRouteRegistryIntegrity();
 
 function normalizeProjectId(input: string | undefined): string | undefined {
-  const value = input?.trim();
-  if (!value || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(value)) return undefined;
-  if (value === "." || value === "..") return undefined;
-  return value;
+  return projectIdValue(parseProjectId(input));
 }
 
 function safeDecodePathname(pathname: string): boolean {
@@ -365,15 +435,54 @@ function normalizePath(pathname: string): string {
   return pathname.replace(/\/+$/g, "") || "/";
 }
 
-function buildRouteSearch(values: RouteLocationOptions["search"]): string {
+interface RouteQueryFieldCodec {
+  readonly maximumLength?: number;
+  readonly pattern?: RegExp;
+  readonly preserveWhitespace?: boolean;
+}
+
+const ROUTE_QUERY_CODECS: Readonly<Record<AppRouteId, Readonly<Record<string, RouteQueryFieldCodec>>>> = {
+  projects: {},
+  setup: {},
+  dashboard: {},
+  repositories: {},
+  currentWork: {},
+  sessions: { session: { maximumLength: 256, preserveWhitespace: true } },
+  workstreams: { workstream: { maximumLength: 256, preserveWhitespace: true } },
+  docs: { doc: { maximumLength: 512, preserveWhitespace: true } },
+  diagrams: { doc: { maximumLength: 512, preserveWhitespace: true } },
+  inbox: { proposal: { maximumLength: 256, preserveWhitespace: true } },
+  graph: {
+    view: { maximumLength: 16, pattern: /^all$/ },
+    relationships: { maximumLength: 32, pattern: /^(?:deterministic|ai-reviewed)$/ },
+    focus: { maximumLength: 256, preserveWhitespace: true },
+    doc: { maximumLength: 512, preserveWhitespace: true },
+    edge: { maximumLength: 320, preserveWhitespace: true }
+  },
+  context: { bundle: { maximumLength: 256, preserveWhitespace: true } },
+  import: {},
+  search: { q: { maximumLength: 512 } },
+  settings: {},
+  assistant: {},
+  backups: {},
+  trash: { item: { maximumLength: 256, preserveWhitespace: true } }
+};
+
+function buildRouteSearch<RouteId extends AppRouteId>(
+  routeId: RouteId,
+  values: RouteQueryById[RouteId] | undefined
+): string {
   if (!values) return "";
   const params = new URLSearchParams();
-  for (const key of Object.keys(values).sort()) {
-    if (!/^[a-z][A-Za-z0-9_-]{0,39}$/.test(key)) continue;
-    const rawValue = values[key];
+  const codecs = ROUTE_QUERY_CODECS[routeId];
+  const record = values as Readonly<Record<string, string | undefined>>;
+  for (const key of Object.keys(codecs).sort()) {
+    const rawValue = record[key];
     if (rawValue === undefined || rawValue === null || rawValue === "") continue;
     const value = String(rawValue);
-    if (value.length > 512) continue;
+    const codec = codecs[key];
+    if ((codec.maximumLength && value.length > codec.maximumLength) ||
+        (codec.pattern && !codec.pattern.test(value))) continue;
     params.set(key, value);
   }
   const search = params.toString();

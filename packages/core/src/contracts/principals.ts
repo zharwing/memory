@@ -16,6 +16,7 @@ import {
   stringSchema,
   type RuntimeSchema
 } from "./runtime-schema.js";
+import { projectIdSchema } from "./identifiers.js";
 
 export const ALL_PRINCIPAL_AUDIENCES = [
   "browser",
@@ -35,7 +36,7 @@ const principalClaimsWireSchema = objectSchema({
   sessionOwner: stringSchema,
   audience: enumSchema(ALL_PRINCIPAL_AUDIENCES),
   operations: arraySchema(stringSchema),
-  projectId: nullableSchema(stringSchema),
+  projectId: nullableSchema(projectIdSchema),
   issuedAt: stringSchema,
   expiresAt: stringSchema,
   authorityEpoch: integerSchema,

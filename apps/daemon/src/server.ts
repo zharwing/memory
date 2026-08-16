@@ -26,6 +26,7 @@ import {
 import { dispatchAgentRpc, dispatchAuthorizedAgentRpc } from "./agent-facade.js";
 import { type DaemonConfig } from "./config.js";
 import { MemoryService } from "./memory-service.js";
+import { createDaemonApplication } from "./application/create-daemon-application.js";
 import { dispatchAuthorizedRpc, dispatchRpc } from "./rpc.js";
 import {
   AuthorityService,
@@ -156,17 +157,17 @@ export function createAgentCredential(): string {
 
 export function createDaemonServer(
   config: DaemonConfig,
-  serviceOrDependencies: MemoryService | DaemonServerDependencies = new MemoryService({ memoryRoot: config.memoryRoot })
+  serviceOrDependencies: MemoryService | DaemonServerDependencies = createDaemonApplication(config)
 ) {
   assertSecureDaemonConfig(config);
   const dependencies = isDependencies(serviceOrDependencies)
     ? serviceOrDependencies
     : { service: serviceOrDependencies };
-  const service = dependencies.service ?? new MemoryService({ memoryRoot: config.memoryRoot });
+  const service = dependencies.service ?? createDaemonApplication(config);
   const admission = dependencies.admission ?? createDaemonAdmissionServices(config);
   const allowPersonalPreviewTokenFallback = config.profile === "personal-preview" && config.authMode === "none";
 
-  return http.createServer(async (request, response) => {
+  const server = http.createServer(async (request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     response.setHeader("cache-control", "no-store");
 
@@ -327,6 +328,10 @@ export function createDaemonServer(
       sendError(response, 500, "internal");
     }
   });
+  server.once("close", () => {
+    if (typeof service.dispose === "function") service.dispose();
+  });
+  return server;
 }
 
 /** Trusted launcher hook. No HTTP endpoint issues bootstrap codes. */
@@ -583,9 +588,8 @@ function admissionContext(
     readonly projectGeneration?: string;
   }
 ) {
-  const idempotencyKey = overrides === undefined
-    ? headerValue(request, "x-idempotency-key")
-    : overrides.idempotencyKey;
+  const idempotencyKey = overrides?.idempotencyKey
+    ?? headerValue(request, "x-idempotency-key");
   const correlationId = headerValue(request, "x-correlation-id");
   return {
     endpoint,

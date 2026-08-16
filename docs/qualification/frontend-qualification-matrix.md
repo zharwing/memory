@@ -5,10 +5,10 @@ Snapshot: 2026-08-12 documentation reconciliation.
 `source_present` means the relevant implementation/check exists in source.
 `local_pass` means the gate passed on the uncommitted 2026-08-12 working tree
 with supported Node 24.19.0; it improves implementation confidence but is not
-release evidence. `pass` remains reserved for evidence bound to one branch,
-commit, lockfile digest, profile, toolchain, artifact digest, command, exit
-code, and timestamp. `deferred_platform_validation` is honest incompleteness,
-not pass.
+release evidence. `pass` is reserved for evidence bound to one branch, commit,
+lockfile digest, profile, toolchain, artifact digest, command, exit code, and
+timestamp. `deferred_platform_validation` means the check has not been run yet.
+It is not a pass.
 
 Local automated validation was run after the source-only reconciliation. It
 does not create a release approval because the tree is uncommitted and native,
@@ -18,7 +18,7 @@ device, live-provider, installer, signing, and rollback gates remain open.
 | --- | --- | --- | --- |
 | Contracts and clients | `source_present`: registered operations, runtime codecs, typed transports | `local_pass`: workspace TypeScript build and consolidated vectors; 331 passed, 0 failed, 2 intentional skips | commit-bound supported Node/pnpm evidence |
 | Async state | `source_present`: project generations, cancellation, idempotency, reconciliation | `local_pass`: race, stale-result, polling, idempotency, and outcome-unknown vectors | offline/resume/reconnect soak |
-| Browser authority | `source_present`: bootstrap, cookie/CSRF, rotation, project binding | `local_pass`: Host/Origin/session matrix; headless Edge verified truthful no-daemon startup recovery | live supported Chrome/Edge authority flow |
+| Browser authority | `source_present`: bootstrap, cookie/CSRF, rotation, project binding | `local_pass`: Host/Origin/session matrix; headless Edge confirmed the UI reports a missing daemon accurately at startup | live supported Chrome/Edge authority flow |
 | Native desktop | `source_present`: Rust-owned daemon/credential and one invoke command | `local_pass`: six Rust unit tests plus Tauri compile/package mechanics with inert sidecar fixture | `deferred_platform_validation`: real packaged Windows WebView/daemon sidecar, signing, and installer smoke |
 | Privacy and agent projection | `source_present`: schemas, visibility policy, result projection | `local_pass`: canaries, operation matrix, ownership races, and projection completeness | production-composed MCP daily loop |
 | Provider egress | `source_present`: write-only secret store and destination policy | `local_pass`: non-exposure, DNS, redirect, private-address, and bounded-output vectors | approved loopback and remote provider smokes |

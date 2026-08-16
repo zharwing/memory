@@ -1,4 +1,10 @@
-import type { ProjectGraph, ProposedMemoryUpdate } from "@zharwing/memory-core";
+import type {
+  OperationName,
+  OperationOutput,
+  ProjectGraph,
+  ProposedMemoryUpdate
+} from "@zharwing/memory-core";
+import type { ExecuteCommandOptions } from "./operation-coordinator.js";
 import type {
   ProjectScopePort,
   ScopedProjectPort,
@@ -24,6 +30,9 @@ export interface StoreSchedulerPort {
  * never the complete RootStore or infrastructure service graph.
  */
 export interface StoreCoordinatorPort {
+  executeCommand<Name extends OperationName>(
+    options: ExecuteCommandOptions<Name>
+  ): Promise<OperationOutput<Name> | undefined>;
   refreshAll(): Promise<void>;
   refreshProjects(): Promise<void>;
   refreshProjectSummary(): Promise<void>;
@@ -39,33 +48,18 @@ export interface StoreCoordinatorPort {
   replaceGraph(data: ProjectGraph): void;
 }
 
-export type ProjectStoreCoordinator = Pick<
-  StoreCoordinatorPort,
-  "resetProjectTransient" | "refreshAll" | "clearProjectResources" | "refreshTrash" | "refreshGraph"
->;
-export type SessionStoreCoordinator = Pick<
-  StoreCoordinatorPort,
-  "refreshProjectSummary" | "refreshGraph" | "refreshTrash"
->;
-export type DocsStoreCoordinator = Pick<
-  StoreCoordinatorPort,
-  "refreshProjectSummary" | "refreshGraph" | "refreshTrash"
->;
-export type WorkstreamStoreCoordinator = DocsStoreCoordinator;
-export type InboxStoreCoordinator = Pick<
-  StoreCoordinatorPort,
-  "refreshProjectSummary" | "refreshTrash" | "refreshDocs" | "refreshGraph"
->;
-export type GraphStoreCoordinator = Pick<
-  StoreCoordinatorPort,
-  "refreshProjects" | "refreshProjectSummary" | "refreshInbox"
->;
-export type AssistantStoreCoordinator = Pick<
-  StoreCoordinatorPort,
-  "refreshProjects" | "refreshProjectSummary"
->;
+export type ProjectStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand" | "refreshAll">;
+export type SessionStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand">;
+export type DocsStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand">;
+export type WorkstreamStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand">;
+export type InboxStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand">;
+export type GraphStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand"> &
+  Partial<Pick<StoreCoordinatorPort, "refreshProjects" | "refreshProjectSummary" | "refreshInbox">>;
+export type AssistantStoreCoordinator = Pick<StoreCoordinatorPort, "executeCommand"> &
+  Partial<Pick<StoreCoordinatorPort, "refreshProjects" | "refreshProjectSummary">>;
 export type SemanticStoreCoordinator = Pick<
   StoreCoordinatorPort,
+  | "executeCommand"
   | "graphRelationshipMode"
   | "replaceInboxItems"
   | "replaceGraph"
@@ -75,5 +69,5 @@ export type SemanticStoreCoordinator = Pick<
 >;
 export type SystemStoreCoordinator = Pick<
   StoreCoordinatorPort,
-  "refreshProjects" | "refreshAll" | "refreshDocs" | "refreshSessions" | "refreshProjectSummary" | "refreshGraph"
+  "executeCommand"
 >;

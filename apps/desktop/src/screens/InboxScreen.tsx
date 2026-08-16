@@ -5,7 +5,7 @@ import { KeyValue, Panel, RawTextPreview, Screen } from "../components/layout.js
 import { LibraryTabs } from "../components/SectionTabs.js";
 import { DataTable } from "../components/DataTable.js";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton.js";
-import { useCloseWhenMissing, useSearchParamState } from "../hooks/useSearchParamState.js";
+import { useCloseWhenMissing, useRouteQueryParam } from "../hooks/useSearchParamState.js";
 import { graphRulesFromProposalPatch } from "../utils/graph-proposals.js";
 import { semanticEdgesFromProposalPatch, type SemanticGraphProposalPatch } from "@zharwing/memory-semantic-graph/proposals";
 import { formatConfidence, formatShortDateTime, timestampRenderers, titleCaseSlug } from "../utils/format.js";
@@ -17,7 +17,7 @@ type SemanticProposalEdge = SemanticGraphProposalPatch["edges"][number];
 export const InboxScreen = observer(function InboxScreen() {
   const store = useStore();
   const inboxState = store.inbox.inboxResource.state;
-  const [selectedProposalId, setProposalSearchParam] = useSearchParamState("proposal");
+  const [selectedProposalId, setProposalSearchParam] = useRouteQueryParam("inbox", "proposal");
   const visibleInbox = useMemo(() => currentInboxItems(store.inbox.items), [store.inbox.items]);
   const selectedProposal = visibleInbox.find((item) => item.id === selectedProposalId) || visibleInbox[0];
   const graphProposalRules = selectedProposal?.type === "graph-update"

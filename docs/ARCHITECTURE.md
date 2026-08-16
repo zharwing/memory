@@ -76,6 +76,18 @@ wildcard recovery, and route-heading focus derive from one registry. URL
 project changes are accepted only after the matching project generation is
 current, preventing a stale route/project screen from mounting.
 
+The desktop composition creates one runtime-owned graph of operation ports,
+stores, project/application scopes, diagnostics, persistence adapters, and
+invalidation transport. Screens borrow narrow feature state and actions; they
+do not construct clients or coordinate document, semantic, assistant, or graph
+work. `RootStore` remains a compatibility facade for existing UI call sites.
+
+Project and document identifiers are decoded at operation, registry, pointer,
+and route boundaries. Existing identifiers remain byte-for-byte readable;
+normalization is limited to new project creation. Documents without stored IDs
+use deterministic legacy identity derived from the exact project ID and
+normalized relative path. Ordinary reads never materialize identity.
+
 Graph layout, render capability, persistence, interaction state,
 virtualization, semantic review, and structured accessibility are separate
 adapters. The visual and structured views consume the same bounded projection;
@@ -133,11 +145,24 @@ The adapter is intentionally thin and focused. Project administration,
 document editing, imports, graph settings, backups, and Trash remain in the UI,
 CLI, and authenticated daemon administration API.
 
+The daemon composition root selects the registry, document repository, session
+authority, provider-secret owner, and other collaborators once, then injects
+them into the compatibility `MemoryService` facade. Storage compatibility
+functions delegate to repository owners, while graph projection and graph-rule
+normalization live in `@zharwing/memory-graph`.
+
+Operation dispatch is an exhaustive registry projection of the core operation
+manifest. HTTP admission, RPC compatibility, privacy projection, and domain
+services remain separate concerns; the handler registry only maps an admitted
+operation to its single service owner. The daemon application owns one
+`DocumentRepository` and one `SessionRepository` lifetime, including bounded
+session-summary cache disposal.
+
 ## Shared Packages
 
 | Package | Responsibility |
 | --- | --- |
-| `@zharwing/memory-core` | Domain types, default policies, IDs, project model helpers |
+| `@zharwing/memory-core` | Domain types, default policies, validated IDs, operation/resource registry |
 | `@zharwing/memory-store` | Markdown/frontmatter IO, registry, project workspace, sessions, docs, inbox, bundles, backups, Trash, index |
 | `@zharwing/memory-privacy` | Visibility gates, ignore patterns, never-send patterns, secret scanning, redaction |
 | `@zharwing/memory-context-engine` | Context selection, token estimates, inclusion/exclusion reasons, bundle Markdown |
@@ -148,6 +173,12 @@ CLI, and authenticated daemon administration API.
 | `@zharwing/memory-api-client` | Shared daemon RPC client |
 | `@zharwing/memory-mcp` | Tool definitions and dispatch |
 | `@zharwing/memory-theme` | Graphite + Copper tokens |
+
+Cross-tab invalidation messages are versioned, body-free, project-scoped, and
+bounded by event identity. BroadcastChannel is preferred in browser mode with
+storage events as a fallback; focus/resume recovery remains authoritative when
+an event is dropped. Physical preference keys, including
+`aimem.graph.relationshipMode` and `aimem.graph.positions.d3.v2`, remain stable.
 
 ## Storage Architecture
 
@@ -289,8 +320,8 @@ treating build failures as product regressions.
 
 The dependency install, workspace typecheck, deterministic tests, production
 web build, source checks, public-doc checks, accessibility source checks, and
-truthful no-daemon browser recovery smoke have been completed locally in the
-shared Windows checkout. Remaining productization work includes:
+the no-daemon browser recovery smoke have all been run locally in the shared
+Windows checkout. Still to do:
 
 1. Extend browser-level desktop UI coverage from startup recovery to critical
    workflows with a live daemon.

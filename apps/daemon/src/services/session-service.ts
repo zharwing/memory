@@ -1,20 +1,9 @@
 import type { DurableDomainEffect, ProjectRegistry } from "@zharwing/memory-store";
+import { SessionRepository } from "@zharwing/memory-store";
 import {
   DomainEffectOutcomeUnknownError,
   assertDurableDomainEffect,
-  assertSessionDomainEffect,
-  closeSession as storageCloseSession,
-  getActiveSession,
-  getSession,
-  listProjectSessionSummaries,
-  listProjectSessions,
   movePathToTrash,
-  saveCheckpoint,
-  sessionDomainRevision,
-  sessionDomainEffectStatus,
-  startSession,
-  updateSessionGraphVisibility as storageUpdateSessionGraphVisibility,
-  updateSessionSummary
 } from "@zharwing/memory-store";
 import {
   callAiProviderJson,
@@ -76,7 +65,8 @@ export class SessionService {
   constructor(
     private readonly registry: ProjectRegistry,
     private readonly sessionAuthority: SessionAuthorityStore,
-    private readonly providerSecrets?: ProviderSecretService
+    private readonly providerSecrets?: ProviderSecretService,
+    private readonly sessions: SessionRepository = new SessionRepository()
   ) {}
 
   async startSession(params: StartSessionParams) {
@@ -104,7 +94,7 @@ export class SessionService {
     // Runs before the resume check on purpose: yesterday's abandoned session
     // must not be handed back as today's active session.
     await this.autoCloseStaleSessions(project);
-    const active = await getActiveSession(project);
+    const active = await this.sessions.getActiveSession(project);
     if (active && !params.taskTitle) return active;
 
     return this.createSession(project, {
@@ -143,7 +133,7 @@ export class SessionService {
    */
   async autoCloseStaleSessions(project: Project): Promise<Session[]> {
     const today = localDayKey();
-    const summaries = await listProjectSessionSummaries(project);
+    const summaries = await this.sessions.listProjectSessionSummaries(project);
     const stale = summaries.filter((session) => {
       if (session.status !== "active") return false;
       const day = localDayKey(session.updated || session.started);
@@ -153,14 +143,14 @@ export class SessionService {
     const closed: Session[] = [];
     for (const summary of stale) {
       try {
-        const session = await getSession(project, summary.id);
+        const session = await this.sessions.getSession(project, summary.id);
         if (!session) continue;
         // Summarized as it will be stored, so the TLDR does not claim the
         // session is still active.
         const draft = session.summaryGeneratedAt
           ? undefined
           : summarizeSessionMetadataDeterministically({ ...session, status: "closed" });
-        closed.push(await storageCloseSession({
+        closed.push(await this.sessions.closeSession({
           project,
           sessionId: session.id,
           summary: draft?.summary,
@@ -178,7 +168,7 @@ export class SessionService {
   }
 
   private async createSession(project: Project, params: StartSessionParams) {
-    return startSession({
+    return this.sessions.startSession({
       project,
       repoPath: params.repoPath || project.repos[0]?.path || process.cwd(),
       workingDirectory: params.workingDirectory || process.cwd(),
@@ -194,7 +184,7 @@ export class SessionService {
 
   async listSessions(params: { projectId: string; limit?: number }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const sessions = await listProjectSessionSummaries(project);
+    const sessions = await this.sessions.listProjectSessionSummaries(project);
     return this.sessionAuthority.applyVisibilities(
       project,
       sessions.slice(0, normalizeLimit(params.limit, sessions.length, 200))
@@ -203,13 +193,13 @@ export class SessionService {
 
   async getActiveSession(params: { projectId: string }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const session = await getActiveSession(project);
+    const session = await this.sessions.getActiveSession(project);
     return session ? this.sessionAuthority.applyVisibility(project, session) : session;
   }
 
   async getLatestSession(params: { projectId: string }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const session = (await listProjectSessionSummaries(project))[0];
+    const session = (await this.sessions.listProjectSessionSummaries(project))[0];
     return session ? this.sessionAuthority.applyVisibility(project, session) : session;
   }
 
@@ -221,7 +211,7 @@ export class SessionService {
     cursor?: string;
   }): Promise<SessionDetail> {
     const project = await resolveProject(this.registry, params.projectId);
-    const summaries = await listProjectSessionSummaries(project);
+    const summaries = await this.sessions.listProjectSessionSummaries(project);
     const summary = summaries.find((session) => session.id === params.sessionId);
     if (!summary) throw new Error(`Session not found: ${params.sessionId}`);
     const requested = normalizeDetailSections(params.sections);
@@ -232,7 +222,7 @@ export class SessionService {
     // Authority is bound to the complete immutable classified revision, not
     // the summary timestamp. Always load the full record before attaching
     // visibility so a later body-only/control-plane write fails closed.
-    const fullSession = await getSession(project, params.sessionId);
+    const fullSession = await this.sessions.getSession(project, params.sessionId);
     if (!fullSession) {
       throw new Error(`Session not found: ${params.sessionId}`);
     }
@@ -284,7 +274,7 @@ export class SessionService {
   }) {
     const project = await resolveProject(this.registry, params.projectId);
     const { effectBaseRevision, ...input } = params;
-    return saveCheckpoint({
+    return this.sessions.saveCheckpoint({
       project,
       ...input,
       ...(effectBaseRevision ? { expectedRevision: effectBaseRevision } : {})
@@ -307,7 +297,7 @@ export class SessionService {
     effect?: DurableDomainEffect;
   }): Promise<Session> {
     const project = await resolveProject(this.registry, params.projectId);
-    const session = await getSession(project, params.sessionId);
+    const session = await this.sessions.getSession(project, params.sessionId);
     if (!session) throw new Error(`Session not found: ${params.sessionId}`);
     if (
       params.writtenSession.id !== params.sessionId ||
@@ -323,7 +313,7 @@ export class SessionService {
           ? "memory.save_checkpoint"
           : "memory.close_session";
       assertDurableDomainEffect(params.effect, project, expectedOperation);
-      assertSessionDomainEffect(session, params.effect);
+      this.sessions.assertSessionDomainEffect(session, params.effect);
     }
     if (params.provenance === "agent-start-session") {
       if (params.writeGuard) throw new Error("Agent start classification cannot use an existing-session guard.");
@@ -355,7 +345,7 @@ export class SessionService {
         );
       }
     }
-    const summary = (await listProjectSessionSummaries(project))
+    const summary = (await this.sessions.listProjectSessionSummaries(project))
       .find((candidate) => candidate.id === session.id);
     if (!summary) throw new Error(`Session summary not found: ${params.sessionId}`);
     await this.sessionAuthority.recordAgentOwnedRevision(
@@ -364,7 +354,7 @@ export class SessionService {
       summary,
       params.owner,
       params.provenance,
-      () => getSession(project, session.id)
+      () => this.sessions.getSession(project, session.id)
     );
     const classified = await this.sessionAuthority.applyVisibility(project, session);
     return {
@@ -384,7 +374,7 @@ export class SessionService {
     effect?: DurableDomainEffect;
   }): Promise<AgentSessionWriteGuard> {
     const project = await resolveProject(this.registry, params.projectId);
-    const session = await getSession(project, params.sessionId);
+    const session = await this.sessions.getSession(project, params.sessionId);
     if (session && params.effect?.mode === "reconcile") {
       if (
         params.effect.operation !== "memory.save_checkpoint" &&
@@ -393,13 +383,13 @@ export class SessionService {
         throw new Error("Agent session reconciliation operation is invalid.");
       }
       assertDurableDomainEffect(params.effect, project, params.effect.operation);
-      if (sessionDomainEffectStatus(session, params.effect) === "committed") {
+      if (this.sessions.sessionDomainEffectStatus(session, params.effect) === "committed") {
         return Object.freeze({
           projectId: project.id,
           sessionId: session.id,
           owner: params.owner,
           baseSession: session,
-          baseRevision: sessionDomainRevision(session),
+          baseRevision: this.sessions.sessionDomainRevision(session),
           reconciledEffectId: params.effect.effectId
         });
       }
@@ -416,7 +406,7 @@ export class SessionService {
       sessionId: session.id,
       owner: params.owner,
       baseSession: session,
-      baseRevision: sessionDomainRevision(session)
+      baseRevision: this.sessions.sessionDomainRevision(session)
     });
   }
 
@@ -424,12 +414,24 @@ export class SessionService {
     projectId: string;
     sessionId: string;
     includeInGraph: boolean;
+    compact?: boolean;
   }) {
     if (typeof params.includeInGraph !== "boolean") {
       throw new Error("includeInGraph must be a boolean");
     }
     const project = await resolveProject(this.registry, params.projectId);
-    return storageUpdateSessionGraphVisibility({ project, ...params });
+    const updated = await this.sessions.updateSessionGraphVisibility({
+      project,
+      sessionId: params.sessionId,
+      includeInGraph: params.includeInGraph
+    });
+    if (params.compact && updated.filePath) {
+      return this.sessionAuthority.applyVisibility(
+        project,
+        await this.sessions.readSessionSummary(updated.filePath, project.memoryRoot)
+      );
+    }
+    return this.sessionAuthority.applyVisibility(project, updated);
   }
 
   async closeSession(params: {
@@ -439,7 +441,12 @@ export class SessionService {
     nextSteps?: string[];
     blockers?: string[];
     workstreamIds?: string[];
+    includeInGraph?: boolean;
+    compact?: boolean;
     autoSummarize?: boolean;
+    timeoutMs?: number;
+    maxOutputTokens?: number;
+    jsonMode?: boolean;
     effect?: DurableDomainEffect;
     effectBaseRevision?: string;
   }) {
@@ -447,21 +454,67 @@ export class SessionService {
     if (params.effect && params.autoSummarize !== false) {
       throw new Error("Durable agent close cannot include a follow-up summary mutation.");
     }
-    const { effectBaseRevision, ...input } = params;
-    const closed = await storageCloseSession({
-      project,
-      ...input,
-      ...(effectBaseRevision ? { expectedRevision: effectBaseRevision } : {})
-    });
     if (params.autoSummarize === false) {
+      const closed = await this.sessions.closeSession({
+        project,
+        sessionId: params.sessionId,
+        summary: params.summary,
+        nextSteps: params.nextSteps,
+        blockers: params.blockers,
+        workstreamIds: params.workstreamIds,
+        includeInGraph: params.includeInGraph,
+        effect: params.effect,
+        ...(params.effectBaseRevision ? { expectedRevision: params.effectBaseRevision } : {})
+      });
+      if (params.compact && closed.filePath) {
+        return this.sessionAuthority.applyVisibility(
+          project,
+          await this.sessions.readSessionSummary(closed.filePath, project.memoryRoot)
+        );
+      }
       return this.sessionAuthority.applyVisibility(project, closed);
     }
-    const generated = await this.generateSessionSummary({
-      projectId: params.projectId,
-      sessionId: closed.id,
-      force: true
+
+    const session = await this.sessions.getSession(project, params.sessionId);
+    if (!session) throw new Error(`Session not found: ${params.sessionId}`);
+    const summaryInput: Session = {
+      ...session,
+      status: "closed",
+      summary: params.summary?.trim() || session.summary,
+      nextSteps: params.nextSteps ?? session.nextSteps,
+      blockers: params.blockers ?? session.blockers,
+      includeInGraph: params.includeInGraph ?? session.includeInGraph,
+      workstreamIds: mergeUniqueStrings(session.workstreamIds, params.workstreamIds || [])
+    };
+    const generated = await summarizeSessionForStorage(
+      project,
+      summaryInput,
+      params,
+      this.providerSecrets
+    );
+    const closed = await this.sessions.closeSession({
+      project,
+      sessionId: params.sessionId,
+      summary: generated.draft.summary,
+      closeoutSummary: params.summary,
+      topics: generated.draft.topics,
+      nextSteps: generated.draft.nextSteps,
+      blockers: generated.draft.blockers,
+      touchedFiles: generated.draft.touchedFiles,
+      workstreamIds: params.workstreamIds,
+      includeInGraph: params.includeInGraph,
+      summaryGeneratedAt: nowIso(),
+      summarySource: generated.source,
+      summaryModel: generated.model,
+      expectedRevision: this.sessions.sessionDomainRevision(session)
     });
-    return this.sessionAuthority.applyVisibility(project, generated.session);
+    if (params.compact && closed.filePath) {
+      return this.sessionAuthority.applyVisibility(
+        project,
+        await this.sessions.readSessionSummary(closed.filePath, project.memoryRoot)
+      );
+    }
+    return this.sessionAuthority.applyVisibility(project, closed);
   }
 
   async generateSessionSummary(params: {
@@ -473,7 +526,7 @@ export class SessionService {
     jsonMode?: boolean;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const session = await getSession(project, params.sessionId);
+    const session = await this.sessions.getSession(project, params.sessionId);
     if (!session) throw new Error(`Session not found: ${params.sessionId}`);
     if (!params.force && session.summaryGeneratedAt && session.summary) {
       return { session, generated: false, source: session.summarySource || "manual" };
@@ -485,7 +538,7 @@ export class SessionService {
       params,
       this.providerSecrets
     );
-    const updated = await updateSessionSummary({
+    const updated = await this.sessions.updateSessionSummary({
       project,
       sessionId: session.id,
       summary: draft.summary,
@@ -515,7 +568,7 @@ export class SessionService {
     jsonMode?: boolean;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const sessions = await listProjectSessions(project);
+    const sessions = await this.sessions.listProjectSessions(project);
     const mode = params.mode || "missing";
     const candidates = sessions
       .filter((session) => mode === "all" || !session.summaryGeneratedAt)
@@ -540,7 +593,7 @@ export class SessionService {
 
   async deleteSession(params: { projectId: string; sessionId: string }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const session = await getSession(project, params.sessionId);
+    const session = await this.sessions.getSession(project, params.sessionId);
     if (!session?.filePath) throw new Error(`Session not found: ${params.sessionId}`);
     return movePathToTrash({
       memoryRoot: this.registry.memoryRoot,

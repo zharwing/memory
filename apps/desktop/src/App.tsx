@@ -69,10 +69,19 @@ export const App = observer(function App() {
   }, [decodedRoute.status, store, routeProjectId]);
 
   useEffect(() => {
+    let observed = false;
+    let wasForeground = false;
     const updateForeground = () => {
-      store.setForeground(document.visibilityState !== "hidden" && document.hasFocus());
+      const foreground = document.visibilityState !== "hidden" && document.hasFocus();
+      store.setForeground(foreground);
+      if (observed && foreground && !wasForeground) void store.revalidateOnResume();
+      observed = true;
+      wasForeground = foreground;
     };
-    const markBackground = () => store.setForeground(false);
+    const markBackground = () => {
+      wasForeground = false;
+      store.setForeground(false);
+    };
     updateForeground();
     window.addEventListener("focus", updateForeground);
     window.addEventListener("blur", markBackground);
@@ -90,8 +99,7 @@ export const App = observer(function App() {
   const routeProjectExists = routeProjectId
     ? store.projects.list.some((project) => project.id === routeProjectId)
     : true;
-  const routeScopeAccepted =
-    !routeProjectId || routeProjectId === store.projectScope.currentProjectId();
+  const routeScopeAccepted = store.isProjectRouteReady(routeProjectId);
 
   if (decodedRoute.status === "malformed") {
     return <Shell><MalformedRouteScreen /></Shell>;
@@ -109,44 +117,54 @@ export const App = observer(function App() {
 
   const projectState = store.projects.projectsState;
   if ((projectState.status === "idle" || projectState.status === "loading") && store.projects.list.length === 0) {
-    return <div className="route-loading" role="status" aria-live="polite">Loading projects...</div>;
+    return (
+      <Shell>
+        <div className="route-loading" role="status" aria-live="polite">Loading projects...</div>
+      </Shell>
+    );
   }
   if (projectState.status === "failure" && !projectState.previous) {
     const recovery = store.recoveryState;
     if (recovery.status === "locked") {
       return (
-        <StartupRecoverySurface>
-          <RecoveryPanel
-            surface="session"
-            error={recovery.error}
-            title="Local session needs a refresh"
-            detail="Reload the app to reconnect to the local service."
-          />
-        </StartupRecoverySurface>
+        <Shell>
+          <StartupRecoverySurface>
+            <RecoveryPanel
+              surface="session"
+              error={recovery.error}
+              title="Local session needs a refresh"
+              detail="Reload the app to reconnect to the local service."
+            />
+          </StartupRecoverySurface>
+        </Shell>
       );
     }
     if (recovery.status === "offline") {
       return (
-        <StartupRecoverySurface>
-          <RecoveryPanel
-            surface="resource"
-            error={recovery.error}
-            title="Local service unavailable"
-            detail="No current project observation is available. Start the local service and try again."
-            onRecover={() => store.recover()}
-          />
-        </StartupRecoverySurface>
+        <Shell>
+          <StartupRecoverySurface>
+            <RecoveryPanel
+              surface="resource"
+              error={recovery.error}
+              title="Local service unavailable"
+              detail="No current project observation is available. Start the local service and try again."
+              onRecover={() => store.recover()}
+            />
+          </StartupRecoverySurface>
+        </Shell>
       );
     }
     return (
-      <StartupRecoverySurface>
-        <RecoveryPanel
-          surface="resource"
-          error={projectState.error}
-          title="Projects could not be loaded"
-          onRecover={() => store.projects.load(routeProjectId)}
-        />
-      </StartupRecoverySurface>
+      <Shell>
+        <StartupRecoverySurface>
+          <RecoveryPanel
+            surface="resource"
+            error={projectState.error}
+            title="Projects could not be loaded"
+            onRecover={() => store.projects.load(routeProjectId)}
+          />
+        </StartupRecoverySurface>
+      </Shell>
     );
   }
 
@@ -158,9 +176,11 @@ export const App = observer(function App() {
   // mount a project screen until its exact URL scope generation is accepted.
   if (!routeScopeAccepted) {
     return (
-      <div className="route-loading" role="status" aria-live="polite" aria-busy="true">
-        Switching project...
-      </div>
+      <Shell>
+        <div className="route-loading" role="status" aria-live="polite" aria-busy="true">
+          Switching project...
+        </div>
+      </Shell>
     );
   }
 
@@ -178,10 +198,10 @@ export const App = observer(function App() {
 
 function StartupRecoverySurface({ children }: { children: ReactNode }) {
   return (
-    <main className="route-screen-frame startup-recovery">
-      <h1>Zharwing Memory</h1>
+    <section className="route-screen-frame startup-recovery" aria-labelledby="startup-recovery-title">
+      <h1 id="startup-recovery-title">Zharwing Memory</h1>
       {children}
-    </main>
+    </section>
   );
 }
 

@@ -1,5 +1,10 @@
 import { useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  decodeRouteQuery,
+  type AppRouteId,
+  type RouteQueryById
+} from "../app/routing/route-registry.js";
 
 interface SearchParamSetOptions {
   replace?: boolean;
@@ -10,11 +15,16 @@ interface SearchParamSetOptions {
  * `value` is derived from the current URL (empty string when absent);
  * `setValue(null)` or `setValue("")` removes the key.
  */
-export function useSearchParamState(
-  key: string
+export function useRouteQueryParam<
+  RouteId extends AppRouteId,
+  Key extends keyof RouteQueryById[RouteId] & string
+>(
+  routeId: RouteId,
+  key: Key
 ): [string, (value: string | null, options?: SearchParamSetOptions) => void] {
   const [searchParams, setSearchParams] = useSearchParams();
-  const value = searchParams.get(key) || "";
+  const decoded = decodeRouteQuery(routeId, searchParams);
+  const value = typeof decoded[key] === "string" ? decoded[key] as string : "";
 
   const setValue = useCallback(
     (nextValue: string | null, options?: SearchParamSetOptions) => {
@@ -36,19 +46,25 @@ export function useSearchParamState(
  * Patch semantics per key: string sets, `null`/empty string deletes,
  * `undefined` leaves the key untouched.
  */
-export function useSearchParamsPatch(): [
+export type RouteQueryPatch<RouteId extends AppRouteId> = {
+  -readonly [Key in keyof RouteQueryById[RouteId]]?: string | null;
+};
+
+export function useRouteQueryPatch<RouteId extends AppRouteId>(routeId: RouteId): [
   URLSearchParams,
-  (patch: Record<string, string | null | undefined>, options?: SearchParamSetOptions) => void
+  RouteQueryById[RouteId],
+  (patch: RouteQueryPatch<RouteId>, options?: SearchParamSetOptions) => void
 ] {
   const [searchParams, setSearchParams] = useSearchParams();
+  const query = decodeRouteQuery(routeId, searchParams);
 
   const patchSearchParams = useCallback(
-    (patch: Record<string, string | null | undefined>, options?: SearchParamSetOptions) => {
+    (patch: RouteQueryPatch<RouteId>, options?: SearchParamSetOptions) => {
       setSearchParams((current) => {
         const nextParams = new URLSearchParams(current);
         for (const [key, value] of Object.entries(patch)) {
           if (value === undefined) continue;
-          if (value) nextParams.set(key, value);
+          if (value) nextParams.set(key, String(value));
           else nextParams.delete(key);
         }
         return nextParams;
@@ -57,7 +73,7 @@ export function useSearchParamsPatch(): [
     [setSearchParams]
   );
 
-  return [searchParams, patchSearchParams];
+  return [searchParams, query, patchSearchParams];
 }
 
 /**

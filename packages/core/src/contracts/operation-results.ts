@@ -25,6 +25,7 @@ import {
   unionSchema,
   type RuntimeSchema
 } from "./runtime-schema.js";
+import { documentIdSchema, projectIdSchema } from "./identifiers.js";
 import {
   contextExcludedItemSchema,
   documentStatusSchema,
@@ -169,7 +170,7 @@ const semanticExtractionPlanChunkResultSchema: RuntimeSchema<SemanticExtractionP
 
 const semanticExtractionPlanDocumentResultSchema: RuntimeSchema<SemanticExtractionPlanDocumentResult> = objectSchema(
   {
-    documentId: stringSchema,
+    documentId: documentIdSchema,
     nodeId: stringSchema,
     title: stringSchema,
     type: documentTypeSchema,
@@ -191,7 +192,7 @@ const semanticExtractionPlanDocumentResultSchema: RuntimeSchema<SemanticExtracti
 
 const semanticExtractionPlanResultSchema: RuntimeSchema<SemanticExtractionPlanResult> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     generated: stringSchema,
     documents: arraySchema(semanticExtractionPlanDocumentResultSchema),
     excluded: arraySchema(contextExcludedItemSchema),
@@ -241,8 +242,8 @@ export interface SemanticCandidateIndexResult {
 const semanticRelationshipCandidateResultSchema: RuntimeSchema<SemanticRelationshipCandidateResult> = objectSchema(
   {
     id: stringSchema,
-    projectId: stringSchema,
-    sourceDocumentId: stringSchema,
+    projectId: projectIdSchema,
+    sourceDocumentId: documentIdSchema,
     sourceNodeId: stringSchema,
     targetNodeId: stringSchema,
     targetLabel: stringSchema,
@@ -258,7 +259,7 @@ const semanticRelationshipCandidateResultSchema: RuntimeSchema<SemanticRelations
 
 const semanticDocumentCandidateSetResultSchema: RuntimeSchema<SemanticDocumentCandidateSetResult> = objectSchema(
   {
-    documentId: stringSchema,
+    documentId: documentIdSchema,
     sourceNodeId: stringSchema,
     candidates: arraySchema(semanticRelationshipCandidateResultSchema)
   },
@@ -267,7 +268,7 @@ const semanticDocumentCandidateSetResultSchema: RuntimeSchema<SemanticDocumentCa
 
 const semanticCandidateIndexResultSchema: RuntimeSchema<SemanticCandidateIndexResult> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     generated: stringSchema,
     maxCandidatesPerDocument: integerSchema,
     documents: arraySchema(semanticDocumentCandidateSetResultSchema),
@@ -302,7 +303,7 @@ export interface SemanticAnalysisPreviewResult {
 
 export const semanticAnalysisPreviewResultSchema: RuntimeSchema<SemanticAnalysisPreviewResult> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     generated: stringSchema,
     scope: semanticGraphScopeSchema,
     settings: semanticGraphSettingsSchema,
@@ -365,7 +366,7 @@ const semanticRelationshipDecisionResultSchema: RuntimeSchema<SemanticRelationsh
 
 export const semanticAnalysisResultSchema: RuntimeSchema<SemanticAnalysisResult> = objectSchema(
   {
-    projectId: stringSchema,
+    projectId: projectIdSchema,
     run: semanticGraphRunSchema,
     scope: semanticGraphScopeSchema,
     mode: enumSchema(["review", "auto", "dry-run"]),

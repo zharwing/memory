@@ -8,6 +8,7 @@ import {
   readJson,
   readTrashJsonPayload,
   removeTrashMetadata,
+  restoreDocumentFromTrash,
   restorePathFromTrash
 } from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
@@ -49,6 +50,14 @@ export class TrashService {
         writePointerFile: true
       });
       await this.registry.register(result.project);
+      await removeTrashMetadata(this.registry.memoryRoot, item.id);
+      return item;
+    }
+
+    if (item.type === "document") {
+      if (!item.projectId) throw new Error(`Trash document item is missing projectId: ${item.id}`);
+      const project = await resolveProject(this.registry, item.projectId);
+      await restoreDocumentFromTrash(project, item);
       await removeTrashMetadata(this.registry.memoryRoot, item.id);
       return item;
     }

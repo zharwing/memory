@@ -1,7 +1,10 @@
 import { useCallback, useEffect } from "react";
 import type { GraphRelationshipMode } from "../../stores/graph-store.js";
-import { useCloseWhenMissing, useSearchParamsPatch } from "../../hooks/useSearchParamState.js";
-import { parseBoundedSearchParam } from "../../utils/routes.js";
+import {
+  useCloseWhenMissing,
+  useRouteQueryPatch,
+  type RouteQueryPatch
+} from "../../hooks/useSearchParamState.js";
 import type { GraphViewMode } from "./graph-display-types.js";
 
 export interface GraphSearchStatePatch {
@@ -27,16 +30,16 @@ export function useGraphRouteState({
   relationshipMode: GraphRelationshipMode;
   onRelationshipModeChange(mode: GraphRelationshipMode): void;
 }): GraphRouteState {
-  const [searchParams, patchSearchParams] = useSearchParamsPatch();
-  const rawViewParam = parseBoundedSearchParam(searchParams, "view", { maximumLength: 16 });
+  const [searchParams, query, patchSearchParams] = useRouteQueryPatch("graph");
+  const rawViewParam = query.view;
   const viewMode: GraphViewMode = rawViewParam === "all" ? "all" : "context";
-  const rawRelationshipModeParam = parseBoundedSearchParam(searchParams, "relationships", { maximumLength: 32 });
-  const focusedNodeId = viewMode === "all" ? "" : parseBoundedSearchParam(searchParams, "focus") || "";
-  const editingDocumentId = parseBoundedSearchParam(searchParams, "doc") || "";
-  const selectedEdgeId = parseBoundedSearchParam(searchParams, "edge", { maximumLength: 320 }) || "";
+  const rawRelationshipModeParam = query.relationships;
+  const focusedNodeId = viewMode === "all" ? "" : query.focus || "";
+  const editingDocumentId = query.doc || "";
+  const selectedEdgeId = query.edge || "";
 
   const update = useCallback((nextState: GraphSearchStatePatch, replace = false) => {
-    const patch: Record<string, string | null | undefined> = {};
+    const patch: RouteQueryPatch<"graph"> = {};
     if (nextState.viewMode) patch.view = nextState.viewMode === "all" ? "all" : null;
     if (nextState.relationshipMode) {
       patch.relationships = nextState.relationshipMode === "ai-reviewed" ? null : nextState.relationshipMode;
@@ -48,7 +51,7 @@ export function useGraphRouteState({
   }, [patchSearchParams]);
 
   useEffect(() => {
-    const invalidPatch: Record<string, null> = {};
+    const invalidPatch: RouteQueryPatch<"graph"> = {};
     if (searchParams.has("view") && rawViewParam !== "all") invalidPatch.view = null;
     if (searchParams.has("relationships") && !relationshipModeFromSearchParam(rawRelationshipModeParam ?? null)) {
       invalidPatch.relationships = null;
@@ -60,7 +63,13 @@ export function useGraphRouteState({
       patchSearchParams(invalidPatch, { replace: true });
       return;
     }
-    const nextRelationshipMode = relationshipModeFromSearchParam(rawRelationshipModeParam) || "ai-reviewed";
+    // A valid URL value overrides and persists the preference. When the URL
+    // omits the optional key, retain the injected persisted preference instead
+    // of silently resetting every normal Graph navigation to ai-reviewed.
+    const nextRelationshipMode = resolveGraphRelationshipMode(
+      rawRelationshipModeParam,
+      relationshipMode
+    );
     if (nextRelationshipMode !== relationshipMode) onRelationshipModeChange(nextRelationshipMode);
   }, [
     editingDocumentId,
@@ -112,4 +121,11 @@ export function useGraphRouteResourceGuards(
 
 function relationshipModeFromSearchParam(input: string | null | undefined): GraphRelationshipMode | undefined {
   return input === "ai-reviewed" || input === "deterministic" ? input : undefined;
+}
+
+export function resolveGraphRelationshipMode(
+  input: string | null | undefined,
+  persisted: GraphRelationshipMode
+): GraphRelationshipMode {
+  return relationshipModeFromSearchParam(input) ?? persisted;
 }

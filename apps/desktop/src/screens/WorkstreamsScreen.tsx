@@ -16,6 +16,7 @@ import {
 } from "../components/FormField.js";
 import { useAsyncAction } from "../utils/useAsyncAction.js";
 import { useDraft } from "../hooks/useDraft.js";
+import { useCloseWhenMissing, useRouteQueryParam } from "../hooks/useSearchParamState.js";
 
 interface WorkstreamDraft {
   name: string;
@@ -39,6 +40,7 @@ const WORKSTREAM_DRAFT_DEFAULTS: WorkstreamDraft = {
 
 export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
   const store = useStore();
+  const [routeWorkstreamId, setRouteWorkstreamId] = useRouteQueryParam("workstreams", "workstream");
   const [draft, patchDraft, setDraft] = useDraft<WorkstreamDraft>(WORKSTREAM_DRAFT_DEFAULTS);
   const [formErrors, setFormErrors] = useState<FormError[]>([]);
   const submit = useAsyncAction();
@@ -48,8 +50,24 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
     if (store.projects.selectedProjectId) void store.workstreams.load();
   }, [store, store.projects.selectedProjectId]);
 
+  useEffect(() => {
+    if (
+      routeWorkstreamId &&
+      routeWorkstreamId !== store.workstreams.selectedWorkstreamId &&
+      store.workstreams.list.some((workstream) => workstream.id === routeWorkstreamId)
+    ) {
+      void store.workstreams.selectWorkstream(routeWorkstreamId);
+    }
+  }, [routeWorkstreamId, store, store.workstreams.list, store.workstreams.selectedWorkstreamId]);
+
   const detail = store.workstreams.detail;
   const listState = store.workstreams.listState;
+  useCloseWhenMissing(
+    routeWorkstreamId,
+    (listState.status === "success" || listState.status === "empty") &&
+      !store.workstreams.list.some((workstream) => workstream.id === routeWorkstreamId),
+    () => setRouteWorkstreamId(null, { replace: true })
+  );
   const repoCategoryOptions = [...new Set(store.projects.repoLinks.map((repo) => repo.role).filter(Boolean))].sort();
   const selectedRepoCategories = splitList(repoRoles);
   function toggleRepoCategory(category: string) {
@@ -135,7 +153,10 @@ export const WorkstreamsScreen = observer(function WorkstreamsScreen() {
                   className={`project-card compact ${store.workstreams.selectedWorkstreamId === workstream.id ? "selected" : ""}`}
                   aria-pressed={store.workstreams.selectedWorkstreamId === workstream.id}
                   key={workstream.id}
-                  onClick={() => store.workstreams.selectWorkstream(workstream.id)}
+                  onClick={() => {
+                    setRouteWorkstreamId(workstream.id);
+                    void store.workstreams.selectWorkstream(workstream.id);
+                  }}
                 >
                   <strong>{workstream.name}</strong>
                   <span>{workstream.status}</span>

@@ -1,5 +1,5 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { AssistantClientPort } from "../application/ports/features.js";
 import type { ContextBundle, OperationInput, OperationOutput } from "@zharwing/memory-core";
 import { OperationLedger } from "../application/operations/operation-state.js";
 import type {
@@ -26,7 +26,7 @@ export class AssistantStore {
   readonly operations: OperationLedger;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: AssistantClientPort,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: AssistantStoreCoordinator,
     runtime: StoreAsyncRuntimePort
@@ -126,24 +126,17 @@ export class AssistantStore {
   async updatePolicy(policy: Record<string, unknown>): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("update-assistant-policy", token);
-    try {
-      const result = await this.client.operation("memory.update_assistant_policy", {
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_assistant_policy",
+      input: {
         projectId: token.projectId,
         policy
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      await this.coordinator.refreshProjects();
-      if (!this.scope.isScopeCurrent(token)) return;
-      await this.coordinator.refreshProjectSummary();
-      if (this.scope.isScopeCurrent(token)) await this.loadStatusFor(token);
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+      },
+      ledger: this.operations,
+      key: "update-assistant-policy",
+      scope: token
+    });
   }
 
   async checkProvider(
@@ -190,33 +183,29 @@ export class AssistantStore {
     const token = this.scope.captureScope();
     if (!token || !secret) return false;
     const current = this.providerSecretStatus;
-    const operation = this.operations.begin("save-provider-secret", token);
-    try {
-      const options = { signal: token.signal, idempotencyKey: operation.operationId };
-      const status = current?.configured && current.providerKind === providerKind && current.revision
-        ? await this.client.operation("memory.rotate_provider_secret", {
-          projectId: token.projectId,
-          providerKind,
-          secret,
-          expectedRevision: current.revision
-        }, options)
-        : await this.client.operation("memory.set_provider_secret", {
-          projectId: token.projectId,
-          providerKind,
-          secret
-        }, options);
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return false;
-      }
-      const resourceAttempt = this.providerSecretStatusResource.begin(token);
-      if (resourceAttempt) this.providerSecretStatusResource.succeed(resourceAttempt, status);
-      this.operations.succeed(operation, status);
-      return true;
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-      return false;
-    }
+    const status = current?.configured && current.providerKind === providerKind && current.revision
+      ? await this.coordinator.executeCommand({
+          port: this.client,
+          operation: "memory.rotate_provider_secret",
+          input: {
+            projectId: token.projectId,
+            providerKind,
+            secret,
+            expectedRevision: current.revision
+          },
+          ledger: this.operations,
+          key: "save-provider-secret",
+          scope: token
+        })
+      : await this.coordinator.executeCommand({
+          port: this.client,
+          operation: "memory.set_provider_secret",
+          input: { projectId: token.projectId, providerKind, secret },
+          ledger: this.operations,
+          key: "save-provider-secret",
+          scope: token
+        });
+    return Boolean(status);
   }
 
   async clearProviderSecret(): Promise<boolean> {
@@ -224,25 +213,19 @@ export class AssistantStore {
     const current = this.providerSecretStatus;
     if (!token || !current?.configured || !current.revision) return false;
     this.providerSecretKind = current.providerKind;
-    const operation = this.operations.begin("clear-provider-secret", token);
-    try {
-      const status = await this.client.operation("memory.clear_provider_secret", {
+    const status = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.clear_provider_secret",
+      input: {
         projectId: token.projectId,
         providerKind: current.providerKind,
         expectedRevision: current.revision
-      }, { signal: token.signal, idempotencyKey: operation.operationId });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return false;
-      }
-      const resourceAttempt = this.providerSecretStatusResource.begin(token);
-      if (resourceAttempt) this.providerSecretStatusResource.succeed(resourceAttempt, status);
-      this.operations.succeed(operation, status);
-      return true;
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-      return false;
-    }
+      },
+      ledger: this.operations,
+      key: "clear-provider-secret",
+      scope: token
+    });
+    return Boolean(status);
   }
 
   private async loadStatusFor(token: ScopeToken): Promise<void> {
@@ -258,15 +241,4 @@ export class AssistantStore {
     }
   }
 
-  private settleScopedFailure(
-    operation: ReturnType<OperationLedger["begin"]>,
-    token: ScopeToken,
-    error: unknown
-  ): void {
-    if (!this.scope.isScopeCurrent(token)) {
-      this.operations.abandon(operation);
-      return;
-    }
-    this.operations.fail(operation, error);
-  }
 }

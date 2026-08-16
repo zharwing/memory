@@ -1,8 +1,6 @@
 import { searchProjectMemory } from "@zharwing/memory-search";
-import type { ProjectRegistry } from "@zharwing/memory-store";
+import type { DocumentRepository, ProjectRegistry, SessionRepository } from "@zharwing/memory-store";
 import {
-  listProjectDocuments,
-  listProjectSessions,
   listProjectWorkstreams,
   listProposedUpdates
 } from "@zharwing/memory-store";
@@ -12,7 +10,9 @@ import { SessionAuthorityStore } from "./session-visibility.js";
 export class SearchService {
   constructor(
     private readonly registry: ProjectRegistry,
-    private readonly sessionAuthority: SessionAuthorityStore
+    private readonly sessionAuthority: SessionAuthorityStore,
+    private readonly documents: Pick<DocumentRepository, "list">,
+    private readonly sessions: SessionRepository
   ) {}
 
   async search(params: { projectId: string; query: string }) {
@@ -20,9 +20,9 @@ export class SearchService {
     const workstreams = await listProjectWorkstreams(project);
     const sessions = await this.sessionAuthority.applyVisibilities(
       project,
-      await listProjectSessions(project)
+      await this.sessions.listProjectSessions(project)
     );
-    const documents = await listProjectDocuments(project);
+    const documents = await this.documents.list(project);
     const proposals = await listProposedUpdates(project);
     const sources = [
       ...workstreams.map((item) => ({ key: searchEntityKey("workstream", item.id), visibility: item.visibility })),

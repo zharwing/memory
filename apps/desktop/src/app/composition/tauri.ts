@@ -12,6 +12,8 @@ import {
   type AppServices
 } from "./ports.js";
 import { createAppRuntime } from "./runtime.js";
+import { LocalResourceInvalidationBus } from "../../application/resources/resource-invalidation-bus.js";
+import { createAppPersistence } from "../../application/persistence/app-persistence.js";
 
 export function createTauriServices(
   invoke: TauriInvoke,
@@ -34,10 +36,13 @@ export function createTauriServices(
     ids,
     // Preserve the historical physical preference keys while moving storage
     // ownership behind the injected preference port.
-    preferences: new BrowserUiPreferences(""),
-    graphPositions: createLocalGraphPositionStore(),
+    persistence: createAppPersistence(
+      new BrowserUiPreferences(""),
+      createLocalGraphPositionStore()
+    ),
     diagnostics,
-    scheduler
+    scheduler,
+    invalidations: new LocalResourceInvalidationBus()
   };
 }
 

@@ -165,7 +165,7 @@ export function useGraphSemanticReview({
         proposalRoute: proposedEdge
           ? routePath("inbox", {
               projectId: store.projects.selectedProjectId,
-              search: { proposal: proposedEdge.proposalId }
+              query: { proposal: proposedEdge.proposalId }
             })
           : undefined
       }

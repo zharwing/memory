@@ -9,6 +9,8 @@ import {
   isLoopbackHost,
   legacyMemoryEnvName,
   memoryEnv as coreMemoryEnv,
+  parseProjectId,
+  projectIdValue,
   type MemoryEnvName
 } from "@zharwing/memory-core";
 import { normalizePath } from "@zharwing/memory-store";
@@ -75,6 +77,9 @@ export function loadDaemonConfig(): DaemonConfig {
   const agentSurfaceEnabled = memoryEnv("ZHARWING_MEMORY_AGENT_SURFACE") === "enabled";
   const agentCredential = directEnv("ZHARWING_MEMORY_AGENT_CREDENTIAL");
   const agentProjectId = directEnv("ZHARWING_MEMORY_AGENT_PROJECT_ID");
+  if (agentProjectId && !projectIdValue(parseProjectId(agentProjectId))) {
+    throw new Error("The hardened agent project binding is invalid.");
+  }
   if (profile === "hardened-local" && agentSurfaceEnabled && (!agentCredential || !agentProjectId)) {
     throw new Error(
       "Hardened agent provisioning requires both ZHARWING_MEMORY_AGENT_CREDENTIAL and ZHARWING_MEMORY_AGENT_PROJECT_ID."
@@ -82,7 +87,7 @@ export function loadDaemonConfig(): DaemonConfig {
   }
   const desktopCredentialFile = directDesktopEnv("ZHARWING_MEMORY_DESKTOP_CREDENTIAL_FILE");
   const desktopProjectId = directDesktopEnv("ZHARWING_MEMORY_DESKTOP_PROJECT_ID");
-  if (desktopProjectId && !/^[a-z0-9][a-z0-9_-]{0,127}$/i.test(desktopProjectId)) {
+  if (desktopProjectId && !projectIdValue(parseProjectId(desktopProjectId))) {
     throw new Error("The native desktop project binding is invalid.");
   }
   if (desktopProjectId && !desktopCredentialFile) {

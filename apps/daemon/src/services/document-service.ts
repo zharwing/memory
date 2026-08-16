@@ -1,27 +1,31 @@
-import { DEFAULT_MEMORY_WRITE_POLICY, nowIso } from "@zharwing/memory-core";
-import type { ProjectRegistry } from "@zharwing/memory-store";
+import { DEFAULT_MEMORY_WRITE_POLICY, nowIso, type Project } from "@zharwing/memory-core";
+import type { DocumentRepository, ProjectRegistry } from "@zharwing/memory-store";
 import {
-  createDocument as storageCreateDocument,
-  listProjectDocuments,
+  getDocumentRepository,
   movePathToTrash,
-  writeDocument as storageWriteDocument
 } from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
+/** Consumer-owned document persistence port; daemon composition supplies the concrete repository. */
+export interface DocumentRepositoryPort { create: DocumentRepository["create"]; list: DocumentRepository["list"]; findById: DocumentRepository["findById"]; save: DocumentRepository["save"]; }
 export class DocumentService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(private readonly registry: ProjectRegistry, readonly repository: DocumentRepository = getDocumentRepository()) {}
+
+  async list(project: Project) {
+    return this.repository.list(project);
+  }
 
   async listDocuments(params: { projectId: string }) {
-    return listProjectDocuments(await resolveProject(this.registry, params.projectId));
+    return this.repository.list(await resolveProject(this.registry, params.projectId));
   }
 
   async createDocument(params: {
     projectId: string;
     title: string;
-    type: Parameters<typeof storageCreateDocument>[0]["type"];
+    type: Parameters<DocumentRepository["create"]>[0]["type"];
     body: string;
-    status?: Parameters<typeof storageCreateDocument>[0]["status"];
-    visibility?: Parameters<typeof storageCreateDocument>[0]["visibility"];
+    status?: Parameters<DocumentRepository["create"]>[0]["status"];
+    visibility?: Parameters<DocumentRepository["create"]>[0]["visibility"];
     topics?: string[];
     relatedFiles?: string[];
   }) {
@@ -33,7 +37,7 @@ export class DocumentService {
     if (!policy.allowAgentDirectWrites) {
       throw new Error("Direct memory writes are disabled for this project. Use memory.propose_memory_update or turn review mode off in Settings.");
     }
-    return storageCreateDocument({ project, ...params });
+    return this.repository.create({ project, ...params });
   }
 
   async updateDocument(params: {
@@ -43,8 +47,7 @@ export class DocumentService {
     body?: string;
   }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const docs = await listProjectDocuments(project);
-    const doc = docs.find((candidate) => candidate.id === params.documentId);
+    const doc = await this.repository.findById(project, params.documentId);
     if (!doc) throw new Error(`Document not found: ${params.documentId}`);
 
     const updated = {
@@ -54,14 +57,13 @@ export class DocumentService {
       updated: nowIso()
     };
 
-    await storageWriteDocument(updated);
+    await this.repository.save(updated, project);
     return updated;
   }
 
   async deleteDocument(params: { projectId: string; documentId: string }) {
     const project = await resolveProject(this.registry, params.projectId);
-    const docs = await listProjectDocuments(project);
-    const doc = docs.find((candidate) => candidate.id === params.documentId);
+    const doc = await this.repository.findById(project, params.documentId);
     if (!doc) throw new Error(`Document not found: ${params.documentId}`);
     return movePathToTrash({
       memoryRoot: this.registry.memoryRoot,

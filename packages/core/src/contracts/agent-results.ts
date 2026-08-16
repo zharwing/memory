@@ -12,6 +12,7 @@ import {
   type InferSchema,
   type RuntimeSchema
 } from "./runtime-schema.js";
+import { documentIdSchema, projectIdSchema } from "./identifiers.js";
 import { visibilitySchema } from "./entities.js";
 import {
   AGENT_OPERATIONS,
@@ -40,7 +41,7 @@ const checkpointSchema = objectSchema({
 
 const sessionSummarySchema = objectSchema({
   id: stringSchema,
-  projectId: stringSchema,
+  projectId: projectIdSchema,
   status: enumSchema(["active", "closed", "archived"]),
   visibility: optionalSchema(visibilitySchema),
   taskTitle: stringSchema,
@@ -67,7 +68,7 @@ const sessionSummarySchema = objectSchema({
 
 const sessionSchema = objectSchema({
   id: stringSchema,
-  projectId: stringSchema,
+  projectId: projectIdSchema,
   branch: optionalSchema(stringSchema),
   agent: optionalSchema(stringSchema),
   client: optionalSchema(stringSchema),
@@ -88,7 +89,7 @@ const sessionSchema = objectSchema({
   nextSteps: strings,
   blockers: strings,
   workstreamIds: strings,
-  relatedDocs: strings,
+  relatedDocs: arraySchema(documentIdSchema),
   relatedTasks: strings,
   contextBundleId: optionalSchema(stringSchema),
   checkpoints: arraySchema(checkpointSchema),
@@ -110,7 +111,7 @@ const sessionDetailSchema = objectSchema({
 
 const searchResultSchema = objectSchema({
   id: stringSchema,
-  projectId: stringSchema,
+  projectId: projectIdSchema,
   type: enumSchema(["workstream", "session", "document", "proposed-update", "context-bundle"]),
   title: stringSchema,
   status: optionalSchema(stringSchema),
@@ -136,7 +137,7 @@ const startupSnapshotSchema = objectSchema({
   schema: literalSchema("zharwing.memory.startup.v2"),
   projectStatus: literalSchema("resolved"),
   revision: optionalSchema(stringSchema),
-  projectId: optionalSchema(stringSchema),
+  projectId: optionalSchema(projectIdSchema),
   activeSession: optionalSchema(sessionSummarySchema),
   latestSession: optionalSchema(sessionSummarySchema),
   recentSessions: arraySchema(sessionSummarySchema),
@@ -155,7 +156,7 @@ const startupNotModifiedSchema = objectSchema({
   schema: literalSchema("zharwing.memory.startup.v2"),
   notModified: literalSchema(true),
   revision: optionalSchema(stringSchema),
-  projectId: optionalSchema(stringSchema)
+  projectId: optionalSchema(projectIdSchema)
 });
 
 const agentBundleSectionSchema = objectSchema({
@@ -173,7 +174,7 @@ const agentBundleSectionSchema = objectSchema({
 const agentBundleSchema = objectSchema({
   schema: literalSchema("zharwing.memory.bundle.v1"),
   status: literalSchema("ok"),
-  projectId: stringSchema,
+  projectId: projectIdSchema,
   sessionId: optionalSchema(stringSchema),
   created: stringSchema,
   idempotencyKey: optionalSchema(stringSchema),
@@ -196,7 +197,7 @@ function withheldEffectSchema<const Name extends string>(operation: Name) {
   return objectSchema({
     status: literalSchema("accepted"),
     operation: literalSchema(operation),
-    projectId: optionalSchema(stringSchema),
+    projectId: optionalSchema(projectIdSchema),
     resultVisibility: literalSchema("withheld")
   });
 }

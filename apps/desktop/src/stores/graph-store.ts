@@ -1,7 +1,10 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { GraphClientPort } from "../application/ports/features.js";
 import type { GraphExtractionRule, ProjectGraph } from "@zharwing/memory-core";
-import type { UiPreferenceStore } from "../app/composition/ports.js";
+import type {
+  GraphRelationshipMode,
+  GraphRelationshipPreferenceStore
+} from "../application/persistence/app-persistence.js";
 import { OperationLedger } from "../application/operations/operation-state.js";
 import type {
   GraphStoreCoordinator,
@@ -13,10 +16,9 @@ import {
   ResourceSlot,
   publicErrorCopy
 } from "../application/resources/resource-state.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 
-export type GraphRelationshipMode = "deterministic" | "ai-reviewed";
-
-const GRAPH_RELATIONSHIP_MODE_STORAGE_KEY = "aimem.graph.relationshipMode";
+export type { GraphRelationshipMode } from "../application/persistence/app-persistence.js";
 
 export class GraphStore {
   relationshipMode: GraphRelationshipMode;
@@ -24,13 +26,13 @@ export class GraphStore {
   readonly operations: OperationLedger;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: GraphClientPort,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: GraphStoreCoordinator,
-    private readonly preferences: UiPreferenceStore,
+    private readonly preferences: GraphRelationshipPreferenceStore,
     runtime: StoreAsyncRuntimePort
   ) {
-    this.relationshipMode = readStoredGraphRelationshipMode(preferences);
+    this.relationshipMode = preferences.read();
     this.graphResource = new ResourceSlot(
       scope,
       runtime,
@@ -50,6 +52,8 @@ export class GraphStore {
   get data(): ProjectGraph | undefined {
     return this.graphResource.data;
   }
+
+  get graphRead() { return resourceReadModel(this.graphResource); }
 
   get loading(): boolean {
     return this.graphResource.loading || this.operations.isBusy();
@@ -74,7 +78,7 @@ export class GraphStore {
     const nextMode = normalizeGraphRelationshipMode(mode);
     if (this.relationshipMode === nextMode) return;
     this.relationshipMode = nextMode;
-    writeStoredGraphRelationshipMode(this.preferences, nextMode);
+    this.preferences.write(nextMode);
     await this.load();
   }
 
@@ -89,21 +93,17 @@ export class GraphStore {
   async updateGraphRules(graphRules: GraphExtractionRule[]): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("update-graph-rules", token);
-    try {
-      const result = await this.client.operation("memory.update_graph_rules", {
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_graph_rules",
+      input: {
         projectId: token.projectId,
         graphRules
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      await this.refreshAfterRulesChange(token, false);
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+      },
+      ledger: this.operations,
+      key: "update-graph-rules",
+      scope: token
+    });
   }
 
   async applyGraphRulesProposal(
@@ -112,30 +112,30 @@ export class GraphStore {
   ): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("apply-graph-rules-proposal", token);
-    try {
-      await this.client.operation("memory.update_graph_rules", {
+    const updated = await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_graph_rules",
+      input: {
         projectId: token.projectId,
         graphRules
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      const result = await this.client.operation("memory.update_inbox_status", {
+      },
+      ledger: this.operations,
+      key: "apply-graph-rules-proposal:rules",
+      scope: token
+    });
+    if (!updated || !this.scope.isScopeCurrent(token)) return;
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_inbox_status",
+      input: {
         projectId: token.projectId,
         proposalId,
         status: "accepted"
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      await this.refreshAfterRulesChange(token, true);
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+      },
+      ledger: this.operations,
+      key: "apply-graph-rules-proposal:inbox",
+      scope: token
+    });
   }
 
   private async loadFor(token: ScopeToken): Promise<void> {
@@ -152,28 +152,6 @@ export class GraphStore {
     }
   }
 
-  private async refreshAfterRulesChange(token: ScopeToken, refreshInbox: boolean): Promise<void> {
-    if (!this.scope.isScopeCurrent(token)) return;
-    await this.coordinator.refreshProjects();
-    if (!this.scope.isScopeCurrent(token)) return;
-    await this.coordinator.refreshProjectSummary();
-    if (refreshInbox && this.scope.isScopeCurrent(token)) {
-      await this.coordinator.refreshInbox();
-    }
-    if (this.scope.isScopeCurrent(token)) await this.loadFor(token);
-  }
-
-  private settleScopedFailure(
-    operation: ReturnType<OperationLedger["begin"]>,
-    token: ScopeToken,
-    error: unknown
-  ): void {
-    if (!this.scope.isScopeCurrent(token)) {
-      this.operations.abandon(operation);
-      return;
-    }
-    this.operations.fail(operation, error);
-  }
 }
 
 export function graphRelationshipParams(mode: GraphRelationshipMode): Record<string, unknown> {
@@ -193,15 +171,4 @@ function normalizeGraphRelationshipMode(input: unknown): GraphRelationshipMode {
   return input === "ai-reviewed" || input === "deterministic"
     ? input
     : "ai-reviewed";
-}
-
-function readStoredGraphRelationshipMode(preferences: UiPreferenceStore): GraphRelationshipMode {
-  return normalizeGraphRelationshipMode(preferences.get(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY));
-}
-
-function writeStoredGraphRelationshipMode(
-  preferences: UiPreferenceStore,
-  mode: GraphRelationshipMode
-): void {
-  preferences.set(GRAPH_RELATIONSHIP_MODE_STORAGE_KEY, mode);
 }

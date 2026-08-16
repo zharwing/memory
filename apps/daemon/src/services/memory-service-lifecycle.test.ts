@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
+import { SessionRepository } from "@zharwing/memory-store";
 import { MemoryService } from "../memory-service.js";
 
 test("MemoryService runs a project session and memory update lifecycle", async (t) => {
@@ -212,6 +213,42 @@ test("startup stays compact, supports revision validation, and pages explicit de
   });
   assert.match(body.body || "", /Checkpoint 219/);
   assert.equal(body.checkpoints, undefined);
+});
+
+test("automatic close summarizes before one durable close and returns a compact outcome", async (t) => {
+  const memoryRoot = await tempMemoryRoot(t);
+  const sessions = new SessionRepository();
+  let followUpSummaryWrites = 0;
+  sessions.updateSessionSummary = async () => {
+    followUpSummaryWrites += 1;
+    throw new Error("A post-close summary write must not run.");
+  };
+  const service = new MemoryService({ memoryRoot, dependencies: { sessions } });
+  t.after(() => service.dispose());
+  const preview = await service.prepareProjectCreation({
+    projectName: "Atomic Daemon Close",
+    createPointerFile: false
+  });
+  const project = await service.createProject({ preview });
+  const active = await service.startSession({
+    projectId: project.id,
+    workingDirectory: memoryRoot,
+    taskTitle: "Atomic close"
+  });
+
+  const closed = await service.closeSession({
+    projectId: project.id,
+    sessionId: active.id,
+    summary: "Finished without a follow-up write.",
+    includeInGraph: true,
+    compact: true
+  });
+
+  assert.equal(closed.status, "closed");
+  assert.equal(closed.includeInGraph, true);
+  assert.equal("body" in closed, false);
+  assert.equal("checkpoints" in closed, false);
+  assert.equal(followUpSummaryWrites, 0);
 });
 
 async function tempMemoryRoot(t: TestContext): Promise<string> {

@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SemanticClientPort } from "../application/ports/features.js";
 import type {
   OperationInput,
   SemanticGraphEdge,
@@ -21,6 +21,7 @@ import {
   publicErrorCopy,
   type ResourceState
 } from "../application/resources/resource-state.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 import { SemanticAnalysisController } from "./semantic/semantic-analysis-controller.js";
 import { SemanticCommandStore } from "./semantic/semantic-command-store.js";
 import {
@@ -48,11 +49,10 @@ export class SemanticStore {
   private readonly snapshots: SemanticSnapshotClient;
   private readonly analysis: SemanticAnalysisController;
   private readonly commands: SemanticCommandStore;
-  private readonly unsubscribeScope: () => void;
   private disposed = false;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: SemanticClientPort,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: SemanticStoreCoordinator,
     scheduler: StoreSchedulerPort,
@@ -91,8 +91,6 @@ export class SemanticStore {
       canUse: (scope) => this.canUse(scope),
       loadForScope: (scope) => this.loadForScope(scope)
     });
-    this.unsubscribeScope = this.scope.onScopeReset(() => this.clear());
-
     makeAutoObservable<
       this,
       | "client"
@@ -102,7 +100,6 @@ export class SemanticStore {
       | "snapshots"
       | "analysis"
       | "commands"
-      | "unsubscribeScope"
       | "disposed"
     >(this, {
       client: false,
@@ -117,7 +114,6 @@ export class SemanticStore {
       snapshots: false,
       analysis: false,
       commands: false,
-      unsubscribeScope: false,
       disposed: false,
       pollHandle: false
     });
@@ -131,6 +127,11 @@ export class SemanticStore {
   get settings(): SemanticGraphSettings | undefined {
     return this.settingsResource.data;
   }
+
+  get settingsRead() { return resourceReadModel(this.settingsResource); }
+  get statusRead() { return resourceReadModel(this.statusResource); }
+  get edgesRead() { return resourceReadModel(this.edgesResource); }
+  get runsRead() { return resourceReadModel(this.runsResource); }
 
   get settingsState(): ResourceState<SemanticGraphSettings> {
     return this.settingsResource.state;
@@ -225,7 +226,6 @@ export class SemanticStore {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.unsubscribeScope();
     this.clear();
     this.analysis.dispose();
   }

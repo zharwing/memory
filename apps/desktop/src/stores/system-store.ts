@@ -1,5 +1,5 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { SystemClientPort } from "../application/ports/features.js";
 import type {
   ImportCommitResult,
   ImportConflictStrategy,
@@ -19,6 +19,7 @@ import {
   ResourceSlot,
   publicErrorCopy
 } from "../application/resources/resource-state.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 import { SystemBackupsStore } from "./system/system-backups-store.js";
 import { SystemDiagnosticsStore } from "./system/system-diagnostics-store.js";
 import { SystemImportStore } from "./system/system-import-store.js";
@@ -55,7 +56,7 @@ export class SystemStore {
   private readonly importStore: SystemImportStore;
 
   constructor(
-    client: MemoryClient,
+    client: SystemClientPort,
     private readonly scope: ScopedProjectPort,
     applicationScope: ApplicationScopePort,
     coordinator: SystemStoreCoordinator,
@@ -65,6 +66,7 @@ export class SystemStore {
     this.diagnostics = new SystemDiagnosticsStore(
       client,
       applicationScope,
+      coordinator,
       this.operations,
       runtime
     );
@@ -78,8 +80,8 @@ export class SystemStore {
     this.backupsStore = new SystemBackupsStore(
       client,
       scope,
+      coordinator,
       this.operations,
-      () => this.trashStore.load(),
       runtime
     );
     this.importStore = new SystemImportStore(
@@ -154,6 +156,15 @@ export class SystemStore {
     return this.importResultResource.data;
   }
 
+  get daemonHealthRead() { return resourceReadModel(this.daemonHealthResource); }
+  get mcpDoctorRead() { return resourceReadModel(this.mcpDoctorResource); }
+  get mcpInstallRead() { return resourceReadModel(this.mcpInstallResource); }
+  get backupsRead() { return resourceReadModel(this.backupsResource); }
+  get trashRead() { return resourceReadModel(this.trashResource); }
+  get importProfilesRead() { return resourceReadModel(this.importProfilesResource); }
+  get importPlanRead() { return resourceReadModel(this.importPlanResource); }
+  get importResultRead() { return resourceReadModel(this.importResultResource); }
+
   get loading(): boolean {
     return this.resources.some((resource) => resource.loading) || this.operations.isBusy();
   }
@@ -166,6 +177,7 @@ export class SystemStore {
   /** Clear only data tied to the previous project; global diagnostics survive. */
   clear(): void {
     this.backupsStore.clear();
+    this.trashResource.reset();
     this.importStore.clear();
     this.operations.resetScope(this.scope.captureScope());
   }

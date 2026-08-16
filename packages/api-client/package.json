@@ -4,6 +4,15 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./transport": "./dist/transport.js",
+    "./browser": "./dist/browser-transport.js",
+    "./tauri": "./dist/tauri-transport.js",
+    "./credentials": "./dist/credential-transport.js",
+    "./local-url": "./dist/local-url.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

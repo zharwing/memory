@@ -1,8 +1,8 @@
 import { makeAutoObservable } from "mobx";
-import type { MemoryClient } from "@zharwing/memory-api-client";
+import type { InboxClientPort } from "../application/ports/features.js";
 import type { ProposedMemoryUpdate, ProposedUpdateStatus } from "@zharwing/memory-core";
 import { OperationLedger } from "../application/operations/operation-state.js";
-import { executeConfirmedDestructiveOperation } from "../application/operations/destructive-operation.js";
+import { prepareDestructiveDispatch } from "../application/operations/destructive-operation.js";
 import type {
   InboxStoreCoordinator,
   ScopedProjectPort,
@@ -13,13 +13,14 @@ import {
   ResourceSlot,
   publicErrorCopy
 } from "../application/resources/resource-state.js";
+import { resourceReadModel } from "../application/resources/resource-read-model.js";
 
 export class InboxStore {
   readonly inboxResource: ResourceSlot<ProposedMemoryUpdate[]>;
   readonly operations: OperationLedger;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: InboxClientPort,
     private readonly scope: ScopedProjectPort,
     private readonly coordinator: InboxStoreCoordinator,
     runtime: StoreAsyncRuntimePort
@@ -38,6 +39,8 @@ export class InboxStore {
   get items(): ProposedMemoryUpdate[] {
     return this.inboxResource.data ?? [];
   }
+
+  get itemsRead() { return resourceReadModel(this.inboxResource); }
 
   get loading(): boolean {
     return this.inboxResource.loading || this.operations.isBusy();
@@ -69,24 +72,22 @@ export class InboxStore {
   async deleteItem(proposalId: string): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("delete-inbox-item", token);
-    try {
-      const result = await executeConfirmedDestructiveOperation(this.client, token.projectId, "memory.delete_inbox_item", {
-        projectId: token.projectId,
-        proposalId
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      await this.loadFor(token);
-      if (!this.scope.isScopeCurrent(token)) return;
-      await this.coordinator.refreshProjectSummary();
-      if (this.scope.isScopeCurrent(token)) await this.coordinator.refreshTrash();
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+    const input = { projectId: token.projectId, proposalId };
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.delete_inbox_item",
+      input,
+      ledger: this.operations,
+      key: "delete-inbox-item",
+      scope: token,
+      prepareDispatch: (operationId) => prepareDestructiveDispatch(
+        this.client,
+        token.projectId,
+        "memory.delete_inbox_item",
+        input,
+        { signal: token.signal, idempotencyKey: operationId }
+      )
+    });
   }
 
   async updateStatus(
@@ -96,29 +97,19 @@ export class InboxStore {
   ): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("update-inbox-status", token);
-    try {
-      const result = await this.client.operation("memory.update_inbox_status", {
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.update_inbox_status",
+      input: {
         projectId: token.projectId,
         proposalId,
         status,
         editedPatch
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      // Accepted proposals can patch docs and graph rules, so refresh those too.
-      await this.loadFor(token);
-      if (!this.scope.isScopeCurrent(token)) return;
-      await this.coordinator.refreshProjectSummary();
-      if (!this.scope.isScopeCurrent(token)) return;
-      await this.coordinator.refreshDocs();
-      if (this.scope.isScopeCurrent(token)) await this.coordinator.refreshGraph();
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+      },
+      ledger: this.operations,
+      key: "update-inbox-status",
+      scope: token
+    });
   }
 
   private async loadFor(token: ScopeToken): Promise<void> {
@@ -134,15 +125,4 @@ export class InboxStore {
     }
   }
 
-  private settleScopedFailure(
-    operation: ReturnType<OperationLedger["begin"]>,
-    token: ScopeToken,
-    error: unknown
-  ): void {
-    if (!this.scope.isScopeCurrent(token)) {
-      this.operations.abandon(operation);
-      return;
-    }
-    this.operations.fail(operation, error);
-  }
 }

@@ -7,7 +7,11 @@ import {
 import type { DiagnosticSurface } from "../../platform/diagnostics/index.js";
 import { DiagnosticReportAction } from "./DiagnosticReportAction.js";
 import { useDiagnosticJournal } from "./DiagnosticJournalContext.js";
-import { publicMessageCopy, recoveryActionCopy } from "./public-error-copy.js";
+import {
+  publicMessageCopy,
+  recoveryActionCopy,
+  recoveryFailureCopy
+} from "./public-error-copy.js";
 
 export interface RecoveryPanelProps {
   readonly error?: PublicError;
@@ -33,10 +37,11 @@ export function RecoveryPanel({
   const mounted = useRef(true);
   const headingId = useId();
   const [recovering, setRecovering] = useState(false);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
   useEffect(() => {
+    setRecoveryFailed(false);
     if (focusOnMount) heading.current?.focus();
-    diagnostics.recordEvent({ name: "failure.caught", surface, publicError: error });
-  }, [diagnostics, error.code, error.messageId, focusOnMount, surface, title]);
+  }, [error.code, error.debugId, error.messageId, focusOnMount]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -47,6 +52,7 @@ export function RecoveryPanel({
   async function recover(action: PublicRecoveryAction) {
     if (recovering) return;
     setRecovering(true);
+    setRecoveryFailed(false);
     diagnostics.recordEvent({ name: "recovery.requested", surface, publicError: error, recoveryAction: action });
     try {
       if (usesCallerRecovery(action) && onRecover) await onRecover(action);
@@ -66,6 +72,7 @@ export function RecoveryPanel({
         recoveryAction: action,
         outcome: "unknown"
       });
+      if (mounted.current) setRecoveryFailed(true);
     } finally {
       if (mounted.current) setRecovering(false);
     }
@@ -88,6 +95,9 @@ export function RecoveryPanel({
         ))}
         <DiagnosticReportAction />
       </div>
+      {recoveryFailed ? (
+        <p className="panel-help" role="alert">{recoveryFailureCopy()}</p>
+      ) : null}
       {error.debugId ? <p className="panel-help">Diagnostic ID: <code>{error.debugId}</code></p> : null}
     </section>
   );

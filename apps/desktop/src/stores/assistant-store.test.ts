@@ -10,6 +10,7 @@ test("provider-secret mutations reuse their operation identity as the idempotenc
     input: Record<string, unknown>;
     options: { idempotencyKey?: string; signal?: AbortSignal };
   }> = [];
+  let configured = false;
   const client = {
     async operation(
       name: string,
@@ -17,6 +18,15 @@ test("provider-secret mutations reuse their operation identity as the idempotenc
       options: { idempotencyKey?: string; signal?: AbortSignal } = {}
     ) {
       requests.push({ name, input, options });
+      if (name === "memory.get_provider_secret_status") {
+        return { configured, providerKind: "openai", revision: configured ? "provider-secret-revision-1" : null, updatedAt: null };
+      }
+      if (name === "memory.set_provider_secret" || name === "memory.rotate_provider_secret") {
+        configured = true;
+      }
+      if (name === "memory.clear_provider_secret") {
+        configured = false;
+      }
       return name === "memory.clear_provider_secret"
         ? { configured: false, providerKind: "openai", revision: null, updatedAt: null }
         : {
@@ -30,6 +40,10 @@ test("provider-secret mutations reuse their operation identity as the idempotenc
   const scope = new ProjectScopeCoordinator();
   scope.activate("project-a");
   const store = new AssistantStore(client, scope, {
+    executeCommand: async ({ port, operation, input, key, scope }) => port.operation(operation, input, {
+      signal: scope?.signal,
+      idempotencyKey: `operation:${key}:${"stable-test-id"}`
+    }),
     refreshProjects: async () => undefined,
     refreshProjectSummary: async () => undefined
   }, {
@@ -37,20 +51,23 @@ test("provider-secret mutations reuse their operation identity as the idempotenc
     now: () => "2031-04-05T12:00:00.000Z"
   });
 
+  await store.loadProviderSecretStatus("openai");
   assert.equal(await store.saveProviderSecret("openai", "synthetic-provider-secret"), true);
+  await store.loadProviderSecretStatus("openai");
   assert.equal(await store.clearProviderSecret(), true);
 
-  assert.equal(requests[0]?.name, "memory.set_provider_secret");
+  const mutations = requests.filter(({ name }) => name !== "memory.get_provider_secret_status");
+  assert.equal(mutations[0]?.name, "memory.set_provider_secret");
   assert.equal(
-    requests[0]?.options.idempotencyKey,
+    mutations[0]?.options.idempotencyKey,
     "operation:save-provider-secret:stable-test-id"
   );
-  assert.equal(requests[1]?.name, "memory.clear_provider_secret");
+  assert.equal(mutations[1]?.name, "memory.clear_provider_secret");
   assert.equal(
-    requests[1]?.options.idempotencyKey,
+    mutations[1]?.options.idempotencyKey,
     "operation:clear-provider-secret:stable-test-id"
   );
-  assert.equal(requests[0]?.options.signal, scope.captureScope()?.signal);
-  assert.equal(requests[1]?.options.signal, scope.captureScope()?.signal);
+  assert.equal(mutations[0]?.options.signal, scope.captureScope()?.signal);
+  assert.equal(mutations[1]?.options.signal, scope.captureScope()?.signal);
   scope.dispose();
 });

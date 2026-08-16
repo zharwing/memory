@@ -1,10 +1,11 @@
-import type { MemoryClient } from "@zharwing/memory-api-client";
-import { executeConfirmedDestructiveOperation } from "../../application/operations/destructive-operation.js";
+import type { SystemClientPort } from "../../application/ports/features.js";
+import { prepareDestructiveDispatch } from "../../application/operations/destructive-operation.js";
 import type { OperationLedger } from "../../application/operations/operation-state.js";
 import type {
   ScopedProjectPort,
   ScopeToken,
-  StoreAsyncRuntimePort
+  StoreAsyncRuntimePort,
+  SystemStoreCoordinator
 } from "../../application/operations/store-ports.js";
 import { ResourceSlot } from "../../application/resources/resource-state.js";
 import type { BackupSnapshotItem } from "./system-types.js";
@@ -14,10 +15,10 @@ export class SystemBackupsStore {
   readonly resource: ResourceSlot<BackupSnapshotItem[]>;
 
   constructor(
-    private readonly client: MemoryClient,
+    private readonly client: SystemClientPort,
     private readonly scope: ScopedProjectPort,
+    private readonly coordinator: Pick<SystemStoreCoordinator, "executeCommand">,
     private readonly operations: OperationLedger,
-    private readonly refreshTrash: () => Promise<void>,
     runtime: StoreAsyncRuntimePort
   ) {
     this.resource = new ResourceSlot(scope, runtime);
@@ -38,44 +39,35 @@ export class SystemBackupsStore {
   async create(): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("create-backup", token);
-    try {
-      const result = await this.client.operation("memory.backup_project", {
-        projectId: token.projectId
-      }, { signal: token.signal });
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      await this.loadFor(token);
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.backup_project",
+      input: { projectId: token.projectId },
+      ledger: this.operations,
+      key: "backup:create",
+      scope: token
+    });
   }
 
   async delete(snapshotPath: string): Promise<void> {
     const token = this.scope.captureScope();
     if (!token) return;
-    const operation = this.operations.begin("delete-backup", token);
-    try {
-      const result = await executeConfirmedDestructiveOperation(
+    const input = { projectId: token.projectId, snapshotPath };
+    await this.coordinator.executeCommand({
+      port: this.client,
+      operation: "memory.delete_backup",
+      input,
+      ledger: this.operations,
+      key: `backup:delete:${snapshotPath}`,
+      scope: token,
+      prepareDispatch: (operationId) => prepareDestructiveDispatch(
         this.client,
         token.projectId,
         "memory.delete_backup",
-        { projectId: token.projectId, snapshotPath },
-        { signal: token.signal }
-      );
-      if (!this.scope.isScopeCurrent(token)) {
-        this.operations.abandon(operation);
-        return;
-      }
-      this.operations.succeed(operation, result);
-      await this.loadFor(token);
-      if (this.scope.isScopeCurrent(token)) await this.refreshTrash();
-    } catch (error) {
-      this.settleScopedFailure(operation, token, error);
-    }
+        input,
+        { signal: token.signal, idempotencyKey: operationId }
+      )
+    });
   }
 
   private async loadFor(token: ScopeToken): Promise<void> {
@@ -89,17 +81,5 @@ export class SystemBackupsStore {
     } catch (error) {
       this.resource.fail(attempt, error);
     }
-  }
-
-  private settleScopedFailure(
-    operation: ReturnType<OperationLedger["begin"]>,
-    token: ScopeToken,
-    error: unknown
-  ): void {
-    if (!this.scope.isScopeCurrent(token)) {
-      this.operations.abandon(operation);
-      return;
-    }
-    this.operations.fail(operation, error);
   }
 }

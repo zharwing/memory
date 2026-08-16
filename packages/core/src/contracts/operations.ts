@@ -1,2 +1,3 @@
-/** @deprecated Import the registry from `contracts/index` or the package root. */
+/** Deliberate subpath facade for operation metadata and typed boundaries. */
 export * from "./operation-registry.js";
+export * from "./operation-results.js";

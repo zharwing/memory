@@ -15,12 +15,15 @@ import {
   type BrowserSessionPort
 } from "./ports.js";
 import { createAppRuntime } from "./runtime.js";
+import { BrowserResourceInvalidationBus } from "../../application/resources/resource-invalidation-bus.js";
+import { createAppPersistence } from "../../application/persistence/app-persistence.js";
 
 export function createBrowserServices(
   diagnostics: DiagnosticJournal = new LocalDiagnosticJournal()
 ): AppServices {
   const ids = randomIds;
   const scheduler = globalScheduler;
+  const invalidations = new BrowserResourceInvalidationBus();
   const memory = new BrowserMemoryClient({
     runtime: {
       createId: () => ids.create(),
@@ -41,17 +44,16 @@ export function createBrowserServices(
   void bootstrap.catch(() => undefined);
   return {
     memory: new BootstrapGatedMemoryClient(memory, bootstrap),
-    // This composition boundary is intentionally structural: clean builds
-    // compile the API-client source first, while an existing checkout may
-    // still resolve its previous generated declaration during an isolated UI
-    // typecheck. The source controller implements and tests this exact port.
-    browserSession: memory.session as unknown as BrowserSessionPort,
+    browserSession: memory.session,
     clock: systemClock,
     ids,
-    preferences: new BrowserUiPreferences(""),
-    graphPositions: createLocalGraphPositionStore(),
+    persistence: createAppPersistence(
+      new BrowserUiPreferences(""),
+      createLocalGraphPositionStore()
+    ),
     diagnostics,
-    scheduler
+    scheduler,
+    invalidations
   };
 }
 

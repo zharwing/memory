@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { FlaskConical, Play, Settings2, X } from "lucide-react";
 import { KeyValue } from "../../components/layout.js";
 import { Modal } from "../../components/Modal.js";
+import { AnchoredSurface } from "../../components/AnchoredSurface.js";
 import { SemanticRunForm } from "../../features/semantic-review/index.js";
 import { semanticScopeLabel } from "../../features/graph/semantic/semantic-review-adapter.js";
 import { formatConfidence } from "../../utils/format.js";
@@ -17,65 +18,71 @@ export function GraphDetailsPanel({ controller }: { controller: DetailsControlle
   const { model, actions } = controller;
 
   return (
-    <div className="graph-board-details">
-      <button
-        type="button"
-        className={`graph-details-toggle ${model.open ? "selected" : ""}`}
-        onClick={actions.toggle}
-        aria-expanded={model.open}
-        title={model.open
-          ? "Hide the graph details and AI relationship review panel."
-          : "Show graph details, relationship counts, and AI review controls."}
-      >
-        {model.open ? "Hide details" : "Details"}
-      </button>
-      {model.open ? (
-        <div className="graph-details-popover">
-          <GraphModeNote
-            isRawGraph={model.isRawGraph}
-            focusedNodeId={model.focusedNodeId}
-            focusLabel={model.focusLabel}
-          />
-          {!model.isRawGraph && model.edgeTypes.length ? (
-            <div className="graph-edge-summary" aria-label="Relationship summary">
-              {model.edgeTypes.map((item) => (
-                <span key={item.type}>{graphEdgeLabel(item.type)} {item.count}</span>
-              ))}
-            </div>
-          ) : null}
-          {!model.isRawGraph && model.legendItems.length ? (
-            <div className="graph-legend" aria-label="Graph legend">
-              {model.legendItems.map((item) => {
-                const colors = graphNodeVisualStyle(item.kind);
-                return (
-                  <span key={item.kind}>
-                    <i
-                      className="graph-legend-dot"
-                      style={{ background: colors.fill, borderColor: colors.accent }}
-                      aria-hidden="true"
-                    />
-                    {item.label}
-                    <small className="graph-legend-count">{item.count}</small>
-                  </span>
-                );
-              })}
-            </div>
-          ) : null}
-          {model.selectedEdge ? <GraphEdgeInspector controller={controller} /> : null}
-          {!model.isRawGraph ? (
-            <SemanticReviewPanel
-              model={model.semantic}
-              actions={actions.semantic}
-              focusedNodeId={model.focusedNodeId}
-              focusLabel={model.focusLabel}
-            />
-          ) : null}
-          {model.semantic.showPreviewDialog ? (
-            <SemanticPreviewDialog model={model.semantic} actions={actions.semantic} />
-          ) : null}
+    <AnchoredSurface
+      open={model.open}
+      onClose={actions.toggle}
+      className="graph-board-details"
+      surfaceClassName="graph-details-popover"
+      ariaLabel="Graph details and AI relationship review"
+      anchor={({ controlsId, expanded }) => (
+        <button
+          type="button"
+          className={`graph-details-toggle ${expanded ? "selected" : ""}`}
+          onClick={actions.toggle}
+          aria-haspopup="dialog"
+          aria-expanded={expanded}
+          aria-controls={controlsId}
+          title={expanded
+            ? "Hide the graph details and AI relationship review panel."
+            : "Show graph details, relationship counts, and AI review controls."}
+        >
+          {expanded ? "Hide details" : "Details"}
+        </button>
+      )}
+    >
+      <GraphModeNote
+        isRawGraph={model.isRawGraph}
+        focusedNodeId={model.focusedNodeId}
+        focusLabel={model.focusLabel}
+      />
+      {!model.isRawGraph && model.edgeTypes.length ? (
+        <div className="graph-edge-summary" aria-label="Relationship summary">
+          {model.edgeTypes.map((item) => (
+            <span key={item.type}>{graphEdgeLabel(item.type)} {item.count}</span>
+          ))}
         </div>
       ) : null}
-    </div>
+      {!model.isRawGraph && model.legendItems.length ? (
+        <div className="graph-legend" aria-label="Graph legend">
+          {model.legendItems.map((item) => {
+            const colors = graphNodeVisualStyle(item.kind);
+            return (
+              <span key={item.kind}>
+                <i
+                  className="graph-legend-dot"
+                  style={{ background: colors.fill, borderColor: colors.accent }}
+                  aria-hidden="true"
+                />
+                {item.label}
+                <small className="graph-legend-count">{item.count}</small>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+      {model.selectedEdge ? <GraphEdgeInspector controller={controller} /> : null}
+      {!model.isRawGraph ? (
+        <SemanticReviewPanel
+          model={model.semantic}
+          actions={actions.semantic}
+          focusedNodeId={model.focusedNodeId}
+          focusLabel={model.focusLabel}
+        />
+      ) : null}
+      {model.semantic.showPreviewDialog ? (
+        <SemanticPreviewDialog model={model.semantic} actions={actions.semantic} />
+      ) : null}
+    </AnchoredSurface>
   );
 }
 

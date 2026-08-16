@@ -1,8 +1,9 @@
 import { loadDaemonConfig } from "./config.js";
 import { createDaemonServer } from "./server.js";
+import { createDaemonApplication } from "./application/create-daemon-application.js";
 
 const config = loadDaemonConfig();
-const server = createDaemonServer(config);
+const server = createDaemonServer(config, createDaemonApplication(config));
 
 server.listen(config.port, config.host, () => {
   process.stdout.write(

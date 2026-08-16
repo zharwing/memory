@@ -1,8 +1,9 @@
-import { buildProjectGraph } from "@zharwing/memory-graph";
-import type { ProjectRegistry } from "@zharwing/memory-store";
 import {
-  listProjectDocuments,
-  listProjectSessions,
+  buildProjectGraph,
+  projectGraphDomainProjection
+} from "@zharwing/memory-graph/projection";
+import type { DocumentRepository, ProjectRegistry, SessionRepository } from "@zharwing/memory-store";
+import {
   listProjectWorkstreams,
   listProposedUpdates,
   readSemanticEdges
@@ -20,7 +21,11 @@ import { resolveProject } from "./project-resolver.js";
 type SemanticGraphIncludeMode = "none" | "accepted" | "all";
 
 export class GraphService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(
+    private readonly registry: ProjectRegistry,
+    private readonly documents: Pick<DocumentRepository, "list">,
+    private readonly sessions: SessionRepository
+  ) {}
 
   async getGraph(params: {
     projectId: string;
@@ -30,8 +35,8 @@ export class GraphService {
     const project = await resolveProject(this.registry, params.projectId);
     const [workstreams, sessions, documents, semanticEdges, proposals] = await Promise.all([
       listProjectWorkstreams(project),
-      listProjectSessions(project),
-      listProjectDocuments(project),
+      this.sessions.listProjectSessions(project),
+      this.documents.list(project),
       readSemanticEdges(project),
       params.includeSemanticProposals ? listProposedUpdates(project) : Promise.resolve([])
     ]);
@@ -43,9 +48,11 @@ export class GraphService {
     });
 
     const includeSemantic = params.includeSemantic || "none";
-    if (includeSemantic === "none" && !params.includeSemanticProposals) return graph;
+    if (includeSemantic === "none" && !params.includeSemanticProposals) {
+      return projectGraphDomainProjection(graph);
+    }
 
-    return mergeSemanticEdgesIntoGraph({
+    return projectGraphDomainProjection(mergeSemanticEdgesIntoGraph({
       graph,
       semanticEdges: [
         ...semanticEdgesFromInboxProposals(project.id, proposals),
@@ -53,7 +60,7 @@ export class GraphService {
       ],
       includeSemantic,
       includeSemanticProposals: Boolean(params.includeSemanticProposals)
-    });
+    }));
   }
 }
 

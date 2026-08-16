@@ -1,8 +1,8 @@
 import {
   type ProjectRegistry,
+  type DocumentRepository,
   createSemanticGraphRun,
   deleteProposedUpdates,
-  listProjectDocuments,
   listProjectSessions,
   listProjectWorkstreams,
   listProposedUpdates,
@@ -24,6 +24,8 @@ import { buildProjectGraph } from "@zharwing/memory-graph";
 import {
   callAiProviderJson,
   checkAiProvider,
+  normalizeProviderKind,
+  providerDefaultEndpoint,
   providerKindFromAssistantRuntime,
   type AiProviderConfig,
   type ProviderCheckResult
@@ -55,8 +57,6 @@ import {
   createId,
   isLocalProviderEndpoint,
   nowIso,
-  PROVIDER_DEFAULTS,
-  type ProviderDefault,
   type MemoryDocument,
   type ProposedMemoryUpdate,
   type Project,
@@ -76,6 +76,7 @@ import type { ProviderSecretService } from "./provider-secret-service.js";
 export class SemanticGraphService {
   constructor(
     private readonly registry: ProjectRegistry,
+    private readonly documents: Pick<DocumentRepository, "list">,
     private readonly providerSecrets?: ProviderSecretService
   ) {}
 
@@ -183,7 +184,7 @@ export class SemanticGraphService {
     const project = await resolveProject(this.registry, params.projectId);
     const settings = await readSemanticGraphSettings(project);
     const [documents, sessions, workstreams] = await Promise.all([
-      listProjectDocuments(project),
+      this.documents.list(project),
       listProjectSessions(project),
       listProjectWorkstreams(project)
     ]);
@@ -326,7 +327,7 @@ export class SemanticGraphService {
     );
 
     const [documents, sessions, workstreams] = await Promise.all([
-      listProjectDocuments(project),
+      this.documents.list(project),
       listProjectSessions(project),
       listProjectWorkstreams(project)
     ]);
@@ -898,10 +899,6 @@ function exactProviderEndpoint(value: string): string {
   return parsed.toString();
 }
 
-function normalizeProviderKind(value: string): string {
-  return PROVIDER_KIND_ALIASES[value] || value;
-}
-
 function semanticProviderKind(
   project: Project,
   settings: SemanticGraphSettings,
@@ -910,17 +907,9 @@ function semanticProviderKind(
   return providerKind || settings.providerKind || providerKindFromAssistantRuntime(project.assistantPolicy.runtimeType) || "openai-compatible";
 }
 
-// Endpoints come from the shared provider table; only the historical alias
-// spellings ("llama.cpp", "claude") remain daemon-side.
-const PROVIDER_KIND_ALIASES: Record<string, string> = {
-  "llama.cpp": "llama-cpp",
-  claude: "anthropic"
-};
-
 function defaultEndpointForProviderKind(providerKind?: string): string | undefined {
   if (!providerKind) return undefined;
-  const defaults: Record<string, ProviderDefault | undefined> = PROVIDER_DEFAULTS;
-  return defaults[PROVIDER_KIND_ALIASES[providerKind] || providerKind]?.endpoint;
+  return providerDefaultEndpoint(providerKind);
 }
 
 function optionalPositiveInteger(input: number | undefined): number | undefined {

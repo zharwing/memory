@@ -11,7 +11,8 @@ The uncommitted 2026-08-12 working tree passed the workspace typecheck, 333
 automated tests with zero failures and two intentional Windows symlink-safety
 skips, the production web build and unchanged bundle budgets, isolated
 secret-canary, fixture, source-artifact, accessibility-source, and public-doc
-checks, plus a truthful headless Edge startup-recovery smoke. Those local
+checks, plus a headless Edge smoke confirming the UI reports a missing daemon
+accurately at startup. Those local
 results are not commit-bound release evidence. Six Rust unit tests and the
 Tauri compile/package mechanics passed with an inert sidecar fixture, but the
 production daemon/runtime, live-provider, assistive-device, installer/signing, and rollback

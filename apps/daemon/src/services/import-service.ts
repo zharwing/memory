@@ -1,10 +1,10 @@
 import type { ImportConflictStrategy, ImportPlan, ImportProfile } from "@zharwing/memory-core";
-import type { ProjectRegistry } from "@zharwing/memory-store";
+import type { DocumentRepository, ProjectRegistry } from "@zharwing/memory-store";
 import { builtinImportProfiles, commitImportPlan, prepareImportPlan } from "@zharwing/memory-store";
 import { resolveProject } from "./project-resolver.js";
 
 export class ImportService {
-  constructor(private readonly registry: ProjectRegistry) {}
+  constructor(private readonly registry: ProjectRegistry, private readonly documents: Pick<DocumentRepository, "read" | "save">) {}
 
   listImportProfiles() {
     return builtinImportProfiles();
@@ -40,7 +40,8 @@ export class ImportService {
       sourceRoot: params.sourceRoot,
       profile: params.profile,
       conflictStrategy: params.conflictStrategy,
-      limit: params.limit
+      limit: params.limit,
+      documentRepository: this.documents
     });
   }
 }
