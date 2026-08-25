@@ -1,6 +1,6 @@
 # Zharwing Memory Frontend Implementation Blueprint
 
-**Audience:** Codex Terra acting as implementer, reviewer, or orchestrator
+**Audience:** the AI implementation agent acting as implementer, reviewer, or orchestrator
 
 **Scope:** the React browser application, Tauri desktop shell, public website and
 documentation site, shared frontend contracts, and the minimum daemon changes
@@ -20,7 +20,7 @@ or tests.
 ## 1. Purpose
 
 This document turns the frontend audit into a complete implementation program.
-It is intended to let a fresh Codex Terra task understand the product, the
+It is intended to let a fresh implementation-agent task understand the product, the
 reasoning, the target architecture, the order of work, the evidence required,
 and the boundaries that must not be crossed without reconstructing the prior
 review.
@@ -1474,7 +1474,7 @@ missing build gate.
 
 ---
 
-## 19. Codex Terra operating contract
+## 19. Implementing-agent operating contract
 
 ### 19.1 Start and continuous campaign loop
 

@@ -11,6 +11,13 @@ The product keeps project knowledge, AI session history, context bundles, diagra
 > [Frontend V2 status](docs/FRONTEND_V2_IMPLEMENTATION_STATUS.md), the
 > [developer preview boundary](docs/DEVELOPER_PREVIEW.md), and the
 > [qualification matrix](docs/qualification/frontend-qualification-matrix.md).
+>
+> The development process is part of what this repository demonstrates: the
+> frontend was built by AI implementers under my lead and supervision, working
+> from sealed implementation blueprints with independent review and
+> evidence-bound acceptance gates (see
+> [the blueprint](docs/FRONTEND_IMPLEMENTATION_BLUEPRINT.md) and the
+> qualification matrix above).
 
 Frontend V2 is an internal refactor, not a breaking release. Operation names and
 project data stay compatible; dated adapters and aliases keep existing clients,

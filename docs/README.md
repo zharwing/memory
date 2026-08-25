@@ -120,6 +120,16 @@ This folder contains product and engineering documentation for the Zharwing Memo
 10. Add durable boundary decisions to the
     [Architecture Decision Records](decisions/README.md).
 
+## About `EXECUTION/` References
+
+Some planning documents (the implementation blueprints and their baselines)
+reference files under `EXECUTION/`. That directory is the local orchestration
+workspace - work-package queues and implementation state used to drive AI
+implementation agents during development. It is deliberately not shipped in
+this repository: its contents are session-scoped working state, not product
+documentation. The blueprints remain readable without it; treat those
+references as pointers into the development process, not into this tree.
+
 ## Documentation Policy
 
 - Diagrams are Mermaid-first so they remain editable Markdown.
